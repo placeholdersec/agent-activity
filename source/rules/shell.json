@@ -1,0 +1,953 @@
+[
+ {
+  "id": "aws:s3_remove_bucket",
+  "not_contains": [],
+  "pattern": "aws\\s+s3\\s+rb\\s+s3://",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "aws:s3_recursive_delete",
+  "not_contains": [
+   "--dryrun"
+  ],
+  "pattern": "aws\\s+(?:--\\S+\\s+\\S+\\s+)*s3\\s+rm\\s+.*s3://.*--recursive|aws\\s+(?:--\\S+\\s+\\S+\\s+)*s3\\s+rm\\s+--recursive\\s+s3://",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "aws:ec2_terminate",
+  "not_contains": [],
+  "pattern": "aws\\s+(?:--\\S+\\s+\\S+\\s+)*ec2\\s+terminate-instances",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "aws:rds_delete",
+  "not_contains": [],
+  "pattern": "aws\\s+rds\\s+delete-db-instance",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "aws:iam_delete",
+  "not_contains": [],
+  "pattern": "aws\\s+iam\\s+delete-(user|role|policy|group)(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "aws:cfn_delete_stack",
+  "not_contains": [],
+  "pattern": "aws\\s+cloudformation\\s+delete-stack",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "aws:route53_delete_zone",
+  "not_contains": [],
+  "pattern": "aws\\s+route53\\s+delete-hosted-zone",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "aws:eks_delete_cluster",
+  "not_contains": [],
+  "pattern": "aws\\s+eks\\s+delete-cluster",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "aws:lambda_delete",
+  "not_contains": [],
+  "pattern": "aws\\s+lambda\\s+delete-function",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "aws:dynamodb_delete_table",
+  "not_contains": [],
+  "pattern": "aws\\s+dynamodb\\s+delete-table",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "aws:sqs_delete_queue",
+  "not_contains": [],
+  "pattern": "aws\\s+sqs\\s+delete-queue",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "aws:sns_delete_topic",
+  "not_contains": [],
+  "pattern": "aws\\s+sns\\s+delete-topic",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "aws:ecr_delete_repository",
+  "not_contains": [],
+  "pattern": "aws\\s+ecr\\s+delete-repository",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "aws:secretsmanager_delete",
+  "not_contains": [],
+  "pattern": "aws\\s+secretsmanager\\s+delete-secret",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "aws:elasticache_delete_cluster",
+  "not_contains": [],
+  "pattern": "aws\\s+elasticache\\s+delete-cache-cluster",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "aws:logs_delete_log_group",
+  "not_contains": [],
+  "pattern": "aws\\s+logs\\s+delete-log-group",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Defense Evasion",
+  "unless": []
+ },
+ {
+  "id": "aws:ecs_delete",
+  "not_contains": [],
+  "pattern": "aws\\s+ecs\\s+delete-(service|cluster)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "azure:delete_resource_group",
+  "not_contains": [],
+  "pattern": "az\\s+group\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "azure:delete_vm",
+  "not_contains": [],
+  "pattern": "az\\s+vm\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "azure:delete_sql_server",
+  "not_contains": [],
+  "pattern": "az\\s+sql\\s+server\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "azure:delete_aks_cluster",
+  "not_contains": [],
+  "pattern": "az\\s+aks\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "azure:delete_storage",
+  "not_contains": [],
+  "pattern": "az\\s+storage\\s+(account|container|blob)\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "azure:delete_keyvault",
+  "not_contains": [],
+  "pattern": "az\\s+keyvault\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "azure:delete_ad_app",
+  "not_contains": [],
+  "pattern": "az\\s+ad\\s+(app|sp)\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "azure:delete_functionapp",
+  "not_contains": [],
+  "pattern": "az\\s+functionapp\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "azure:delete_webapp",
+  "not_contains": [],
+  "pattern": "az\\s+webapp\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "azure:delete_cosmosdb",
+  "not_contains": [],
+  "pattern": "az\\s+cosmosdb\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "database:drop_database",
+  "not_contains": [],
+  "pattern": "(?i)DROP\\s+DATABASE",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "database:drop_table",
+  "not_contains": [],
+  "pattern": "(?i)DROP\\s+TABLE",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": [
+   "^(\\w+=\\S*\\s+)*(python[\\d.]*|pytest|node|deno|bun|ruby|php|conda|uv|poetry|pipenv)\\b"
+  ]
+ },
+ {
+  "id": "database:truncate_table",
+  "not_contains": [],
+  "pattern": "(?i)TRUNCATE\\s+TABLE",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "database:delete_all_rows",
+  "not_contains": [
+   "WHERE",
+   "where"
+  ],
+  "pattern": "(?i)DELETE\\s+FROM\\s+\\w+\\s*;?\\s*$",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "database:update_all_rows",
+  "not_contains": [
+   "WHERE",
+   "where"
+  ],
+  "pattern": "(?i)UPDATE\\s+\\w+\\s+SET\\s+.*(?:;|\\s*$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "database:drop_schema_role_user",
+  "not_contains": [],
+  "pattern": "(?i)DROP\\s+(SCHEMA|ROLE|USER)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "database:alter_drop_column",
+  "not_contains": [],
+  "pattern": "(?i)ALTER\\s+TABLE\\s+[\\w.]+\\s+DROP\\s+COLUMN",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "flyio:apps_destroy",
+  "not_contains": [],
+  "pattern": "fly(?:ctl)?\\s+apps\\s+destroy(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "flyio:secrets_unset",
+  "not_contains": [],
+  "pattern": "fly(?:ctl)?\\s+secrets\\s+unset\\s+",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Credential Access",
+  "unless": []
+ },
+ {
+  "id": "flyio:volumes_destroy",
+  "not_contains": [],
+  "pattern": "fly(?:ctl)?\\s+volumes?\\s+destroy(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "flyio:postgres_destroy",
+  "not_contains": [],
+  "pattern": "fly(?:ctl)?\\s+postgres\\s+destroy(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "gcp:delete_project",
+  "not_contains": [],
+  "pattern": "gcloud\\s+projects\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "gcp:delete_instance",
+  "not_contains": [],
+  "pattern": "gcloud\\s+compute\\s+instances\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "gcp:delete_sql_instance",
+  "not_contains": [],
+  "pattern": "gcloud\\s+sql\\s+instances\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "gcp:delete_gke_cluster",
+  "not_contains": [],
+  "pattern": "gcloud\\s+container\\s+clusters\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "gcp:gcs_recursive_delete",
+  "not_contains": [],
+  "pattern": "gsutil\\s+(?:-\\S+\\s+)*rm\\s+(?:-r\\s+gs://|gs://\\S+\\s+-r)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "gcp:gcs_remove_bucket",
+  "not_contains": [],
+  "pattern": "gsutil\\s+rb\\s+gs://",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "gcp:delete_service_account",
+  "not_contains": [],
+  "pattern": "gcloud\\s+iam\\s+service-accounts\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "gcp:delete_function",
+  "not_contains": [],
+  "pattern": "gcloud\\s+functions\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "gcp:delete_cloud_run",
+  "not_contains": [],
+  "pattern": "gcloud\\s+run\\s+services\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "gcp:delete_pubsub_topic",
+  "not_contains": [],
+  "pattern": "gcloud\\s+pubsub\\s+topics\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "gcp:delete_secret",
+  "not_contains": [],
+  "pattern": "gcloud\\s+secrets\\s+delete",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "git:push_mirror",
+  "not_contains": [],
+  "pattern": "git\\s{1,}push\\s{1,}.*--mirror",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": [
+   "^(pgrep|pkill|killall|ps)\\s"
+  ]
+ },
+ {
+  "id": "git:push_delete_branch",
+  "not_contains": [],
+  "pattern": "git\\s{1,}push\\s{1,}(\\S+\\s{1,}--delete\\s|--delete\\s{1,}\\S+\\s|\\S+\\s{1,}:\\S)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "github:repo_delete",
+  "not_contains": [],
+  "pattern": "gh\\s+repo\\s+delete(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "github:repo_archive",
+  "not_contains": [],
+  "pattern": "gh\\s+repo\\s+archive(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "github:repo_rename",
+  "not_contains": [],
+  "pattern": "gh\\s+repo\\s+rename(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "github:repo_change_visibility",
+  "not_contains": [],
+  "pattern": "gh\\s+repo\\s+edit\\s+.*--visibility",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Exfiltration",
+  "unless": [
+   "--visibility[ =][\"']?(private|internal)\\b"
+  ]
+ },
+ {
+  "id": "github:release_delete",
+  "not_contains": [],
+  "pattern": "gh\\s+release\\s+delete(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "github:secret_delete",
+  "not_contains": [],
+  "pattern": "gh\\s+secret\\s+delete(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "github:variable_delete",
+  "not_contains": [],
+  "pattern": "gh\\s+variable\\s+delete(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "heroku:stop_app_dynos",
+  "not_contains": [],
+  "pattern": "heroku\\s+ps:stop",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "heroku:kill_app_dynos",
+  "not_contains": [],
+  "pattern": "heroku\\s+ps:kill",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "heroku:enable_maintenance_mode",
+  "not_contains": [],
+  "pattern": "heroku\\s+maintenance:on",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Execution",
+  "unless": []
+ },
+ {
+  "id": "heroku:remove_member",
+  "not_contains": [],
+  "pattern": "heroku\\s+members:remove",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "heroku:remove_app_container",
+  "not_contains": [],
+  "pattern": "heroku\\s+container:rm",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "heroku:destroy_client",
+  "not_contains": [],
+  "pattern": "heroku\\s+clients:destroy",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "heroku:destroy_app",
+  "not_contains": [],
+  "pattern": "heroku\\s+apps:destroy",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "heroku:destroy_addons",
+  "not_contains": [],
+  "pattern": "heroku\\s+addons:destroy",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "heroku:remove_user_access",
+  "not_contains": [],
+  "pattern": "heroku\\s+access:remove",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "heroku:reset_repo",
+  "not_contains": [],
+  "pattern": "heroku\\s+repo:reset",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Execution",
+  "unless": []
+ },
+ {
+  "id": "kubernetes:delete_namespace",
+  "not_contains": [
+   "--dry-run"
+  ],
+  "pattern": "(kubectl|k)\\s+(?:-\\S+\\s+\\S+\\s+)*delete\\s+(ns|namespace)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "helm:uninstall",
+  "not_contains": [],
+  "pattern": "helm\\s+(uninstall|delete)\\s+",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "helm:upgrade_force",
+  "not_contains": [],
+  "pattern": "helm\\s+upgrade\\s+.*--force",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Execution",
+  "unless": []
+ },
+ {
+  "id": "kubernetes:drain_node",
+  "not_contains": [],
+  "pattern": "(kubectl|k)\\s+drain\\s+",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "kubernetes:replace_force",
+  "not_contains": [
+   "--dry-run"
+  ],
+  "pattern": "(kubectl|k)\\s+replace\\s+.*--force",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Execution",
+  "unless": []
+ },
+ {
+  "id": "kubernetes:delete_all_resources",
+  "not_contains": [
+   "--dry-run"
+  ],
+  "pattern": "(kubectl|k)\\s+(?:-\\S+\\s+\\S+\\s+)*delete\\s+.*--all(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "kubernetes:apply_force",
+  "not_contains": [
+   "--dry-run"
+  ],
+  "pattern": "(kubectl|k)\\s+(?:-\\S+\\s+\\S+\\s+)*apply\\s+.*--force(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Execution",
+  "unless": []
+ },
+ {
+  "id": "mongodb:drop",
+  "not_contains": [],
+  "pattern": "(?i)mongo(?:sh)?.*--eval.*drop",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "mongodb:interactive_drop_collection",
+  "not_contains": [],
+  "pattern": "(?i)db\\.[\\w-]+\\.drop\\(\\)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "mongodb:interactive_drop_database",
+  "not_contains": [],
+  "pattern": "(?i)db\\.dropDatabase\\(\\)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "mysql:drop",
+  "not_contains": [],
+  "pattern": "(?i)mysql.*-e\\s+.*\\bDROP\\s",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "netlify:sites_delete",
+  "not_contains": [],
+  "pattern": "netlify\\s+sites:delete(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "netlify:env_unset",
+  "not_contains": [],
+  "pattern": "netlify\\s+env:unset\\s+",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Execution",
+  "unless": []
+ },
+ {
+  "id": "netlify:env_clone",
+  "not_contains": [],
+  "pattern": "netlify\\s+env:clone\\s+",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Execution",
+  "unless": []
+ },
+ {
+  "id": "npm:unpublish",
+  "not_contains": [],
+  "pattern": "(^|\\s)npm\\s+unpublish(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Exfiltration",
+  "unless": []
+ },
+ {
+  "id": "npm:deprecate",
+  "not_contains": [],
+  "pattern": "(^|\\s)npm\\s+deprecate\\s+",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Execution",
+  "unless": []
+ },
+ {
+  "id": "npm:yarn_unpublish",
+  "not_contains": [],
+  "pattern": "yarn\\s+npm\\s+unpublish(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Exfiltration",
+  "unless": []
+ },
+ {
+  "id": "npm:pnpm_unpublish",
+  "not_contains": [],
+  "pattern": "(^|\\s)pnpm\\s+unpublish(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Exfiltration",
+  "unless": []
+ },
+ {
+  "id": "psql:drop",
+  "not_contains": [],
+  "pattern": "(?i)psql.*-c\\s+.*\\bDROP\\s",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "redis:flushall",
+  "not_contains": [],
+  "pattern": "(?i)redis-cli\\s+.*FLUSHALL",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "redis:flushdb",
+  "not_contains": [],
+  "pattern": "(?i)redis-cli\\s+.*FLUSHDB",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "redis:interactive_flushall",
+  "not_contains": [],
+  "pattern": "(?i)^\\s*FLUSHALL\\s*$",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "redis:interactive_flushdb",
+  "not_contains": [],
+  "pattern": "(?i)^\\s*FLUSHDB\\s*$",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "redis:interactive_shutdown",
+  "not_contains": [],
+  "pattern": "(?i)^\\s*SHUTDOWN\\s*(NOSAVE)?\\s*$",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "terraform:apply_with_auto_approve",
+  "not_contains": [],
+  "pattern": "terraform\\s+apply.*-auto-approve",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "terraform:destroy_auto_approve",
+  "not_contains": [],
+  "pattern": "terraform\\s+destroy\\s+.*-auto-approve",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "terraform:state",
+  "not_contains": [
+   "-dry-run"
+  ],
+  "pattern": "terraform\\s+state\\s+(mv|replace-provider)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "terraform:state_rm",
+  "not_contains": [],
+  "pattern": "terraform\\s+state\\s+rm\\s",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "terraform:workspace_delete_with_force_flag",
+  "not_contains": [],
+  "pattern": "terraform\\s+workspace\\s+delete.*(-force)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "terraform:workspace_delete_without_lock",
+  "not_contains": [],
+  "pattern": "terraform\\s+workspace\\s+delete.*(-lock=false)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "terraform:force_unlock_with_force_flag",
+  "not_contains": [],
+  "pattern": "terraform\\s+force-unlock\\s+.*(-force)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "vercel:remove",
+  "not_contains": [],
+  "pattern": "vercel\\s+(remove|rm)(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "vercel:project_remove",
+  "not_contains": [],
+  "pattern": "vercel\\s+project\\s+(remove|rm)(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "vercel:env_remove",
+  "not_contains": [],
+  "pattern": "vercel\\s+env\\s+(rm|remove)\\s+",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ },
+ {
+  "id": "vercel:domain_remove",
+  "not_contains": [],
+  "pattern": "vercel\\s+domains?\\s+(rm|remove)(\\s|$)",
+  "severity": "high",
+  "source": "shellfirm",
+  "tactic": "Impact",
+  "unless": []
+ }
+]

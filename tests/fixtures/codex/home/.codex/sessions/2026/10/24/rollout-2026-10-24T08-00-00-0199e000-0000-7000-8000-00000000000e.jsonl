@@ -1,0 +1,2 @@
+{"timestamp": "2026-10-24T08:00:00.000Z", "type": "session_meta", "payload": {"id": "0199e000-0000-7000-8000-00000000000e", "timestamp": "2026-10-24T08:00:00.000Z", "cwd": "@ROOT@/home/work/app", "originator": "codex_cli_rs", "cli_version": "0.46.0", "instructions": "INSTRUCTIONS-TEXT", "source": "cli", "model_provider": "openai"}}
+{"timestamp": "2026-10-24T08:00:01.000Z", "type": "response_item", "payload": {"type": "function_call", "name": "shell", "arguments": "{\"command\": [\"bash\", \"-lc\", \"ls -la\"]}", "call_id": "call_e1"}}

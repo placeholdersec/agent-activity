@@ -1,0 +1,1 @@
+{"type": "assistant", "timestamp": "2026-10-21T11:00:00.000Z", "cwd": "/Users/dev/app", "sessionId": "bbbb0003-0000-0000-0000-000000000003", "isSidechain": false, "version": "2.1.300", "uuid": "u3", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "toolu_s2_1", "name": "Bash", "input": {"command": "ls"}}]}}

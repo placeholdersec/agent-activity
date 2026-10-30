@@ -1,0 +1,2950 @@
+{
+ "process": [
+  {
+   "id": "proc_creation_lnx_auditctl_clear_rules",
+   "images": [
+    "auditctl"
+   ],
+   "keys": [
+    "/auditctl"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/auditctl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?:-D)))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_av_kaspersky_av_disabled",
+   "images": [
+    "bash",
+    "sh",
+    "systemctl"
+   ],
+   "keys": [
+    "stop"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/systemctl)\\t)|(?=[^\\t]*?(?i:/bash)\\t)|(?=[^\\t]*?(?i:/sh)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:stop)))(?:(?=[^\\t]*\\t.*?(?i:kesl)))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_awk_shell_spawn",
+   "images": [
+    "awk",
+    "gawk",
+    "mawk",
+    "nawk"
+   ],
+   "keys": [
+    "begin {system"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/awk)\\t)|(?=[^\\t]*?(?i:/gawk)\\t)|(?=[^\\t]*?(?i:/mawk)\\t)|(?=[^\\t]*?(?i:/nawk)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:BEGIN\\ \\{system)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:/bin/bash))|(?=[^\\t]*\\t.*?(?i:/bin/dash))|(?=[^\\t]*\\t.*?(?i:/bin/fish))|(?=[^\\t]*\\t.*?(?i:/bin/sh))|(?=[^\\t]*\\t.*?(?i:/bin/zsh))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_base64_execution",
+   "images": null,
+   "keys": [
+    "base64 "
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*\\t.*?(?i:base64\\ )))))(?:(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\|\\ bash\\ ))|(?=[^\\t]*\\t.*?(?i:\\|\\ sh\\ ))|(?=[^\\t]*\\t.*?(?i:\\|bash\\ ))|(?=[^\\t]*\\t.*?(?i:\\|sh\\ ))))|(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\|sh)$)|(?=[^\\t]*\\t.*?(?i:\\|\\ bash)$)|(?=[^\\t]*\\t.*?(?i:\\|\\ sh)$)|(?=[^\\t]*\\t.*?(?i:\\|bash)$))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_base64_shebang_cli",
+   "images": null,
+   "keys": [
+    "iyevymlul2jhc2",
+    "iyevymlul2rhc2",
+    "iyevymlul2zpc2",
+    "iyevymlul3no",
+    "iyevymlul3pza"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*\\t.*?(?i:IyEvYmluL2Jhc2))|(?=[^\\t]*\\t.*?(?i:IyEvYmluL2Rhc2))|(?=[^\\t]*\\t.*?(?i:IyEvYmluL3pza))|(?=[^\\t]*\\t.*?(?i:IyEvYmluL2Zpc2))|(?=[^\\t]*\\t.*?(?i:IyEvYmluL3No)))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_bpf_kprob_tracing_enabled",
+   "images": null,
+   "keys": [
+    "/sys/kernel/debug/tracing/events/kprobes/"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*\\t.*?(?i:echo\\ 1\\ >)))(?:(?=[^\\t]*\\t.*?(?i:/sys/kernel/debug/tracing/events/kprobes/))))(?:(?:(?=[^\\t]*\\t.*?(?i:/myprobe/enable))|(?=[^\\t]*\\t.*?(?i:/myretprobe/enable)))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_bpftrace_unsafe_option_usage",
+   "images": null,
+   "keys": [
+    "bpftrace"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:bpftrace)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\-\\-unsafe)))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_capsh_shell_invocation",
+   "images": [
+    "capsh"
+   ],
+   "keys": [
+    "/capsh"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/capsh)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-\\-)$))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_chattr_immutable_removal",
+   "images": [
+    "chattr"
+   ],
+   "keys": [
+    "/chattr"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/chattr)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-i\\ )))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_clear_logs",
+   "images": [
+    "rm",
+    "rmdir",
+    "shred",
+    "unlink"
+   ],
+   "keys": [
+    "/var/log",
+    "/var/spool/mail"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/rm)\\t)|(?=[^\\t]*?(?i:/rmdir)\\t)|(?=[^\\t]*?(?i:/shred)\\t)|(?=[^\\t]*?(?i:/unlink)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:/var/log))|(?=[^\\t]*\\t.*?(?i:/var/spool/mail)))))(?:(?!(?:(?:(?:(?=[^\\t]*?(?i:/rm)\\t)))(?:(?:(?=[^\\t]*\\t(?i:rm\\ \\-f\\ /var/log/sysstat/))))|(?:(?:(?=[^\\t]*?(?i:/rm)\\t)))(?:(?:(?=[^\\t]*\\t(?i:rm\\ \\-f\\ \\-\\-\\ /var/log//dmesg))))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_clear_syslog",
+   "images": null,
+   "keys": [
+    " > /var/log/syslog",
+    " >/var/log/syslog",
+    " >| /var/log/syslog",
+    "/var/log/syslog",
+    ": > /var/log/syslog",
+    ":> /var/log/syslog",
+    ":>/var/log/syslog",
+    ">|/var/log/syslog",
+    "journalctl --rotate",
+    "journalctl --vacuum"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?:(?=[^\\t]*\\t.*?(?i:/var/log/syslog)))))(?:(?:(?:(?:(?=[^\\t]*?(?i:/rm)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-r\\ ))|(?=[^\\t]*\\t.*?(?i:\\ \\-f\\ ))|(?=[^\\t]*\\t.*?(?i:\\ \\-rf\\ ))|(?=[^\\t]*\\t.*?(?i:/var/log/syslog))))|(?:(?:(?=[^\\t]*?(?i:/unlink)\\t)))|(?:(?:(?=[^\\t]*?(?i:/mv)\\t)))|(?:(?:(?=[^\\t]*?(?i:/truncate)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:0\\ )))(?:(?=[^\\t]*\\t.*?(?i:/var/log/syslog))))(?:(?:(?=[^\\t]*\\t.*?(?i:\\-s\\ ))|(?=[^\\t]*\\t.*?(?i:\\-c\\ ))|(?=[^\\t]*\\t.*?(?i:\\-\\-size))))|(?:(?:(?=[^\\t]*?(?i:/ln)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:/dev/null\\ )))(?:(?=[^\\t]*\\t.*?(?i:/var/log/syslog))))(?:(?:(?=[^\\t]*\\t.*?(?i:\\-sf\\ ))|(?=[^\\t]*\\t.*?(?i:\\-sfn\\ ))|(?=[^\\t]*\\t.*?(?i:\\-sfT\\ ))))|(?:(?:(?=[^\\t]*?(?i:/cp)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:/dev/null))))|(?:(?:(?=[^\\t]*?(?i:/shred)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\-u\\ ))))))|(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\ >\\ /var/log/syslog))|(?=[^\\t]*\\t.*?(?i:\\ >/var/log/syslog))|(?=[^\\t]*\\t.*?(?i:\\ >\\|\\ /var/log/syslog))|(?=[^\\t]*\\t.*?(?i::\\ >\\ /var/log/syslog))|(?=[^\\t]*\\t.*?(?i::>\\ /var/log/syslog))|(?=[^\\t]*\\t.*?(?i::>/var/log/syslog))|(?=[^\\t]*\\t.*?(?i:>\\|/var/log/syslog))))|(?:(?:(?=[^\\t]*\\t.*?(?i:journalctl\\ \\-\\-vacuum))|(?=[^\\t]*\\t.*?(?i:journalctl\\ \\-\\-rotate)))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_crontab_removal",
+   "images": null,
+   "keys": [
+    "crontab"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:crontab)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-r)))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_crypto_mining",
+   "images": null,
+   "keys": [
+    " --algo=rx/0 ",
+    " --cpu-priority=",
+    " --nicehash",
+    " -o pool.",
+    "--donate-level=0",
+    "0tzg9uyxrllwxldmvsp",
+    "c3ryyxr1bst0y3a6ly",
+    "c3ryyxr1bst1zha6ly",
+    "ls1kb25hdgutbgv2zww9",
+    "n0cmf0dw0rdgnwoi8v",
+    "n0cmf0dw0rdwrwoi8v",
+    "sh -c /sbin/modprobe msr allow_writes=on",
+    "stratum+tcp://",
+    "stratum+udp://",
+    "tlwrvbmf0zs1szxzlbd",
+    "zdhjhdhvtk3rjcdovl",
+    "zdhjhdhvtk3vkcdovl"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-\\-cpu\\-priority=))|(?=[^\\t]*\\t.*?(?i:\\-\\-donate\\-level=0))|(?=[^\\t]*\\t.*?(?i:\\ \\-o\\ pool\\.))|(?=[^\\t]*\\t.*?(?i:\\ \\-\\-nicehash))|(?=[^\\t]*\\t.*?(?i:\\ \\-\\-algo=rx/0\\ ))|(?=[^\\t]*\\t.*?(?i:stratum\\+tcp://))|(?=[^\\t]*\\t.*?(?i:stratum\\+udp://))|(?=[^\\t]*\\t.*?(?i:sh\\ \\-c\\ /sbin/modprobe\\ msr\\ allow_writes=on))|(?=[^\\t]*\\t.*?(?i:LS1kb25hdGUtbGV2ZWw9))|(?=[^\\t]*\\t.*?(?i:0tZG9uYXRlLWxldmVsP))|(?=[^\\t]*\\t.*?(?i:tLWRvbmF0ZS1sZXZlbD))|(?=[^\\t]*\\t.*?(?i:c3RyYXR1bSt0Y3A6Ly))|(?=[^\\t]*\\t.*?(?i:N0cmF0dW0rdGNwOi8v))|(?=[^\\t]*\\t.*?(?i:zdHJhdHVtK3RjcDovL))|(?=[^\\t]*\\t.*?(?i:c3RyYXR1bSt1ZHA6Ly))|(?=[^\\t]*\\t.*?(?i:N0cmF0dW0rdWRwOi8v))|(?=[^\\t]*\\t.*?(?i:zdHJhdHVtK3VkcDovL)))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Impact"
+  },
+  {
+   "id": "proc_creation_lnx_curl_wget_exec_tmp",
+   "images": null,
+   "keys": [
+    "/curl",
+    "/wget"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*\\t.*?(?i:/curl))|(?=[^\\t]*\\t.*?(?i:/wget)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:/tmp/))|(?=[^\\t]*\\t.*?(?i:/dev/shm/)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:sh\\ \\-c))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_dd_process_injection",
+   "images": [
+    "dd"
+   ],
+   "keys": [
+    "/proc/"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/dd)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:of=)))(?:(?=[^\\t]*\\t.*?(?i:/proc/)))(?:(?=[^\\t]*\\t.*?(?i:/mem)))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Privilege Escalation"
+  },
+  {
+   "id": "proc_creation_lnx_disable_ufw",
+   "images": null,
+   "keys": [
+    "/ufw-init",
+    "disable"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/ufw\\-init)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ force\\-stop))|(?=[^\\t]*\\t.*?(?i:\\ stop))|(?=[^\\t]*\\t.*?(?i:\\ flush))))|(?:(?:(?=[^\\t]*\\t.*?(?i:ufw\\ )))(?:(?=[^\\t]*\\t.*?(?i:disable))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_env_shell_invocation",
+   "images": [
+    "env"
+   ],
+   "keys": [
+    "/bin/bash",
+    "/bin/dash",
+    "/bin/fish",
+    "/bin/sh",
+    "/bin/zsh"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/env)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:/bin/bash))|(?=[^\\t]*\\t.*?(?i:/bin/dash))|(?=[^\\t]*\\t.*?(?i:/bin/fish))|(?=[^\\t]*\\t.*?(?i:/bin/sh))|(?=[^\\t]*\\t.*?(?i:/bin/zsh)))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_esxcli_network_discovery",
+   "images": [
+    "esxcli"
+   ],
+   "keys": [
+    "/esxcli"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/esxcli)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:network)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\ get))|(?=[^\\t]*\\t.*?(?i:\\ list))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_esxcli_permission_change_admin",
+   "images": [
+    "esxcli"
+   ],
+   "keys": [
+    " permission "
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/esxcli)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:system))))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ permission\\ )))(?:(?=[^\\t]*\\t.*?(?i:\\ set)))(?:(?=[^\\t]*\\t.*?(?i:Admin)))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Persistence"
+  },
+  {
+   "id": "proc_creation_lnx_esxcli_storage_discovery",
+   "images": [
+    "esxcli"
+   ],
+   "keys": [
+    "/esxcli"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/esxcli)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:storage)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\ get))|(?=[^\\t]*\\t.*?(?i:\\ list))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_esxcli_syslog_config_change",
+   "images": [
+    "esxcli"
+   ],
+   "keys": [
+    "/esxcli"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/esxcli)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:system)))(?:(?=[^\\t]*\\t.*?(?i:syslog)))(?:(?=[^\\t]*\\t.*?(?i:config))))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ set)))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_esxcli_system_discovery",
+   "images": [
+    "esxcli"
+   ],
+   "keys": [
+    "/esxcli"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/esxcli)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:system)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\ get))|(?=[^\\t]*\\t.*?(?i:\\ list))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_esxcli_user_account_creation",
+   "images": [
+    "esxcli"
+   ],
+   "keys": [
+    "account "
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/esxcli)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:system\\ )))(?:(?=[^\\t]*\\t.*?(?i:account\\ )))(?:(?=[^\\t]*\\t.*?(?i:add\\ )))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Persistence"
+  },
+  {
+   "id": "proc_creation_lnx_esxcli_vm_discovery",
+   "images": [
+    "esxcli"
+   ],
+   "keys": [
+    "vm process"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/esxcli)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:vm\\ process))))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ list)$))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_esxcli_vm_kill",
+   "images": [
+    "esxcli"
+   ],
+   "keys": [
+    "vm process"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/esxcli)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:vm\\ process)))(?:(?=[^\\t]*\\t.*?(?i:kill)))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_esxcli_vsan_discovery",
+   "images": [
+    "esxcli"
+   ],
+   "keys": [
+    "/esxcli"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/esxcli)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:vsan)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\ get))|(?=[^\\t]*\\t.*?(?i:\\ list))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_groupdel",
+   "images": [
+    "groupdel"
+   ],
+   "keys": [
+    "/groupdel"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/groupdel)\\t))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Impact"
+  },
+  {
+   "id": "proc_creation_lnx_iptables_flush_ufw",
+   "images": [
+    "ip6tables",
+    "ip6tables-legacy-multi",
+    "iptables",
+    "iptables-legacy-multi",
+    "xtables-legacy-multi"
+   ],
+   "keys": [
+    "ufw-logging-allow",
+    "ufw-logging-deny",
+    "ufw6-logging-allow",
+    "ufw6-logging-deny"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/iptables)\\t)|(?=[^\\t]*?(?i:/xtables\\-legacy\\-multi)\\t)|(?=[^\\t]*?(?i:/iptables\\-legacy\\-multi)\\t)|(?=[^\\t]*?(?i:/ip6tables)\\t)|(?=[^\\t]*?(?i:/ip6tables\\-legacy\\-multi)\\t))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\-F))|(?=[^\\t]*\\t.*?(?i:\\-Z))|(?=[^\\t]*\\t.*?(?i:\\-X)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:ufw\\-logging\\-deny))|(?=[^\\t]*\\t.*?(?i:ufw\\-logging\\-allow))|(?=[^\\t]*\\t.*?(?i:ufw6\\-logging\\-deny))|(?=[^\\t]*\\t.*?(?i:ufw6\\-logging\\-allow))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_mount_hidepid",
+   "images": [
+    "mount"
+   ],
+   "keys": [
+    "hidepid=2"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/mount)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:hidepid=2)))(?:(?=[^\\t]*\\t.*?(?i:\\ \\-o\\ )))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Credential Access"
+  },
+  {
+   "id": "proc_creation_lnx_netcat_reverse_shell",
+   "images": [
+    "nc",
+    "nc.openbsd",
+    "nc.traditional",
+    "ncat",
+    "netcat",
+    "netcat.openbsd",
+    "netcat.traditional"
+   ],
+   "keys": [
+    " -c ",
+    " -e "
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/nc\\.openbsd)\\t)|(?=[^\\t]*?(?i:/nc\\.traditional)\\t)|(?=[^\\t]*?(?i:/nc)\\t)|(?=[^\\t]*?(?i:/ncat)\\t)|(?=[^\\t]*?(?i:/netcat\\.openbsd)\\t)|(?=[^\\t]*?(?i:/netcat\\.traditional)\\t)|(?=[^\\t]*?(?i:/netcat)\\t))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-c\\ ))|(?=[^\\t]*\\t.*?(?i:\\ \\-e\\ )))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\ ash))|(?=[^\\t]*\\t.*?(?i:\\ bash))|(?=[^\\t]*\\t.*?(?i:\\ bsh))|(?=[^\\t]*\\t.*?(?i:\\ csh))|(?=[^\\t]*\\t.*?(?i:\\ ksh))|(?=[^\\t]*\\t.*?(?i:\\ pdksh))|(?=[^\\t]*\\t.*?(?i:\\ sh))|(?=[^\\t]*\\t.*?(?i:\\ tcsh))|(?=[^\\t]*\\t.*?(?i:/bin/ash))|(?=[^\\t]*\\t.*?(?i:/bin/bash))|(?=[^\\t]*\\t.*?(?i:/bin/bsh))|(?=[^\\t]*\\t.*?(?i:/bin/csh))|(?=[^\\t]*\\t.*?(?i:/bin/ksh))|(?=[^\\t]*\\t.*?(?i:/bin/pdksh))|(?=[^\\t]*\\t.*?(?i:/bin/sh))|(?=[^\\t]*\\t.*?(?i:/bin/tcsh))|(?=[^\\t]*\\t.*?(?i:/bin/zsh))|(?=[^\\t]*\\t.*?(?i:\\$IFSash))|(?=[^\\t]*\\t.*?(?i:\\$IFSbash))|(?=[^\\t]*\\t.*?(?i:\\$IFSbsh))|(?=[^\\t]*\\t.*?(?i:\\$IFScsh))|(?=[^\\t]*\\t.*?(?i:\\$IFSksh))|(?=[^\\t]*\\t.*?(?i:\\$IFSpdksh))|(?=[^\\t]*\\t.*?(?i:\\$IFSsh))|(?=[^\\t]*\\t.*?(?i:\\$IFStcsh))|(?=[^\\t]*\\t.*?(?i:\\$IFSzsh))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_nohup",
+   "images": [
+    "nohup"
+   ],
+   "keys": [
+    "/nohup"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/nohup)\\t))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_nohup_susp_execution",
+   "images": [
+    "nohup"
+   ],
+   "keys": [
+    "/nohup"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/nohup)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:/tmp/)))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_perl_reverse_shell",
+   "images": [
+    "perl"
+   ],
+   "keys": [
+    "::socket::inet",
+    "connect"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/perl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-e\\ )))))(?:(?:(?:(?:(?=[^\\t]*\\t.*?(?i:fdopen\\()))(?:(?=[^\\t]*\\t.*?(?i:::Socket::INET))))|(?:(?:(?=[^\\t]*\\t.*?(?i:Socket)))(?:(?=[^\\t]*\\t.*?(?i:connect)))(?:(?=[^\\t]*\\t.*?(?i:open)))(?:(?=[^\\t]*\\t.*?(?i:exec)))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_php_reverse_shell",
+   "images": null,
+   "keys": [
+    "fsockopen"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/php))))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-r\\ )))(?:(?=[^\\t]*\\t.*?(?i:fsockopen))))(?:(?:(?=[^\\t]*\\t.*?(?i:ash))|(?=[^\\t]*\\t.*?(?i:bash))|(?=[^\\t]*\\t.*?(?i:bsh))|(?=[^\\t]*\\t.*?(?i:csh))|(?=[^\\t]*\\t.*?(?i:ksh))|(?=[^\\t]*\\t.*?(?i:pdksh))|(?=[^\\t]*\\t.*?(?i:sh))|(?=[^\\t]*\\t.*?(?i:tcsh))|(?=[^\\t]*\\t.*?(?i:zsh)))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_pua_trufflehog",
+   "images": null,
+   "keys": [
+    " --results=verified",
+    "/trufflehog"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/trufflehog)\\t)))|(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\ docker\\ \\-\\-image\\ ))|(?=[^\\t]*\\t.*?(?i:\\ Git\\ ))|(?=[^\\t]*\\t.*?(?i:\\ GitHub\\ ))|(?=[^\\t]*\\t.*?(?i:\\ Jira\\ ))|(?=[^\\t]*\\t.*?(?i:\\ Slack\\ ))|(?=[^\\t]*\\t.*?(?i:\\ Confluence\\ ))|(?=[^\\t]*\\t.*?(?i:\\ SharePoint\\ ))|(?=[^\\t]*\\t.*?(?i:\\ s3\\ ))|(?=[^\\t]*\\t.*?(?i:\\ gcs\\ )))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-\\-results=verified)))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Credential Access"
+  },
+  {
+   "id": "proc_creation_lnx_python_base64_encoded_execution",
+   "images": null,
+   "keys": [
+    "/python"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/python)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:import)))(?:(?=[^\\t]*\\t.*?(?i:base64)))(?:(?=[^\\t]*\\t.*?(?i:\\ \\-c))))(?:(?:(?=[^\\t]*\\t.*?(?i:\\.decode))|(?=[^\\t]*\\t.*?(?i:b16decode))|(?=[^\\t]*\\t.*?(?i:b32decode))|(?=[^\\t]*\\t.*?(?i:b32hexdecode))|(?=[^\\t]*\\t.*?(?i:b64decode))|(?=[^\\t]*\\t.*?(?i:b85decode))|(?=[^\\t]*\\t.*?(?i:z85decode))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_python_pty_spawn",
+   "images": null,
+   "keys": [
+    "from pty ",
+    "import pty"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?:(?=[^\\t]*?(?i:/python)\\t)|(?=[^\\t]*?(?i:/python2)\\t)|(?=[^\\t]*?(?i:/python3)\\t)))|(?:(?:(?=[^\\t]*?(?i:/python2\\.))|(?=[^\\t]*?(?i:/python3\\.))))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:import\\ pty))|(?=[^\\t]*\\t.*?(?i:from\\ pty\\ )))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:spawn))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_python_reverse_shell",
+   "images": null,
+   "keys": [
+    ".connect"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:python))))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-c\\ )))(?:(?=[^\\t]*\\t.*?(?i:import)))(?:(?=[^\\t]*\\t.*?(?i:pty)))(?:(?=[^\\t]*\\t.*?(?i:socket)))(?:(?=[^\\t]*\\t.*?(?i:spawn)))(?:(?=[^\\t]*\\t.*?(?i:\\.connect)))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_python_shell_os_system",
+   "images": null,
+   "keys": [
+    "os.system("
+   ],
+   "pattern": "^(?:(?:(?:(?:(?:(?=[^\\t]*?(?i:/python)\\t)|(?=[^\\t]*?(?i:/python2)\\t)|(?=[^\\t]*?(?i:/python3)\\t)))|(?:(?:(?=[^\\t]*?(?i:/python2\\.))|(?=[^\\t]*?(?i:/python3\\.))))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-c\\ )))(?:(?=[^\\t]*\\t.*?(?i:os\\.system\\())))(?:(?:(?=[^\\t]*\\t.*?(?i:/bin/bash))|(?=[^\\t]*\\t.*?(?i:/bin/dash))|(?=[^\\t]*\\t.*?(?i:/bin/fish))|(?=[^\\t]*\\t.*?(?i:/bin/sh))|(?=[^\\t]*\\t.*?(?i:/bin/zsh))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_rsync_shell_execution",
+   "images": [
+    "rsync",
+    "rsyncd"
+   ],
+   "keys": [
+    "/rsync",
+    "/rsyncd"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/rsync)\\t)|(?=[^\\t]*?(?i:/rsyncd)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-e\\ )))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:/ash\\ ))|(?=[^\\t]*\\t.*?(?i:/bash\\ ))|(?=[^\\t]*\\t.*?(?i:/dash\\ ))|(?=[^\\t]*\\t.*?(?i:/csh\\ ))|(?=[^\\t]*\\t.*?(?i:/sh\\ ))|(?=[^\\t]*\\t.*?(?i:/zsh\\ ))|(?=[^\\t]*\\t.*?(?i:/tcsh\\ ))|(?=[^\\t]*\\t.*?(?i:/ksh\\ ))|(?=[^\\t]*\\t.*?(?i:'ash\\ ))|(?=[^\\t]*\\t.*?(?i:'bash\\ ))|(?=[^\\t]*\\t.*?(?i:'dash\\ ))|(?=[^\\t]*\\t.*?(?i:'csh\\ ))|(?=[^\\t]*\\t.*?(?i:'sh\\ ))|(?=[^\\t]*\\t.*?(?i:'zsh\\ ))|(?=[^\\t]*\\t.*?(?i:'tcsh\\ ))|(?=[^\\t]*\\t.*?(?i:'ksh\\ ))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_ruby_reverse_shell",
+   "images": null,
+   "keys": [
+    "tcpsocket"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:ruby))))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-e)))(?:(?=[^\\t]*\\t.*?(?i:rsocket)))(?:(?=[^\\t]*\\t.*?(?i:TCPSocket))))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ ash))|(?=[^\\t]*\\t.*?(?i:\\ bash))|(?=[^\\t]*\\t.*?(?i:\\ bsh))|(?=[^\\t]*\\t.*?(?i:\\ csh))|(?=[^\\t]*\\t.*?(?i:\\ ksh))|(?=[^\\t]*\\t.*?(?i:\\ pdksh))|(?=[^\\t]*\\t.*?(?i:\\ sh))|(?=[^\\t]*\\t.*?(?i:\\ tcsh)))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_schedule_task_job_cron",
+   "images": null,
+   "keys": [
+    "crontab"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:crontab)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:/tmp/)))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_security_tools_disabling",
+   "images": [
+    "chkconfig",
+    "service",
+    "setenforce",
+    "systemctl"
+   ],
+   "keys": [
+    "/chkconfig",
+    "/service",
+    "/setenforce",
+    "/systemctl",
+    "falcon-sensor",
+    "ip6tables"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/service)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:iptables)))(?:(?=[^\\t]*\\t.*?(?i:stop))))|(?:(?:(?=[^\\t]*?(?i:/service)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:ip6tables)))(?:(?=[^\\t]*\\t.*?(?i:stop))))|(?:(?:(?=[^\\t]*?(?i:/chkconfig)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:iptables)))(?:(?=[^\\t]*\\t.*?(?i:stop))))|(?:(?:(?=[^\\t]*?(?i:/chkconfig)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:ip6tables)))(?:(?=[^\\t]*\\t.*?(?i:stop))))|(?:(?:(?=[^\\t]*?(?i:/systemctl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:firewalld)))(?:(?=[^\\t]*\\t.*?(?i:stop))))|(?:(?:(?=[^\\t]*?(?i:/systemctl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:firewalld)))(?:(?=[^\\t]*\\t.*?(?i:disable))))|(?:(?:(?=[^\\t]*?(?i:/service)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:cbdaemon)))(?:(?=[^\\t]*\\t.*?(?i:stop))))|(?:(?:(?=[^\\t]*?(?i:/chkconfig)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:cbdaemon)))(?:(?=[^\\t]*\\t.*?(?i:off))))|(?:(?:(?=[^\\t]*?(?i:/systemctl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:cbdaemon)))(?:(?=[^\\t]*\\t.*?(?i:stop))))|(?:(?:(?=[^\\t]*?(?i:/systemctl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:cbdaemon)))(?:(?=[^\\t]*\\t.*?(?i:disable))))|(?:(?:(?=[^\\t]*?(?i:/setenforce)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:0))))|(?:(?:(?=[^\\t]*?(?i:/systemctl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:stop)))(?:(?=[^\\t]*\\t.*?(?i:falcon\\-sensor))))|(?:(?:(?=[^\\t]*?(?i:/systemctl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:disable)))(?:(?=[^\\t]*\\t.*?(?i:falcon\\-sensor))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_ssh_shell_execution",
+   "images": [
+    "ssh"
+   ],
+   "keys": [
+    "localhost",
+    "permitlocalcommand=yes",
+    "proxycommand=;"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/ssh)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:ProxyCommand=;))|(?=[^\\t]*\\t.*?(?i:permitlocalcommand=yes))|(?=[^\\t]*\\t.*?(?i:localhost)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:/bin/bash))|(?=[^\\t]*\\t.*?(?i:/bin/dash))|(?=[^\\t]*\\t.*?(?i:/bin/fish))|(?=[^\\t]*\\t.*?(?i:/bin/sh))|(?=[^\\t]*\\t.*?(?i:/bin/zsh))|(?=[^\\t]*\\t.*?(?i:sh\\ 0<\\&2\\ 1>\\&2))|(?=[^\\t]*\\t.*?(?i:sh\\ 1>\\&2\\ 0<\\&2))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_ssm_agent_abuse",
+   "images": [
+    "amazon-ssm-agent"
+   ],
+   "keys": [
+    "/amazon-ssm-agent"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/amazon\\-ssm\\-agent)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\-register\\ )))(?:(?=[^\\t]*\\t.*?(?i:\\-code\\ )))(?:(?=[^\\t]*\\t.*?(?i:\\-id\\ )))(?:(?=[^\\t]*\\t.*?(?i:\\-region\\ )))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Command and Control"
+  },
+  {
+   "id": "proc_creation_lnx_susp_curl_useragent",
+   "images": [
+    "curl"
+   ],
+   "keys": [
+    "/curl"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/curl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-A\\ ))|(?=[^\\t]*\\t.*?(?i:\\ \\-\\-user\\-agent\\ )))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Command and Control"
+  },
+  {
+   "id": "proc_creation_lnx_susp_exec_from_dev_shm",
+   "images": null,
+   "keys": [
+    "/dev/shm/"
+   ],
+   "pattern": "^(?:(?:(?:(?=(?i:/dev/shm/)))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_susp_history_delete",
+   "images": [
+    "rm",
+    "shred",
+    "unlink"
+   ],
+   "keys": [
+    ".history",
+    "/.bash_history",
+    "/.zsh_history",
+    "_history",
+    "zhistory"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/rm)\\t)|(?=[^\\t]*?(?i:/unlink)\\t)|(?=[^\\t]*?(?i:/shred)\\t))))(?:(?:(?:(?:(?=[^\\t]*\\t.*?(?i:/\\.bash_history))|(?=[^\\t]*\\t.*?(?i:/\\.zsh_history))))|(?:(?:(?=[^\\t]*\\t.*?(?i:_history)$)|(?=[^\\t]*\\t.*?(?i:\\.history)$)|(?=[^\\t]*\\t.*?(?i:zhistory)$))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Impact"
+  },
+  {
+   "id": "proc_creation_lnx_susp_hktl_execution",
+   "images": null,
+   "keys": [
+    "/aircrack-ng",
+    "/autorecon",
+    "/bloodhound-python",
+    "/bpfdos",
+    "/cobaltstrike",
+    "/crackmapexec",
+    "/dirb",
+    "/dirbuster",
+    "/ebpfki",
+    "/evil-winrm",
+    "/eyewitness",
+    "/feroxbuster",
+    "/ffuf",
+    "/gobuster",
+    "/hashcat",
+    "/havoc",
+    "/hoaxshell.py",
+    "/httpx",
+    "/hydra",
+    "/john",
+    "/joomscan",
+    "/legion",
+    "/linpeas",
+    "/merlin-agent",
+    "/merlinserver-linux-x64",
+    "/msfconsole",
+    "/msfvenom",
+    "/naabu",
+    "/ncrack",
+    "/netdiscover",
+    "/nikto",
+    "/nuclei",
+    "/nxc-ubuntu-latest",
+    "/pidhide",
+    "/ps-empire",
+    "/ps-empire server",
+    "/pspy32",
+    "/pspy32s",
+    "/pspy64",
+    "/pspy64s",
+    "/recon-ng",
+    "/setoolkit",
+    "/sliver-client",
+    "/sliver-server",
+    "/sniper",
+    "/sqlmap",
+    "/teamserver",
+    "/villain.py",
+    "/wfuzz",
+    "/whatweb",
+    "/wpscan",
+    "/writeblocker"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/crackmapexec)\\t)|(?=[^\\t]*?(?i:/havoc)\\t)|(?=[^\\t]*?(?i:/merlin\\-agent)\\t)|(?=[^\\t]*?(?i:/merlinServer\\-Linux\\-x64)\\t)|(?=[^\\t]*?(?i:/msfconsole)\\t)|(?=[^\\t]*?(?i:/msfvenom)\\t)|(?=[^\\t]*?(?i:/ps\\-empire\\ server)\\t)|(?=[^\\t]*?(?i:/ps\\-empire)\\t)|(?=[^\\t]*?(?i:/sliver\\-client)\\t)|(?=[^\\t]*?(?i:/sliver\\-server)\\t)|(?=[^\\t]*?(?i:/Villain\\.py)\\t)))|(?:(?:(?=[^\\t]*?(?i:/cobaltstrike))|(?=[^\\t]*?(?i:/teamserver))))|(?:(?:(?=[^\\t]*?(?i:/autorecon)\\t)|(?=[^\\t]*?(?i:/httpx)\\t)|(?=[^\\t]*?(?i:/legion)\\t)|(?=[^\\t]*?(?i:/naabu)\\t)|(?=[^\\t]*?(?i:/netdiscover)\\t)|(?=[^\\t]*?(?i:/nuclei)\\t)|(?=[^\\t]*?(?i:/recon\\-ng)\\t)))|(?:(?:(?=[^\\t]*?(?i:/sniper))))|(?:(?:(?=[^\\t]*?(?i:/dirb)\\t)|(?=[^\\t]*?(?i:/dirbuster)\\t)|(?=[^\\t]*?(?i:/eyewitness)\\t)|(?=[^\\t]*?(?i:/feroxbuster)\\t)|(?=[^\\t]*?(?i:/ffuf)\\t)|(?=[^\\t]*?(?i:/gobuster)\\t)|(?=[^\\t]*?(?i:/wfuzz)\\t)|(?=[^\\t]*?(?i:/whatweb)\\t)))|(?:(?:(?=[^\\t]*?(?i:/joomscan)\\t)|(?=[^\\t]*?(?i:/nikto)\\t)|(?=[^\\t]*?(?i:/wpscan)\\t)))|(?:(?:(?=[^\\t]*?(?i:/aircrack\\-ng)\\t)|(?=[^\\t]*?(?i:/bloodhound\\-python)\\t)|(?=[^\\t]*?(?i:/bpfdos)\\t)|(?=[^\\t]*?(?i:/ebpfki)\\t)|(?=[^\\t]*?(?i:/evil\\-winrm)\\t)|(?=[^\\t]*?(?i:/hashcat)\\t)|(?=[^\\t]*?(?i:/hoaxshell\\.py)\\t)|(?=[^\\t]*?(?i:/hydra)\\t)|(?=[^\\t]*?(?i:/john)\\t)|(?=[^\\t]*?(?i:/ncrack)\\t)|(?=[^\\t]*?(?i:/nxc\\-ubuntu\\-latest)\\t)|(?=[^\\t]*?(?i:/pidhide)\\t)|(?=[^\\t]*?(?i:/pspy32)\\t)|(?=[^\\t]*?(?i:/pspy32s)\\t)|(?=[^\\t]*?(?i:/pspy64)\\t)|(?=[^\\t]*?(?i:/pspy64s)\\t)|(?=[^\\t]*?(?i:/setoolkit)\\t)|(?=[^\\t]*?(?i:/sqlmap)\\t)|(?=[^\\t]*?(?i:/writeblocker)\\t)))|(?:(?:(?=[^\\t]*?(?i:/linpeas))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_susp_pipe_shell",
+   "images": null,
+   "keys": [
+    "bash -c ",
+    "sh -c "
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*\\t(?i:sh\\ \\-c\\ ))|(?=[^\\t]*\\t(?i:bash\\ \\-c\\ )))))(?:(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\|\\ bash\\ ))|(?=[^\\t]*\\t.*?(?i:\\|\\ sh\\ ))|(?=[^\\t]*\\t.*?(?i:\\|bash\\ ))|(?=[^\\t]*\\t.*?(?i:\\|sh\\ ))))|(?:(?:(?=[^\\t]*\\t.*?(?i:\\|\\ bash)$)|(?=[^\\t]*\\t.*?(?i:\\|\\ sh)$)|(?=[^\\t]*\\t.*?(?i:\\|bash)$)|(?=[^\\t]*\\t.*?(?i:\\ \\|sh)$))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_susp_recon_indicators",
+   "images": null,
+   "keys": [
+    " -name .htpasswd",
+    " -perm -4000 "
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-name\\ \\.htpasswd))|(?=[^\\t]*\\t.*?(?i:\\ \\-perm\\ \\-4000\\ )))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Credential Access"
+  },
+  {
+   "id": "proc_creation_lnx_susp_shell_script_exec_from_susp_location",
+   "images": [
+    "bash",
+    "csh",
+    "dash",
+    "fish",
+    "ksh",
+    "sh",
+    "zsh"
+   ],
+   "keys": [
+    "/tmp/"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/bash)\\t)|(?=[^\\t]*?(?i:/csh)\\t)|(?=[^\\t]*?(?i:/dash)\\t)|(?=[^\\t]*?(?i:/fish)\\t)|(?=[^\\t]*?(?i:/ksh)\\t)|(?=[^\\t]*?(?i:/sh)\\t)|(?=[^\\t]*?(?i:/zsh)\\t))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-c\\ )))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:/tmp/))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_systemctl_mask_power_settings",
+   "images": [
+    "systemctl"
+   ],
+   "keys": [
+    "hibernate.target",
+    "hybrid-sleep.target",
+    "suspend.target"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/systemctl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ mask)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:suspend\\.target))|(?=[^\\t]*\\t.*?(?i:hibernate\\.target))|(?=[^\\t]*\\t.*?(?i:hybrid\\-sleep\\.target))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Persistence"
+  },
+  {
+   "id": "proc_creation_lnx_touch_susp",
+   "images": [
+    "touch"
+   ],
+   "keys": [
+    ".service"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/touch)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-t\\ ))))(?:(?:(?=[^\\t]*\\t.*?(?i:\\.service)$))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_triple_cross_rootkit_execve_hijack",
+   "images": [
+    "sudo"
+   ],
+   "keys": [
+    "execve_hijack"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/sudo)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:execve_hijack)))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Privilege Escalation"
+  },
+  {
+   "id": "proc_creation_lnx_triple_cross_rootkit_install",
+   "images": [
+    "sudo"
+   ],
+   "keys": [
+    " enp0s3 "
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/sudo)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ tc\\ )))(?:(?=[^\\t]*\\t.*?(?i:\\ enp0s3\\ ))))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ qdisc\\ ))|(?=[^\\t]*\\t.*?(?i:\\ filter\\ )))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_userdel",
+   "images": [
+    "userdel"
+   ],
+   "keys": [
+    "/userdel"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/userdel)\\t))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Impact"
+  },
+  {
+   "id": "proc_creation_lnx_usermod_susp_group",
+   "images": [
+    "usermod"
+   ],
+   "keys": [
+    "/usermod"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/usermod)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\-aG\\ root))|(?=[^\\t]*\\t.*?(?i:\\-aG\\ sudoers)))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Privilege Escalation"
+  },
+  {
+   "id": "proc_creation_lnx_vim_shell_execution",
+   "images": [
+    "rvim",
+    "vi",
+    "vim",
+    "vimdiff"
+   ],
+   "keys": [
+    "/rvim",
+    "/vi",
+    "/vim",
+    "/vimdiff"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/rvim)\\t)|(?=[^\\t]*?(?i:/vi)\\t)|(?=[^\\t]*?(?i:/vim)\\t)|(?=[^\\t]*?(?i:/vimdiff)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-\\-cmd\\ ))|(?=[^\\t]*\\t.*?(?i:\\ \\-c)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i::!/))|(?=[^\\t]*\\t.*?(?i::!\\$))|(?=[^\\t]*\\t.*?(?i::!\\.\\.))|(?=[^\\t]*\\t.*?(?i::lua\\ ))|(?=[^\\t]*\\t.*?(?i::py\\ ))|(?=[^\\t]*\\t.*?(?i::shell))|(?=[^\\t]*\\t.*?(?i:/bin/bash))|(?=[^\\t]*\\t.*?(?i:/bin/dash))|(?=[^\\t]*\\t.*?(?i:/bin/fish))|(?=[^\\t]*\\t.*?(?i:/bin/sh))|(?=[^\\t]*\\t.*?(?i:/bin/csh))|(?=[^\\t]*\\t.*?(?i:/bin/ksh))|(?=[^\\t]*\\t.*?(?i:/bin/zsh))|(?=[^\\t]*\\t.*?(?i:/bin/tmux))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_xterm_reverse_shell",
+   "images": null,
+   "keys": [
+    "-display"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:xterm))))(?:(?:(?=[^\\t]*\\t.*?(?i:\\-display))))(?:(?:(?=[^\\t]*\\t.*?(?i::1)$))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_macos_clear_system_logs",
+   "images": [
+    "rm",
+    "shred",
+    "unlink"
+   ],
+   "keys": [
+    "/library/logs/",
+    "/var/log"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/rm)\\t)|(?=[^\\t]*?(?i:/unlink)\\t)|(?=[^\\t]*?(?i:/shred)\\t))))(?:(?:(?:(?:(?=[^\\t]*\\t.*?(?i:/var/log))))|(?:(?:(?=[^\\t]*\\t.*?(?i:/Users/)))(?:(?=[^\\t]*\\t.*?(?i:/Library/Logs/)))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_macos_create_hidden_account",
+   "images": [
+    "dscl"
+   ],
+   "keys": [
+    "ishidden",
+    "uniqueid"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?:(?=[^\\t]*?(?i:/dscl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:create)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:UniqueID))))(?:(?:(?=[^\\t]*\\t.*?(?:([0-9]|[1-9][0-9]|[1-4][0-9]{2}))))))|(?:(?:(?:(?=[^\\t]*?(?i:/dscl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:create)))))(?:(?:(?:(?:(?=[^\\t]*\\t.*?(?i:IsHidden)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:true))|(?=[^\\t]*\\t.*?(?i:yes))|(?=[^\\t]*\\t.*?(?i:1))))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_macos_disable_security_tools",
+   "images": [
+    "launchctl",
+    "spctl"
+   ],
+   "keys": [
+    "/bin/launchctl",
+    "/usr/sbin/spctl"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?:(?=(?i:/bin/launchctl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:unload)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:com\\.objective\\-see\\.lulu\\.plist))|(?=[^\\t]*\\t.*?(?i:com\\.objective\\-see\\.blockblock\\.plist))|(?=[^\\t]*\\t.*?(?i:com\\.google\\.santad\\.plist))|(?=[^\\t]*\\t.*?(?i:com\\.carbonblack\\.defense\\.daemon\\.plist))|(?=[^\\t]*\\t.*?(?i:com\\.carbonblack\\.daemon\\.plist))|(?=[^\\t]*\\t.*?(?i:at\\.obdev\\.littlesnitchd\\.plist))|(?=[^\\t]*\\t.*?(?i:com\\.tenablesecurity\\.nessusagent\\.plist))|(?=[^\\t]*\\t.*?(?i:com\\.opendns\\.osx\\.RoamingClientConfigUpdater\\.plist))|(?=[^\\t]*\\t.*?(?i:com\\.crowdstrike\\.falcond\\.plist))|(?=[^\\t]*\\t.*?(?i:com\\.crowdstrike\\.userdaemon\\.plist))|(?=[^\\t]*\\t.*?(?i:osquery))|(?=[^\\t]*\\t.*?(?i:filebeat))|(?=[^\\t]*\\t.*?(?i:auditbeat))|(?=[^\\t]*\\t.*?(?i:packetbeat))|(?=[^\\t]*\\t.*?(?i:td\\-agent)))))|(?:(?:(?=(?i:/usr/sbin/spctl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:disable))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_macos_dscl_add_user_to_admin_group",
+   "images": [
+    "dscl"
+   ],
+   "keys": [
+    " groupmembership "
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/dscl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-append\\ )))(?:(?=[^\\t]*\\t.*?(?i:\\ /Groups/admin\\ )))(?:(?=[^\\t]*\\t.*?(?i:\\ GroupMembership\\ )))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Persistence"
+  },
+  {
+   "id": "proc_creation_macos_dseditgroup_add_to_admin_group",
+   "images": [
+    "dseditgroup"
+   ],
+   "keys": [
+    "/dseditgroup"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/dseditgroup)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-o\\ edit\\ )))(?:(?=[^\\t]*\\t.*?(?i:\\ \\-a\\ )))(?:(?=[^\\t]*\\t.*?(?i:\\ \\-t\\ user)))(?:(?=[^\\t]*\\t.*?(?i:admin)))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Persistence"
+  },
+  {
+   "id": "proc_creation_macos_dsenableroot_enable_root_account",
+   "images": [
+    "dsenableroot"
+   ],
+   "keys": [
+    "/dsenableroot"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/dsenableroot)\\t))))(?:(?!(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-d\\ ))))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Privilege Escalation"
+  },
+  {
+   "id": "proc_creation_macos_find_cred_in_files",
+   "images": null,
+   "keys": [
+    "lazagne",
+    "password"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/grep)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:password))))|(?:(?:(?=[^\\t]*\\t.*?(?i:laZagne))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Credential Access"
+  },
+  {
+   "id": "proc_creation_macos_hdiutil_mount",
+   "images": [
+    "hdiutil"
+   ],
+   "keys": [
+    "/hdiutil"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/hdiutil)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:attach\\ ))|(?=[^\\t]*\\t.*?(?i:mount\\ )))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Initial Access"
+  },
+  {
+   "id": "proc_creation_macos_jxa_in_memory_execution",
+   "images": null,
+   "keys": [
+    "nsdata.datawithcontentsofurl"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*\\t.*?(?i:osascript)))(?:(?=[^\\t]*\\t.*?(?i:\\ \\-e\\ )))(?:(?=[^\\t]*\\t.*?(?i:eval)))(?:(?=[^\\t]*\\t.*?(?i:NSData\\.dataWithContentsOfURL)))))(?:(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-l\\ )))(?:(?=[^\\t]*\\t.*?(?i:JavaScript))))|(?:(?:(?=[^\\t]*\\t.*?(?i:\\.js)))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_macos_nscurl_usage",
+   "images": [
+    "nscurl"
+   ],
+   "keys": [
+    "/nscurl"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/nscurl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\-\\-download\\ ))|(?=[^\\t]*\\t.*?(?i:\\-\\-download\\-directory\\ ))|(?=[^\\t]*\\t.*?(?i:\\-\\-output\\ ))|(?=[^\\t]*\\t.*?(?i:\\-dir\\ ))|(?=[^\\t]*\\t.*?(?i:\\-dl\\ ))|(?=[^\\t]*\\t.*?(?i:\\-ld))|(?=[^\\t]*\\t.*?(?i:\\-o\\ )))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Command and Control"
+  },
+  {
+   "id": "proc_creation_macos_osacompile_runonly_execution",
+   "images": null,
+   "keys": [
+    "osacompile"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*\\t.*?(?i:osacompile)))(?:(?=[^\\t]*\\t.*?(?i:\\ \\-x\\ )))(?:(?=[^\\t]*\\t.*?(?i:\\ \\-e\\ )))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_macos_payload_decoded_and_decrypted",
+   "images": [
+    "openssl"
+   ],
+   "keys": [
+    "/volumes/"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/openssl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:/Volumes/)))(?:(?=[^\\t]*\\t.*?(?i:enc)))(?:(?=[^\\t]*\\t.*?(?i:\\-base64)))(?:(?=[^\\t]*\\t.*?(?i:\\ \\-d\\ )))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_macos_persistence_via_plistbuddy",
+   "images": [
+    "plistbuddy"
+   ],
+   "keys": [
+    "launchagents",
+    "launchdaemons"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/PlistBuddy)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:RunAtLoad)))(?:(?=[^\\t]*\\t.*?(?i:true))))(?:(?:(?=[^\\t]*\\t.*?(?i:LaunchAgents))|(?=[^\\t]*\\t.*?(?i:LaunchDaemons)))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Privilege Escalation"
+  },
+  {
+   "id": "proc_creation_macos_remote_access_tools_meshagent_arguments",
+   "images": null,
+   "keys": [
+    "--meshservicename"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\-\\-meshServiceName)))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Command and Control"
+  },
+  {
+   "id": "proc_creation_macos_susp_in_memory_download_and_compile",
+   "images": null,
+   "keys": [
+    "osacompile"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*\\t.*?(?i:osacompile)))(?:(?=[^\\t]*\\t.*?(?i:curl)))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Command and Control"
+  },
+  {
+   "id": "proc_creation_macos_susp_macos_firmware_activity",
+   "images": [
+    "firmwarepasswd"
+   ],
+   "keys": [
+    "/usr/sbin/firmwarepasswd"
+   ],
+   "pattern": "^(?:(?:(?:(?=(?i:/usr/sbin/firmwarepasswd)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:setpasswd))|(?=[^\\t]*\\t.*?(?i:full))|(?=[^\\t]*\\t.*?(?i:delete))|(?=[^\\t]*\\t.*?(?i:check)))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Impact"
+  },
+  {
+   "id": "proc_creation_macos_sysadminctl_add_user_to_admin_group",
+   "images": [
+    "sysadminctl"
+   ],
+   "keys": [
+    "/sysadminctl"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/sysadminctl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-addUser\\ )))(?:(?=[^\\t]*\\t.*?(?i:\\ \\-admin\\ )))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Persistence"
+  },
+  {
+   "id": "proc_creation_macos_tail_base64_decode_from_image",
+   "images": [
+    "bash"
+   ],
+   "keys": [
+    "base64"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/bash)\\t))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:tail)))(?:(?=[^\\t]*\\t.*?(?i:\\-c)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:base64)))(?:(?=[^\\t]*\\t.*?(?i:\\-d)))(?:(?=[^\\t]*\\t.*?(?i:>)))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\.avif))|(?=[^\\t]*\\t.*?(?i:\\.gif))|(?=[^\\t]*\\t.*?(?i:\\.jfif))|(?=[^\\t]*\\t.*?(?i:\\.jpeg))|(?=[^\\t]*\\t.*?(?i:\\.jpg))|(?=[^\\t]*\\t.*?(?i:\\.pjp))|(?=[^\\t]*\\t.*?(?i:\\.pjpeg))|(?=[^\\t]*\\t.*?(?i:\\.png))|(?=[^\\t]*\\t.*?(?i:\\.svg))|(?=[^\\t]*\\t.*?(?i:\\.webp))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_macos_tmutil_delete_backup",
+   "images": null,
+   "keys": [
+    "/tmutil",
+    "tmutil"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?:(?=[^\\t]*?(?i:/tmutil)\\t)))|(?:(?:(?=[^\\t]*\\t.*?(?i:tmutil))))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:delete))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Impact"
+  },
+  {
+   "id": "proc_creation_macos_tmutil_disable_backup",
+   "images": null,
+   "keys": [
+    "disable"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?:(?=[^\\t]*?(?i:/tmutil)\\t)))|(?:(?:(?=[^\\t]*\\t.*?(?i:tmutil))))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:disable))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Impact"
+  },
+  {
+   "id": "proc_creation_macos_tmutil_exclude_file_from_backup",
+   "images": null,
+   "keys": [
+    "addexclusion"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?:(?=[^\\t]*?(?i:/tmutil)\\t)))|(?:(?:(?=[^\\t]*\\t.*?(?i:tmutil))))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:addexclusion))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Impact"
+  },
+  {
+   "id": "proc_creation_macos_wizardupdate_malware_infection",
+   "images": [
+    "curl",
+    "sh"
+   ],
+   "keys": [
+    "=$(curl ",
+    "_intermediate_agent_"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/sh)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:=\\$\\(curl\\ )))(?:(?=[^\\t]*\\t.*?(?i:eval))))|(?:(?:(?=[^\\t]*?(?i:/curl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:_intermediate_agent_))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Command and Control"
+  },
+  {
+   "id": "proc_creation_lnx_exploit_cve_2019_14287",
+   "images": null,
+   "keys": [
+    " -u#"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*\\t.*?(?i:\\ \\-u\\#)))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Privilege Escalation"
+  },
+  {
+   "id": "proc_creation_lnx_apt_unc4841_openssl_connection",
+   "images": [
+    "openssl"
+   ],
+   "keys": [
+    "/openssl"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/openssl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?:[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}))))(?:(?:(?=[^\\t]*\\t.*?(?i:s_client)))(?:(?=[^\\t]*\\t.*?(?i:\\-quiet)))(?:(?=[^\\t]*\\t.*?(?i:\\-connect))))(?:(?:(?=[^\\t]*\\t.*?(?i::443))|(?=[^\\t]*\\t.*?(?i::8080)))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_apt_unc4841_wget_download_compressed_file_tmep_sh",
+   "images": [
+    "wget"
+   ],
+   "keys": [
+    "https://temp.sh/"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/wget)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:https://temp\\.sh/))))(?:(?:(?=[^\\t]*\\t.*?(?i:\\.rar)$)|(?=[^\\t]*\\t.*?(?i:\\.zip)$))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_apt_unc4841_wget_download_tar_files_direct_ip",
+   "images": [
+    "wget"
+   ],
+   "keys": [
+    "--no-check-certificate"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/wget)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?:https://[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}\\.[0-9]{1,3}))))(?:(?:(?=[^\\t]*\\t.*?(?i:\\-\\-no\\-check\\-certificate))))(?:(?:(?=[^\\t]*\\t.*?(?i:\\.tar)$))))(?:(?!(?:(?:(?:(?=[^\\t]*\\t.*?(?i:https://10\\.))|(?=[^\\t]*\\t.*?(?i:https://192\\.168\\.))|(?=[^\\t]*\\t.*?(?i:https://172\\.16\\.))|(?=[^\\t]*\\t.*?(?i:https://172\\.17\\.))|(?=[^\\t]*\\t.*?(?i:https://172\\.18\\.))|(?=[^\\t]*\\t.*?(?i:https://172\\.19\\.))|(?=[^\\t]*\\t.*?(?i:https://172\\.20\\.))|(?=[^\\t]*\\t.*?(?i:https://172\\.21\\.))|(?=[^\\t]*\\t.*?(?i:https://172\\.22\\.))|(?=[^\\t]*\\t.*?(?i:https://172\\.23\\.))|(?=[^\\t]*\\t.*?(?i:https://172\\.24\\.))|(?=[^\\t]*\\t.*?(?i:https://172\\.25\\.))|(?=[^\\t]*\\t.*?(?i:https://172\\.26\\.))|(?=[^\\t]*\\t.*?(?i:https://172\\.27\\.))|(?=[^\\t]*\\t.*?(?i:https://172\\.28\\.))|(?=[^\\t]*\\t.*?(?i:https://172\\.29\\.))|(?=[^\\t]*\\t.*?(?i:https://172\\.30\\.))|(?=[^\\t]*\\t.*?(?i:https://172\\.31\\.))|(?=[^\\t]*\\t.*?(?i:https://127\\.))|(?=[^\\t]*\\t.*?(?i:https://169\\.254\\.))))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Defense Evasion"
+  },
+  {
+   "id": "proc_creation_lnx_atp_unc4841_seaspy_execution",
+   "images": [
+    "barracudamailservice",
+    "resize2fstab",
+    "resize_reisertab"
+   ],
+   "keys": [
+    "/barracudamailservice",
+    "/resize2fstab",
+    "/resize_reisertab"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/BarracudaMailService)\\t)|(?=[^\\t]*?(?i:/resize2fstab)\\t)|(?=[^\\t]*?(?i:/resize_reisertab)\\t))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_exploit_cve_2025_5054_or_cve_2025_4598",
+   "images": [
+    "bash",
+    "sh",
+    "sysctl"
+   ],
+   "keys": [
+    "echo 1 > /proc/sys/fs/suid_dumpable",
+    "echo 1 >/proc/sys/fs/suid_dumpable",
+    "echo 1> /proc/sys/fs/suid_dumpable",
+    "echo 1>/proc/sys/fs/suid_dumpable",
+    "echo 2 > /proc/sys/fs/suid_dumpable",
+    "echo 2 >/proc/sys/fs/suid_dumpable",
+    "echo 2> /proc/sys/fs/suid_dumpable",
+    "echo 2>/proc/sys/fs/suid_dumpable",
+    "fs.suid_dumpable="
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/sbin/sysctl)\\t)|(?=[^\\t]*?(?i:/bin/sysctl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:fs\\.suid_dumpable=))))|(?:(?:(?=[^\\t]*?(?i:/bin/bash)\\t)|(?=[^\\t]*?(?i:/bin/sh)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:echo\\ 1\\ >\\ /proc/sys/fs/suid_dumpable))|(?=[^\\t]*\\t.*?(?i:echo\\ 2\\ >\\ /proc/sys/fs/suid_dumpable))|(?=[^\\t]*\\t.*?(?i:echo\\ 1\\ >/proc/sys/fs/suid_dumpable))|(?=[^\\t]*\\t.*?(?i:echo\\ 2\\ >/proc/sys/fs/suid_dumpable))|(?=[^\\t]*\\t.*?(?i:echo\\ 1>\\ /proc/sys/fs/suid_dumpable))|(?=[^\\t]*\\t.*?(?i:echo\\ 2>\\ /proc/sys/fs/suid_dumpable))|(?=[^\\t]*\\t.*?(?i:echo\\ 1>/proc/sys/fs/suid_dumpable))|(?=[^\\t]*\\t.*?(?i:echo\\ 2>/proc/sys/fs/suid_dumpable))))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Privilege Escalation"
+  },
+  {
+   "id": "proc_creation_macos_malware_amos_curl_post",
+   "images": null,
+   "keys": [
+    "file=@/tmp/out.zip",
+    "filegrabber"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*\\t.*?(?i:curl)))(?:(?=[^\\t]*\\t.*?(?i:POST)))(?:(?=[^\\t]*\\t.*?(?i:user:)))(?:(?=[^\\t]*\\t.*?(?i:\\-H\\ )))(?:(?=[^\\t]*\\t.*?(?i:BuildID)))(?:(?=[^\\t]*\\t.*?(?i:file=@/tmp/out\\.zip)))(?:(?=[^\\t]*\\t.*?(?i:cl:\\ 0))))|(?:(?:(?=[^\\t]*\\t.*?(?i:FileGrabber)))(?:(?=[^\\t]*\\t.*?(?i:/tmp))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_mal_shai_hulud_indicator",
+   "images": null,
+   "keys": [
+    "sha1hulud",
+    "shai-hulud"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*\\t.*?(?i:Shai\\-Hulud))|(?=[^\\t]*\\t.*?(?i:SHA1HULUD)))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_lnx_mal_shai_hulud_malicious_npm_package_installation",
+   "images": [
+    "node"
+   ],
+   "keys": [
+    "02-echo@0.0.7",
+    "@accordproject/concerto-analysis@3.24.1",
+    "@accordproject/concerto-linter-default-ruleset@3.24.1",
+    "@accordproject/concerto-linter@3.24.1",
+    "@accordproject/concerto-metamodel@3.12.5",
+    "@accordproject/concerto-types@3.24.1",
+    "@accordproject/markdown-it-cicero@0.16.26",
+    "@accordproject/template-engine@2.7.2",
+    "@actbase/css-to-react-native-transform@1.0.3",
+    "@actbase/native@0.1.32",
+    "@actbase/node-server@1.1.19",
+    "@actbase/react-absolute@0.8.3",
+    "@actbase/react-daum-postcode@1.0.5",
+    "@actbase/react-kakaosdk@0.9.27",
+    "@actbase/react-native-actionsheet@1.0.3",
+    "@actbase/react-native-devtools@0.1.3",
+    "@actbase/react-native-fast-image@8.5.13",
+    "@actbase/react-native-kakao-channel@1.0.2",
+    "@actbase/react-native-kakao-navi@2.0.4",
+    "@actbase/react-native-less-transformer@1.0.6",
+    "@actbase/react-native-naver-login@1.0.1",
+    "@actbase/react-native-simple-video@1.0.13",
+    "@actbase/react-native-tiktok@1.1.3",
+    "@afetcan/api@0.0.13",
+    "@afetcan/storage@0.0.27",
+    "@alaan/s2s-auth@2.0.3",
+    "@alexadark/amadeus-api@1.0.4",
+    "@alexadark/gatsby-theme-events@1.0.1",
+    "@alexadark/gatsby-theme-wordpress-blog@2.0.1",
+    "@alexadark/reusable-functions@1.5.1",
+    "@alexcolls/nuxt-socket.io@0.0.7",
+    "@alexcolls/nuxt-socket.io@0.0.8",
+    "@alexcolls/nuxt-ux@0.6.1",
+    "@alexcolls/nuxt-ux@0.6.2",
+    "@antstackio/eslint-config-antstack@0.0.3",
+    "@antstackio/express-graphql-proxy@0.2.8",
+    "@antstackio/graphql-body-parser@0.1.1",
+    "@antstackio/json-to-graphql@1.0.3",
+    "@antstackio/shelbysam@1.1.7",
+    "@aryanhussain/my-angular-lib@0.0.23",
+    "@asyncapi/avro-schema-parser@3.0.25",
+    "@asyncapi/avro-schema-parser@3.0.26",
+    "@asyncapi/bundler@0.6.5",
+    "@asyncapi/bundler@0.6.6",
+    "@asyncapi/cli@4.1.2",
+    "@asyncapi/cli@4.1.3",
+    "@asyncapi/converter@1.6.3",
+    "@asyncapi/converter@1.6.4",
+    "@asyncapi/diff@0.5.1",
+    "@asyncapi/diff@0.5.2",
+    "@asyncapi/dotnet-rabbitmq-template@1.0.1",
+    "@asyncapi/dotnet-rabbitmq-template@1.0.2",
+    "@asyncapi/edavisualiser@1.2.1",
+    "@asyncapi/edavisualiser@1.2.2",
+    "@asyncapi/generator-components@0.3.2",
+    "@asyncapi/generator-components@0.3.3",
+    "@asyncapi/generator-react-sdk@1.1.4",
+    "@asyncapi/generator-react-sdk@1.1.5",
+    "@asyncapi/generator@2.8.5",
+    "@asyncapi/generator@2.8.6",
+    "@asyncapi/go-watermill-template@0.2.76",
+    "@asyncapi/go-watermill-template@0.2.77",
+    "@asyncapi/html-template@3.3.2",
+    "@asyncapi/html-template@3.3.3",
+    "@asyncapi/java-spring-cloud-stream-template@0.13.5",
+    "@asyncapi/java-spring-cloud-stream-template@0.13.6",
+    "@asyncapi/java-spring-template@1.6.1",
+    "@asyncapi/java-spring-template@1.6.2",
+    "@asyncapi/java-template@0.3.5",
+    "@asyncapi/java-template@0.3.6",
+    "@asyncapi/keeper@0.0.2",
+    "@asyncapi/keeper@0.0.3",
+    "@asyncapi/markdown-template@1.6.8",
+    "@asyncapi/markdown-template@1.6.9",
+    "@asyncapi/modelina-cli@5.10.2",
+    "@asyncapi/modelina-cli@5.10.3",
+    "@asyncapi/modelina@5.10.2",
+    "@asyncapi/modelina@5.10.3",
+    "@asyncapi/multi-parser@2.2.1",
+    "@asyncapi/multi-parser@2.2.2",
+    "@asyncapi/nodejs-template@3.0.5",
+    "@asyncapi/nodejs-template@3.0.6",
+    "@asyncapi/nodejs-ws-template@0.10.1",
+    "@asyncapi/nodejs-ws-template@0.10.2",
+    "@asyncapi/nunjucks-filters@2.1.1",
+    "@asyncapi/nunjucks-filters@2.1.2",
+    "@asyncapi/openapi-schema-parser@3.0.25",
+    "@asyncapi/openapi-schema-parser@3.0.26",
+    "@asyncapi/optimizer@1.0.5",
+    "@asyncapi/optimizer@1.0.6",
+    "@asyncapi/parser@3.4.1",
+    "@asyncapi/parser@3.4.2",
+    "@asyncapi/php-template@0.1.1",
+    "@asyncapi/php-template@0.1.2",
+    "@asyncapi/problem@1.0.1",
+    "@asyncapi/problem@1.0.2",
+    "@asyncapi/protobuf-schema-parser@3.5.2",
+    "@asyncapi/protobuf-schema-parser@3.5.3",
+    "@asyncapi/protobuf-schema-parser@3.6.1",
+    "@asyncapi/python-paho-template@0.2.14",
+    "@asyncapi/python-paho-template@0.2.15",
+    "@asyncapi/react-component@2.6.6",
+    "@asyncapi/react-component@2.6.7",
+    "@asyncapi/server-api@0.16.24",
+    "@asyncapi/server-api@0.16.25",
+    "@asyncapi/specs@6.10.1",
+    "@asyncapi/specs@6.8.2",
+    "@asyncapi/specs@6.8.3",
+    "@asyncapi/specs@6.9.1",
+    "@asyncapi/studio@1.0.2",
+    "@asyncapi/studio@1.0.3",
+    "@asyncapi/web-component@2.6.6",
+    "@asyncapi/web-component@2.6.7",
+    "@bdkinc/knex-ibmi@0.5.7",
+    "@browserbasehq/bb9@1.2.21",
+    "@browserbasehq/director-ai@1.0.3",
+    "@browserbasehq/mcp-server-browserbase@2.4.2",
+    "@browserbasehq/mcp@2.1.1",
+    "@browserbasehq/sdk-functions@0.0.4",
+    "@browserbasehq/stagehand-docs@1.0.1",
+    "@browserbasehq/stagehand@3.0.4",
+    "@caretive/caret-cli@0.0.2",
+    "@chtijs/eslint-config@1.0.1",
+    "@clausehq/flows-step-httprequest@0.1.14",
+    "@clausehq/flows-step-jsontoxml@0.1.14",
+    "@clausehq/flows-step-mqtt@0.1.14",
+    "@clausehq/flows-step-sendgridemail@0.1.14",
+    "@clausehq/flows-step-taskscreateurl@0.1.14",
+    "@cllbk/ghl@1.3.1",
+    "@commute/bloom@1.0.3",
+    "@commute/market-data-chartjs@2.3.1",
+    "@commute/market-data@1.0.2",
+    "@dev-blinq/ai-qa-logic@1.0.19",
+    "@dev-blinq/blinqioclient@1.0.21",
+    "@dev-blinq/cucumber-js@1.0.131",
+    "@dev-blinq/cucumber_client@1.0.738",
+    "@dev-blinq/ui-systems@1.0.93",
+    "@elsedev/react-csr-sdk@0.2.2",
+    "@ensdomains/address-encoder@1.1.5",
+    "@ensdomains/blacklist@1.0.1",
+    "@ensdomains/buffer@0.1.2",
+    "@ensdomains/ccip-read-cf-worker@0.0.4",
+    "@ensdomains/ccip-read-dns-gateway@0.1.1",
+    "@ensdomains/ccip-read-router@0.0.7",
+    "@ensdomains/ccip-read-worker-viem@0.0.4",
+    "@ensdomains/content-hash@3.0.1",
+    "@ensdomains/curvearithmetics@1.0.1",
+    "@ensdomains/cypress-metamask@1.2.1",
+    "@ensdomains/dnsprovejs@0.5.3",
+    "@ensdomains/dnssec-oracle-anchors@0.0.2",
+    "@ensdomains/dnssecoraclejs@0.2.9",
+    "@ensdomains/durin-middleware@0.0.2",
+    "@ensdomains/durin@0.1.2",
+    "@ensdomains/ens-archived-contracts@0.0.3",
+    "@ensdomains/ens-avatar@1.0.4",
+    "@ensdomains/ens-contracts@1.6.1",
+    "@ensdomains/ens-test-env@1.0.2",
+    "@ensdomains/ens-validation@0.1.1",
+    "@ensdomains/ensjs-react@0.0.5",
+    "@ensdomains/ensjs@4.0.3",
+    "@ensdomains/eth-ens-namehash@2.0.16",
+    "@ensdomains/hackathon-registrar@1.0.5",
+    "@ensdomains/hardhat-chai-matchers-viem@0.1.15",
+    "@ensdomains/hardhat-toolbox-viem-extended@0.0.6",
+    "@ensdomains/mock@2.1.52",
+    "@ensdomains/name-wrapper@1.0.1",
+    "@ensdomains/offchain-resolver-contracts@0.2.2",
+    "@ensdomains/op-resolver-contracts@0.0.2",
+    "@ensdomains/react-ens-address@0.0.32",
+    "@ensdomains/renewal-widget@0.1.10",
+    "@ensdomains/renewal@0.0.13",
+    "@ensdomains/reverse-records@1.0.1",
+    "@ensdomains/server-analytics@0.0.2",
+    "@ensdomains/solsha1@0.0.4",
+    "@ensdomains/subdomain-registrar@0.2.4",
+    "@ensdomains/test-utils@1.3.1",
+    "@ensdomains/thorin@0.6.51",
+    "@ensdomains/ui@3.4.6",
+    "@ensdomains/unicode-confusables@0.1.1",
+    "@ensdomains/unruggable-gateways@0.0.3",
+    "@ensdomains/vite-plugin-i18next-loader@4.0.4",
+    "@ensdomains/web3modal@1.10.2",
+    "@everreal/react-charts@2.0.1",
+    "@everreal/react-charts@2.0.2",
+    "@everreal/validate-esmoduleinterop-imports@1.4.4",
+    "@everreal/validate-esmoduleinterop-imports@1.4.5",
+    "@everreal/web-analytics@0.0.1",
+    "@everreal/web-analytics@0.0.2",
+    "@faq-component/core@0.0.4",
+    "@faq-component/react@1.0.1",
+    "@fishingbooker/browser-sync-plugin@1.0.5",
+    "@fishingbooker/react-loader@1.0.7",
+    "@fishingbooker/react-pagination@2.0.6",
+    "@fishingbooker/react-raty@2.0.1",
+    "@fishingbooker/react-swiper@0.1.5",
+    "@hapheus/n8n-nodes-pgp@1.5.1",
+    "@hover-design/core@0.0.1",
+    "@hover-design/react@0.2.1",
+    "@huntersofbook/auth-vue@0.4.2",
+    "@huntersofbook/core-nuxt@0.4.2",
+    "@huntersofbook/core@0.5.1",
+    "@huntersofbook/form-naiveui@0.5.1",
+    "@huntersofbook/i18n@0.8.2",
+    "@huntersofbook/ui@0.5.1",
+    "@hyperlook/telemetry-sdk@1.0.19",
+    "@ifelsedeveloper/protocol-contracts-svm-idl@0.1.2",
+    "@ifelsedeveloper/protocol-contracts-svm-idl@0.1.3",
+    "@ifings/design-system@4.9.2",
+    "@ifings/metatron3@0.1.5",
+    "@jayeshsadhwani/telemetry-sdk@1.0.14",
+    "@kvytech/cli@0.0.7",
+    "@kvytech/components@0.0.2",
+    "@kvytech/habbit-e2e-test@0.0.2",
+    "@kvytech/medusa-plugin-announcement@0.0.8",
+    "@kvytech/medusa-plugin-management@0.0.5",
+    "@kvytech/medusa-plugin-newsletter@0.0.5",
+    "@kvytech/medusa-plugin-product-reviews@0.0.9",
+    "@kvytech/medusa-plugin-promotion@0.0.2",
+    "@kvytech/web@0.0.2",
+    "@lessondesk/api-client@9.12.2",
+    "@lessondesk/api-client@9.12.3",
+    "@lessondesk/babel-preset@1.0.1",
+    "@lessondesk/electron-group-api-client@1.0.3",
+    "@lessondesk/eslint-config@1.4.2",
+    "@lessondesk/material-icons@1.0.3",
+    "@lessondesk/react-table-context@2.0.4",
+    "@lessondesk/schoolbus@5.2.2",
+    "@lessondesk/schoolbus@5.2.3",
+    "@livecms/live-edit@0.0.32",
+    "@livecms/nuxt-live-edit@1.9.2",
+    "@lokeswari-satyanarayanan/rn-zustand-expo-template@1.0.9",
+    "@louisle2/core@1.0.1",
+    "@louisle2/cortex-js@0.1.6",
+    "@lpdjs/firestore-repo-service@1.0.1",
+    "@lui-ui/lui-nuxt@0.1.1",
+    "@lui-ui/lui-tailwindcss@0.1.2",
+    "@lui-ui/lui-vue@1.0.13",
+    "@markvivanco/app-version-checker@1.0.1",
+    "@markvivanco/app-version-checker@1.0.2",
+    "@mcp-use/cli@2.2.6",
+    "@mcp-use/cli@2.2.7",
+    "@mcp-use/inspector@0.6.2",
+    "@mcp-use/inspector@0.6.3",
+    "@mcp-use/mcp-use@1.0.1",
+    "@mcp-use/mcp-use@1.0.2",
+    "@micado-digital/stadtmarketing-kufstein-external@1.9.1",
+    "@mizzle-dev/orm@0.0.2",
+    "@mparpaillon/connector-parse@1.0.1",
+    "@mparpaillon/imagesloaded@4.1.2",
+    "@mparpaillon/page@1.0.1",
+    "@ntnx/passport-wso2@0.0.3",
+    "@ntnx/t@0.0.101",
+    "@oku-ui/accordion@0.6.2",
+    "@oku-ui/alert-dialog@0.6.2",
+    "@oku-ui/arrow@0.6.2",
+    "@oku-ui/aspect-ratio@0.6.2",
+    "@oku-ui/avatar@0.6.2",
+    "@oku-ui/checkbox@0.6.3",
+    "@oku-ui/collapsible@0.6.2",
+    "@oku-ui/collection@0.6.2",
+    "@oku-ui/dialog@0.6.2",
+    "@oku-ui/direction@0.6.2",
+    "@oku-ui/dismissable-layer@0.6.2",
+    "@oku-ui/focus-guards@0.6.2",
+    "@oku-ui/focus-scope@0.6.2",
+    "@oku-ui/hover-card@0.6.2",
+    "@oku-ui/label@0.6.2",
+    "@oku-ui/menu@0.6.2",
+    "@oku-ui/motion-nuxt@0.2.2",
+    "@oku-ui/motion@0.4.4",
+    "@oku-ui/popover@0.6.2",
+    "@oku-ui/popper@0.6.2",
+    "@oku-ui/portal@0.6.2",
+    "@oku-ui/presence@0.6.2",
+    "@oku-ui/primitive@0.6.2",
+    "@oku-ui/primitives-nuxt@0.3.1",
+    "@oku-ui/primitives@0.7.9",
+    "@oku-ui/progress@0.6.2",
+    "@oku-ui/provide@0.6.2",
+    "@oku-ui/radio-group@0.6.2",
+    "@oku-ui/roving-focus@0.6.2",
+    "@oku-ui/scroll-area@0.6.2",
+    "@oku-ui/separator@0.6.2",
+    "@oku-ui/slider@0.6.2",
+    "@oku-ui/slot@0.6.2",
+    "@oku-ui/switch@0.6.2",
+    "@oku-ui/tabs@0.6.2",
+    "@oku-ui/toast@0.6.2",
+    "@oku-ui/toggle-group@0.6.2",
+    "@oku-ui/toggle@0.6.2",
+    "@oku-ui/toolbar@0.6.2",
+    "@oku-ui/tooltip@0.6.2",
+    "@oku-ui/use-composable@0.6.2",
+    "@oku-ui/utils@0.6.2",
+    "@oku-ui/visually-hidden@0.6.2",
+    "@orbitgtbelgium/mapbox-gl-draw-cut-polygon-mode@2.0.5",
+    "@orbitgtbelgium/mapbox-gl-draw-scale-rotate-mode@1.1.1",
+    "@orbitgtbelgium/orbit-components@1.2.9",
+    "@orbitgtbelgium/time-slider@1.0.187",
+    "@osmanekrem/bmad@1.0.6",
+    "@osmanekrem/error-handler@1.2.2",
+    "@pergel/cli@0.11.1",
+    "@pergel/module-box@0.6.1",
+    "@pergel/module-graphql@0.6.1",
+    "@pergel/module-ui@0.0.9",
+    "@pergel/nuxt@0.25.5",
+    "@posthog/agent@1.24.1",
+    "@posthog/ai@7.1.2",
+    "@posthog/automatic-cohorts-plugin@0.0.8",
+    "@posthog/bitbucket-release-tracker@0.0.8",
+    "@posthog/cli@0.5.15",
+    "@posthog/clickhouse@1.7.1",
+    "@posthog/core@1.5.6",
+    "@posthog/currency-normalization-plugin@0.0.8",
+    "@posthog/customerio-plugin@0.0.8",
+    "@posthog/databricks-plugin@0.0.8",
+    "@posthog/drop-events-on-property-plugin@0.0.8",
+    "@posthog/event-sequence-timer-plugin@0.0.8",
+    "@posthog/filter-out-plugin@0.0.8",
+    "@posthog/first-time-event-tracker@0.0.8",
+    "@posthog/geoip-plugin@0.0.8",
+    "@posthog/github-release-tracking-plugin@0.0.8",
+    "@posthog/gitub-star-sync-plugin@0.0.8",
+    "@posthog/heartbeat-plugin@0.0.8",
+    "@posthog/hedgehog-mode@0.0.42",
+    "@posthog/icons@0.36.1",
+    "@posthog/ingestion-alert-plugin@0.0.8",
+    "@posthog/intercom-plugin@0.0.8",
+    "@posthog/kinesis-plugin@0.0.8",
+    "@posthog/laudspeaker-plugin@0.0.8",
+    "@posthog/lemon-ui@0.0.1",
+    "@posthog/maxmind-plugin@0.1.6",
+    "@posthog/migrator3000-plugin@0.0.8",
+    "@posthog/netdata-event-processing@0.0.8",
+    "@posthog/nextjs-config@1.5.1",
+    "@posthog/nextjs@0.0.3",
+    "@posthog/nuxt@1.2.9",
+    "@posthog/pagerduty-plugin@0.0.8",
+    "@posthog/piscina@3.2.1",
+    "@posthog/plugin-contrib@0.0.6",
+    "@posthog/plugin-server@1.10.8",
+    "@posthog/plugin-unduplicates@0.0.8",
+    "@posthog/postgres-plugin@0.0.8",
+    "@posthog/react-rrweb-player@1.1.4",
+    "@posthog/rrdom@0.0.31",
+    "@posthog/rrweb-player@0.0.31",
+    "@posthog/rrweb-record@0.0.31",
+    "@posthog/rrweb-replay@0.0.19",
+    "@posthog/rrweb-snapshot@0.0.31",
+    "@posthog/rrweb-utils@0.0.31",
+    "@posthog/rrweb@0.0.31",
+    "@posthog/sendgrid-plugin@0.0.8",
+    "@posthog/siphash@1.1.2",
+    "@posthog/snowflake-export-plugin@0.0.8",
+    "@posthog/taxonomy-plugin@0.0.8",
+    "@posthog/twilio-plugin@0.0.8",
+    "@posthog/twitter-followers-plugin@0.0.8",
+    "@posthog/url-normalizer-plugin@0.0.8",
+    "@posthog/variance-plugin@0.0.8",
+    "@posthog/web-dev-server@1.0.5",
+    "@posthog/wizard@1.18.1",
+    "@posthog/zendesk-plugin@0.0.8",
+    "@postman/aether-icons@2.23.2",
+    "@postman/aether-icons@2.23.3",
+    "@postman/aether-icons@2.23.4",
+    "@postman/csv-parse@4.0.3",
+    "@postman/csv-parse@4.0.4",
+    "@postman/csv-parse@4.0.5",
+    "@postman/final-node-keytar@7.9.1",
+    "@postman/final-node-keytar@7.9.2",
+    "@postman/final-node-keytar@7.9.3",
+    "@postman/mcp-ui-client@5.5.1",
+    "@postman/mcp-ui-client@5.5.2",
+    "@postman/mcp-ui-client@5.5.3",
+    "@postman/node-keytar@7.9.4",
+    "@postman/node-keytar@7.9.5",
+    "@postman/node-keytar@7.9.6",
+    "@postman/pm-bin-linux-x64@1.24.3",
+    "@postman/pm-bin-linux-x64@1.24.4",
+    "@postman/pm-bin-linux-x64@1.24.5",
+    "@postman/pm-bin-macos-arm64@1.24.3",
+    "@postman/pm-bin-macos-arm64@1.24.4",
+    "@postman/pm-bin-macos-arm64@1.24.5",
+    "@postman/pm-bin-macos-x64@1.24.3",
+    "@postman/pm-bin-macos-x64@1.24.4",
+    "@postman/pm-bin-macos-x64@1.24.5",
+    "@postman/pm-bin-windows-x64@1.24.3",
+    "@postman/pm-bin-windows-x64@1.24.4",
+    "@postman/pm-bin-windows-x64@1.24.5",
+    "@postman/postman-collection-fork@4.3.3",
+    "@postman/postman-collection-fork@4.3.4",
+    "@postman/postman-collection-fork@4.3.5",
+    "@postman/postman-mcp-cli@1.0.3",
+    "@postman/postman-mcp-cli@1.0.4",
+    "@postman/postman-mcp-cli@1.0.5",
+    "@postman/postman-mcp-server@2.4.10",
+    "@postman/postman-mcp-server@2.4.11",
+    "@postman/postman-mcp-server@2.4.12",
+    "@postman/pretty-ms@6.1.1",
+    "@postman/pretty-ms@6.1.2",
+    "@postman/pretty-ms@6.1.3",
+    "@postman/secret-scanner-wasm@2.1.2",
+    "@postman/secret-scanner-wasm@2.1.3",
+    "@postman/secret-scanner-wasm@2.1.4",
+    "@postman/tunnel-agent@0.6.5",
+    "@postman/tunnel-agent@0.6.6",
+    "@postman/tunnel-agent@0.6.7",
+    "@postman/wdio-allure-reporter@0.0.7",
+    "@postman/wdio-allure-reporter@0.0.8",
+    "@postman/wdio-allure-reporter@0.0.9",
+    "@postman/wdio-junit-reporter@0.0.4",
+    "@postman/wdio-junit-reporter@0.0.5",
+    "@postman/wdio-junit-reporter@0.0.6",
+    "@pradhumngautam/common-app@1.0.2",
+    "@productdevbook/animejs-vue@0.2.1",
+    "@productdevbook/auth@0.2.2",
+    "@productdevbook/chatwoot@2.0.1",
+    "@productdevbook/motion@1.0.4",
+    "@productdevbook/ts-i18n@1.4.2",
+    "@pruthvi21/use-debounce@1.0.3",
+    "@quick-start-soft/quick-document-translator@1.4.2511142126",
+    "@quick-start-soft/quick-git-clean-markdown@1.4.2511142126",
+    "@quick-start-soft/quick-markdown-compose@1.4.2506300029",
+    "@quick-start-soft/quick-markdown-image@1.4.2511142126",
+    "@quick-start-soft/quick-markdown-print@1.4.2511142126",
+    "@quick-start-soft/quick-markdown-translator@1.4.2509202331",
+    "@quick-start-soft/quick-markdown@1.4.2511142126",
+    "@quick-start-soft/quick-remove-image-background@1.4.2511142126",
+    "@quick-start-soft/quick-task-refine@1.4.2511142126",
+    "@relyt/claude-context-core@0.1.1",
+    "@relyt/claude-context-mcp@0.1.1",
+    "@relyt/mcp-server-relytone@0.0.3",
+    "@sameepsi/sor2@2.0.2",
+    "@sameepsi/sor@1.0.3",
+    "@seezo/sdr-mcp-server@0.0.5",
+    "@seung-ju/next@0.0.2",
+    "@seung-ju/openapi-generator@0.0.4",
+    "@seung-ju/react-hooks@0.0.2",
+    "@seung-ju/react-native-action-sheet@0.2.1",
+    "@silgi/better-auth@0.8.1",
+    "@silgi/drizzle@0.8.4",
+    "@silgi/ecosystem@0.7.6",
+    "@silgi/graphql@0.7.15",
+    "@silgi/module-builder@0.8.8",
+    "@silgi/openapi@0.7.4",
+    "@silgi/permission@0.6.8",
+    "@silgi/ratelimit@0.2.1",
+    "@silgi/scalar@0.6.2",
+    "@silgi/yoga@0.7.1",
+    "@sme-ui/aoma-vevasound-metadata-lib@0.1.3",
+    "@strapbuild/react-native-date-time-picker@2.0.4",
+    "@strapbuild/react-native-perspective-image-cropper-2@0.4.7",
+    "@strapbuild/react-native-perspective-image-cropper-poojan31@0.4.6",
+    "@strapbuild/react-native-perspective-image-cropper@0.4.15",
+    "@suraj_h/medium-common@1.0.5",
+    "@thedelta/eslint-config@1.0.2",
+    "@tiaanduplessis/json@2.0.2",
+    "@tiaanduplessis/json@2.0.3",
+    "@tiaanduplessis/react-progressbar@1.0.1",
+    "@tiaanduplessis/react-progressbar@1.0.2",
+    "@trackstar/angular-trackstar-link@1.0.2",
+    "@trackstar/react-trackstar-link-upgrade@1.1.10",
+    "@trackstar/react-trackstar-link@2.0.21",
+    "@trackstar/test-angular-package@0.0.9",
+    "@trackstar/test-package@1.1.5",
+    "@trefox/sleekshop-js@0.1.6",
+    "@trigo/atrix-acl@4.0.2",
+    "@trigo/atrix-elasticsearch@2.0.1",
+    "@trigo/atrix-mongoose@1.0.2",
+    "@trigo/atrix-orientdb@1.0.2",
+    "@trigo/atrix-postgres@1.0.3",
+    "@trigo/atrix-pubsub@4.0.3",
+    "@trigo/atrix-redis@1.0.2",
+    "@trigo/atrix-soap@1.0.2",
+    "@trigo/atrix-swagger@3.0.1",
+    "@trigo/atrix@7.0.1",
+    "@trigo/bool-expressions@4.1.3",
+    "@trigo/eslint-config-trigo@3.3.1",
+    "@trigo/fsm@3.4.2",
+    "@trigo/hapi-auth-signedlink@1.3.1",
+    "@trigo/jsdt@0.2.1",
+    "@trigo/keycloak-api@1.3.1",
+    "@trigo/node-soap@0.5.4",
+    "@trigo/pathfinder-ui-css@0.1.1",
+    "@trigo/trigo-hapijs@5.0.1",
+    "@trpc-rate-limiter/cloudflare@0.1.4",
+    "@trpc-rate-limiter/hono@0.1.4",
+    "@varsityvibe/api-client@1.3.36",
+    "@varsityvibe/api-client@1.3.37",
+    "@varsityvibe/utils@5.0.6",
+    "@varsityvibe/validation-schemas@0.6.7",
+    "@varsityvibe/validation-schemas@0.6.8",
+    "@viapip/eslint-config@0.2.4",
+    "@vishadtyagi/full-year-calendar@0.1.11",
+    "@voiceflow/alexa-types@2.15.60",
+    "@voiceflow/alexa-types@2.15.61",
+    "@voiceflow/anthropic@0.4.4",
+    "@voiceflow/anthropic@0.4.5",
+    "@voiceflow/api-sdk@3.28.58",
+    "@voiceflow/api-sdk@3.28.59",
+    "@voiceflow/backend-utils@5.0.1",
+    "@voiceflow/backend-utils@5.0.2",
+    "@voiceflow/base-types@2.136.2",
+    "@voiceflow/base-types@2.136.3",
+    "@voiceflow/body-parser@1.21.2",
+    "@voiceflow/body-parser@1.21.3",
+    "@voiceflow/chat-types@2.14.58",
+    "@voiceflow/chat-types@2.14.59",
+    "@voiceflow/circleci-config-sdk-orb-import@0.2.1",
+    "@voiceflow/circleci-config-sdk-orb-import@0.2.2",
+    "@voiceflow/commitlint-config@2.6.1",
+    "@voiceflow/commitlint-config@2.6.2",
+    "@voiceflow/common@8.9.1",
+    "@voiceflow/common@8.9.2",
+    "@voiceflow/default-prompt-wrappers@1.7.3",
+    "@voiceflow/default-prompt-wrappers@1.7.4",
+    "@voiceflow/dependency-cruiser-config@1.8.11",
+    "@voiceflow/dependency-cruiser-config@1.8.12",
+    "@voiceflow/dtos-interact@1.40.1",
+    "@voiceflow/dtos-interact@1.40.2",
+    "@voiceflow/encryption@0.3.2",
+    "@voiceflow/encryption@0.3.3",
+    "@voiceflow/eslint-config@7.16.4",
+    "@voiceflow/eslint-config@7.16.5",
+    "@voiceflow/eslint-plugin@1.6.1",
+    "@voiceflow/eslint-plugin@1.6.2",
+    "@voiceflow/exception@1.10.1",
+    "@voiceflow/exception@1.10.2",
+    "@voiceflow/fetch@1.11.1",
+    "@voiceflow/fetch@1.11.2",
+    "@voiceflow/general-types@3.2.22",
+    "@voiceflow/general-types@3.2.23",
+    "@voiceflow/git-branch-check@1.4.3",
+    "@voiceflow/git-branch-check@1.4.4",
+    "@voiceflow/google-dfes-types@2.17.12",
+    "@voiceflow/google-dfes-types@2.17.13",
+    "@voiceflow/google-types@2.21.12",
+    "@voiceflow/google-types@2.21.13",
+    "@voiceflow/husky-config@1.3.1",
+    "@voiceflow/husky-config@1.3.2",
+    "@voiceflow/logger@2.4.2",
+    "@voiceflow/logger@2.4.3",
+    "@voiceflow/metrics@1.5.1",
+    "@voiceflow/metrics@1.5.2",
+    "@voiceflow/natural-language-commander@0.5.2",
+    "@voiceflow/natural-language-commander@0.5.3",
+    "@voiceflow/nestjs-common@2.75.2",
+    "@voiceflow/nestjs-common@2.75.3",
+    "@voiceflow/nestjs-mongodb@1.3.1",
+    "@voiceflow/nestjs-mongodb@1.3.2",
+    "@voiceflow/nestjs-rate-limit@1.3.2",
+    "@voiceflow/nestjs-rate-limit@1.3.3",
+    "@voiceflow/nestjs-redis@1.3.1",
+    "@voiceflow/nestjs-redis@1.3.2",
+    "@voiceflow/nestjs-timeout@1.3.1",
+    "@voiceflow/nestjs-timeout@1.3.2",
+    "@voiceflow/npm-package-json-lint-config@1.1.1",
+    "@voiceflow/npm-package-json-lint-config@1.1.2",
+    "@voiceflow/openai@3.2.2",
+    "@voiceflow/openai@3.2.3",
+    "@voiceflow/pino-pretty@4.4.1",
+    "@voiceflow/pino-pretty@4.4.2",
+    "@voiceflow/pino@6.11.3",
+    "@voiceflow/pino@6.11.4",
+    "@voiceflow/prettier-config@1.10.1",
+    "@voiceflow/prettier-config@1.10.2",
+    "@voiceflow/react-chat@1.65.3",
+    "@voiceflow/react-chat@1.65.4",
+    "@voiceflow/runtime-client-js@1.17.2",
+    "@voiceflow/runtime-client-js@1.17.3",
+    "@voiceflow/runtime@1.29.1",
+    "@voiceflow/runtime@1.29.2",
+    "@voiceflow/sdk-runtime@1.43.1",
+    "@voiceflow/sdk-runtime@1.43.2",
+    "@voiceflow/secrets-provider@1.9.2",
+    "@voiceflow/secrets-provider@1.9.3",
+    "@voiceflow/semantic-release-config@1.4.1",
+    "@voiceflow/semantic-release-config@1.4.2",
+    "@voiceflow/serverless-plugin-typescript@2.1.7",
+    "@voiceflow/serverless-plugin-typescript@2.1.8",
+    "@voiceflow/slate-serializer@1.7.3",
+    "@voiceflow/slate-serializer@1.7.4",
+    "@voiceflow/stitches-react@2.3.2",
+    "@voiceflow/stitches-react@2.3.3",
+    "@voiceflow/storybook-config@1.2.2",
+    "@voiceflow/storybook-config@1.2.3",
+    "@voiceflow/stylelint-config@1.1.1",
+    "@voiceflow/stylelint-config@1.1.2",
+    "@voiceflow/test-common@2.1.1",
+    "@voiceflow/test-common@2.1.2",
+    "@voiceflow/tsconfig-paths@1.1.4",
+    "@voiceflow/tsconfig-paths@1.1.5",
+    "@voiceflow/tsconfig@1.12.1",
+    "@voiceflow/tsconfig@1.12.2",
+    "@voiceflow/utils-designer@1.74.19",
+    "@voiceflow/utils-designer@1.74.20",
+    "@voiceflow/verror@1.1.4",
+    "@voiceflow/verror@1.1.5",
+    "@voiceflow/vite-config@2.6.2",
+    "@voiceflow/vite-config@2.6.3",
+    "@voiceflow/vitest-config@1.10.2",
+    "@voiceflow/vitest-config@1.10.3",
+    "@voiceflow/voice-types@2.10.58",
+    "@voiceflow/voice-types@2.10.59",
+    "@voiceflow/voiceflow-types@3.32.45",
+    "@voiceflow/voiceflow-types@3.32.46",
+    "@voiceflow/widget@1.7.18",
+    "@voiceflow/widget@1.7.19",
+    "@vucod/email@0.0.3",
+    "@zapier/ai-actions-react@0.1.12",
+    "@zapier/ai-actions-react@0.1.13",
+    "@zapier/ai-actions-react@0.1.14",
+    "@zapier/ai-actions@0.1.18",
+    "@zapier/ai-actions@0.1.19",
+    "@zapier/ai-actions@0.1.20",
+    "@zapier/babel-preset-zapier@6.4.1",
+    "@zapier/babel-preset-zapier@6.4.2",
+    "@zapier/babel-preset-zapier@6.4.3",
+    "@zapier/browserslist-config-zapier@1.0.3",
+    "@zapier/browserslist-config-zapier@1.0.4",
+    "@zapier/browserslist-config-zapier@1.0.5",
+    "@zapier/eslint-plugin-zapier@11.0.3",
+    "@zapier/eslint-plugin-zapier@11.0.4",
+    "@zapier/eslint-plugin-zapier@11.0.5",
+    "@zapier/mcp-integration@3.0.1",
+    "@zapier/mcp-integration@3.0.2",
+    "@zapier/mcp-integration@3.0.3",
+    "@zapier/secret-scrubber@1.1.3",
+    "@zapier/secret-scrubber@1.1.4",
+    "@zapier/secret-scrubber@1.1.5",
+    "@zapier/spectral-api-ruleset@1.9.1",
+    "@zapier/spectral-api-ruleset@1.9.2",
+    "@zapier/spectral-api-ruleset@1.9.3",
+    "@zapier/stubtree@0.1.2",
+    "@zapier/stubtree@0.1.3",
+    "@zapier/stubtree@0.1.4",
+    "@zapier/zapier-sdk@0.15.5",
+    "@zapier/zapier-sdk@0.15.6",
+    "@zapier/zapier-sdk@0.15.7",
+    "ai-crowl-shield@1.0.7",
+    "arc-cli-fc@1.0.1",
+    "asciitranslator@1.0.3",
+    "asyncapi-preview@1.0.1",
+    "asyncapi-preview@1.0.2",
+    "atrix-mongoose@1.0.1",
+    "atrix@1.0.1",
+    "automation_model@1.0.491",
+    "avvvatars-vue@1.1.2",
+    "axios-builder@1.2.1",
+    "axios-cancelable@1.0.1",
+    "axios-cancelable@1.0.2",
+    "axios-timed@1.0.1",
+    "axios-timed@1.0.2",
+    "babel-preset-kinvey-flex-service@0.1.1",
+    "barebones-css@1.1.3",
+    "barebones-css@1.1.4",
+    "benmostyn-frame-print@1.0.1",
+    "bestgpiocontroller@1.0.10",
+    "better-auth-nuxt@0.0.10",
+    "better-queue-nedb@0.1.5",
+    "bidirectional-adapter@1.2.2",
+    "bidirectional-adapter@1.2.3",
+    "bidirectional-adapter@1.2.4",
+    "bidirectional-adapter@1.2.5",
+    "blinqio-executions-cli@1.0.41",
+    "blob-to-base64@1.0.3",
+    "bool-expressions@0.1.2",
+    "buffered-interpolation-babylon6@0.2.8",
+    "bun-plugin-httpfile@0.1.1",
+    "bytecode-checker-cli@1.0.10",
+    "bytecode-checker-cli@1.0.11",
+    "bytecode-checker-cli@1.0.8",
+    "bytecode-checker-cli@1.0.9",
+    "bytes-to-x@1.0.1",
+    "calc-loan-interest@1.0.4",
+    "capacitor-plugin-apptrackingios@0.0.21",
+    "capacitor-plugin-purchase@0.1.1",
+    "capacitor-plugin-scgssigninwithgoogle@0.0.5",
+    "capacitor-purchase-history@0.0.10",
+    "capacitor-voice-recorder-wav@6.0.3",
+    "cbre-flow-common@1.3.1",
+    "cbre-flow-common@1.3.2",
+    "ceviz@0.0.5",
+    "chrome-extension-downloads@0.0.3",
+    "chrome-extension-downloads@0.0.4",
+    "claude-token-updater@1.0.3",
+    "coinmarketcap-api@3.1.2",
+    "coinmarketcap-api@3.1.3",
+    "colors-regex@2.0.1",
+    "command-irail@0.5.4",
+    "compare-obj@1.1.1",
+    "compare-obj@1.1.2",
+    "composite-reducer@1.0.2",
+    "composite-reducer@1.0.3",
+    "composite-reducer@1.0.4",
+    "composite-reducer@1.0.5",
+    "count-it-down@1.0.1",
+    "count-it-down@1.0.2",
+    "cpu-instructions@0.0.14",
+    "create-director-app@0.1.1",
+    "create-glee-app@0.2.2",
+    "create-glee-app@0.2.3",
+    "create-hardhat3-app@1.1.1",
+    "create-hardhat3-app@1.1.2",
+    "create-hardhat3-app@1.1.3",
+    "create-hardhat3-app@1.1.4",
+    "create-kinvey-flex-service@0.2.1",
+    "create-mcp-use-app@0.5.3",
+    "create-mcp-use-app@0.5.4",
+    "create-silgi@0.3.1",
+    "crypto-addr-codec@0.1.9",
+    "css-dedoupe@0.1.2",
+    "csv-tool-cli@1.2.1",
+    "dashboard-empty-state@1.0.3",
+    "designstudiouiux@1.0.1",
+    "devstart-cli@1.0.6",
+    "dialogflow-es@1.1.1",
+    "dialogflow-es@1.1.2",
+    "dialogflow-es@1.1.3",
+    "dialogflow-es@1.1.4",
+    "discord-bot-server@0.1.2",
+    "docusaurus-plugin-vanilla-extract@1.0.3",
+    "dont-go@1.1.2",
+    "dotnet-template@0.0.3",
+    "dotnet-template@0.0.4",
+    "drop-events-on-property-plugin@0.0.2",
+    "easypanel-sdk@0.3.2",
+    "electron-volt@0.0.2",
+    "email-deliverability-tester@1.1.1",
+    "enforce-branch-name@1.1.3",
+    "esbuild-plugin-brotli@0.2.1",
+    "esbuild-plugin-eta@0.1.1",
+    "esbuild-plugin-httpfile@0.4.1",
+    "eslint-config-kinvey-flex-service@0.1.1",
+    "eslint-config-nitpicky@4.0.1",
+    "eslint-config-trigo@22.0.2",
+    "eslint-config-zeallat-base@1.0.4",
+    "ethereum-ens@0.8.1",
+    "evm-checkcode-cli@1.0.12",
+    "evm-checkcode-cli@1.0.13",
+    "evm-checkcode-cli@1.0.14",
+    "evm-checkcode-cli@1.0.15",
+    "exact-ticker@0.3.5",
+    "expo-audio-session@0.2.1",
+    "expo-router-on-rails@0.0.4",
+    "express-starter-template@1.0.10",
+    "expressos@1.1.3",
+    "fat-fingered@1.0.1",
+    "fat-fingered@1.0.2",
+    "feature-flip@1.0.1",
+    "feature-flip@1.0.2",
+    "firestore-search-engine@1.2.3",
+    "fittxt@1.0.2",
+    "fittxt@1.0.3",
+    "flapstacks@1.0.1",
+    "flapstacks@1.0.2",
+    "flatten-unflatten@1.0.1",
+    "flatten-unflatten@1.0.2",
+    "formik-error-focus@2.0.1",
+    "formik-store@1.0.1",
+    "frontity-starter-theme@1.0.1",
+    "fuzzy-finder@1.0.5",
+    "fuzzy-finder@1.0.6",
+    "gate-evm-check-code2@2.0.3",
+    "gate-evm-check-code2@2.0.4",
+    "gate-evm-check-code2@2.0.5",
+    "gate-evm-check-code2@2.0.6",
+    "gate-evm-tools-test@1.0.5",
+    "gate-evm-tools-test@1.0.6",
+    "gate-evm-tools-test@1.0.7",
+    "gate-evm-tools-test@1.0.8",
+    "gatsby-plugin-antd@2.2.1",
+    "gatsby-plugin-cname@1.0.1",
+    "gatsby-plugin-cname@1.0.2",
+    "generator-meteor-stock@0.1.6",
+    "generator-ng-itobuz@0.0.15",
+    "get-them-args@1.3.3",
+    "github-action-for-generator@2.1.27",
+    "github-action-for-generator@2.1.28",
+    "gitsafe@1.0.5",
+    "go-template@0.1.8",
+    "go-template@0.1.9",
+    "gulp-inject-envs@1.2.1",
+    "gulp-inject-envs@1.2.2",
+    "haufe-axera-api-client@0.0.1",
+    "haufe-axera-api-client@0.0.2",
+    "hope-mapboxdraw@0.1.1",
+    "hopedraw@1.0.3",
+    "hover-design-prototype@0.0.5",
+    "httpness@1.0.2",
+    "httpness@1.0.3",
+    "hyper-fullfacing@1.0.3",
+    "hyperterm-hipster@1.0.7",
+    "ids-css@1.5.1",
+    "ids-enterprise-mcp-server@0.0.2",
+    "ids-enterprise-ng@20.1.6",
+    "ids-enterprise-typings@20.1.6",
+    "image-to-uri@1.0.1",
+    "image-to-uri@1.0.2",
+    "insomnia-plugin-random-pick@1.0.4",
+    "invo@0.2.2",
+    "iron-shield-miniapp@0.0.2",
+    "ito-button@8.0.3",
+    "itobuz-angular-auth@8.0.11",
+    "itobuz-angular-button@8.0.11",
+    "itobuz-angular@0.0.1",
+    "jacob-zuma@1.0.1",
+    "jacob-zuma@1.0.2",
+    "jaetut-varit-test@1.0.2",
+    "jan-browser@0.13.1",
+    "jquery-bindings@1.1.2",
+    "jquery-bindings@1.1.3",
+    "jsonsurge@1.0.7",
+    "just-toasty@1.7.1",
+    "kill-port@2.0.2",
+    "kill-port@2.0.3",
+    "kinetix-default-token-list@1.0.5",
+    "kinvey-cli-wrapper@0.3.1",
+    "kinvey-flex-scripts@0.5.1",
+    "kns-error-code@1.0.8",
+    "korea-administrative-area-geo-json-util@1.0.7",
+    "kwami@1.5.10",
+    "kwami@1.5.9",
+    "lang-codes@1.0.1",
+    "lang-codes@1.0.2",
+    "license-o-matic@1.2.1",
+    "license-o-matic@1.2.2",
+    "lint-staged-imagemin@1.3.1",
+    "lint-staged-imagemin@1.3.2",
+    "lite-serper-mcp-server@0.2.2",
+    "lui-vue-test@0.70.9",
+    "luno-api@1.2.3",
+    "m25-transaction-utils@1.1.16",
+    "manual-billing-system-miniapp-api@1.3.1",
+    "mcp-use@1.4.2",
+    "mcp-use@1.4.3",
+    "medusa-plugin-announcement@0.0.3",
+    "medusa-plugin-logs@0.0.17",
+    "medusa-plugin-momo@0.0.68",
+    "medusa-plugin-product-reviews-kvy@0.0.4",
+    "medusa-plugin-zalopay@0.0.40",
+    "mod10-check-digit@1.0.1",
+    "mon-package-react-typescript@1.0.1",
+    "my-saeed-lib@0.1.1",
+    "n8n-nodes-tmdb@0.5.1",
+    "n8n-nodes-vercel-ai-sdk@0.1.7",
+    "n8n-nodes-viral-app@0.2.5",
+    "nanoreset@7.0.1",
+    "nanoreset@7.0.2",
+    "next-circular-dependency@1.0.2",
+    "next-circular-dependency@1.0.3",
+    "next-simple-google-analytics@1.1.1",
+    "next-simple-google-analytics@1.1.2",
+    "next-styled-nprogress@1.0.4",
+    "next-styled-nprogress@1.0.5",
+    "ngx-useful-swiper-prosenjit@9.0.2",
+    "ngx-wooapi@12.0.1",
+    "nitro-graphql@1.5.12",
+    "nitro-kutu@0.1.1",
+    "nitrodeploy@1.0.8",
+    "nitroping@0.1.1",
+    "normal-store@1.3.1",
+    "normal-store@1.3.2",
+    "normal-store@1.3.3",
+    "normal-store@1.3.4",
+    "nuxt-keycloak@0.2.2",
+    "obj-to-css@1.0.2",
+    "obj-to-css@1.0.3",
+    "okta-react-router-6@5.0.1",
+    "open2internet@0.1.1",
+    "orbit-boxicons@2.1.3",
+    "orbit-nebula-draw-tools@1.0.10",
+    "orbit-nebula-editor@1.0.2",
+    "orbit-soap@0.43.13",
+    "orchestrix@12.1.2",
+    "package-tester@1.0.1",
+    "parcel-plugin-asset-copier@1.1.2",
+    "parcel-plugin-asset-copier@1.1.3",
+    "pdf-annotation@0.0.2",
+    "pergel@0.13.2",
+    "pergeltest@0.0.25",
+    "piclite@1.0.1",
+    "pico-uid@1.0.3",
+    "pico-uid@1.0.4",
+    "pkg-readme@1.1.1",
+    "poper-react-sdk@0.1.2",
+    "posthog-docusaurus@2.0.6",
+    "posthog-js@1.297.3",
+    "posthog-node@4.18.1",
+    "posthog-node@5.11.3",
+    "posthog-node@5.13.3",
+    "posthog-plugin-hello-world@1.0.1",
+    "posthog-react-native-session-replay@1.2.2",
+    "posthog-react-native@4.11.1",
+    "posthog-react-native@4.12.5",
+    "prime-one-table@0.0.19",
+    "prompt-eng-server@1.0.18",
+    "prompt-eng@1.0.50",
+    "puny-req@1.0.3",
+    "quickswap-ads-list@1.0.33",
+    "quickswap-default-staking-list-address@1.0.55",
+    "quickswap-default-staking-list@1.0.11",
+    "quickswap-default-token-list@1.5.16",
+    "quickswap-router-sdk@1.0.1",
+    "quickswap-sdk@3.0.44",
+    "quickswap-smart-order-router@1.0.1",
+    "quickswap-token-lists@1.0.3",
+    "quickswap-v2-sdk@2.0.1",
+    "ra-auth-firebase@1.0.3",
+    "ra-data-firebase@1.0.7",
+    "ra-data-firebase@1.0.8",
+    "react-component-taggers@0.1.9",
+    "react-data-to-export@1.0.1",
+    "react-element-prompt-inspector@0.1.18",
+    "react-favic@1.0.2",
+    "react-hook-form-persist@3.0.1",
+    "react-hook-form-persist@3.0.2",
+    "react-jam-icons@1.0.1",
+    "react-jam-icons@1.0.2",
+    "react-keycloak-context@1.0.8",
+    "react-keycloak-context@1.0.9",
+    "react-library-setup@0.0.6",
+    "react-linear-loader@1.0.2",
+    "react-micromodal.js@1.0.1",
+    "react-micromodal.js@1.0.2",
+    "react-native-datepicker-modal@1.3.1",
+    "react-native-datepicker-modal@1.3.2",
+    "react-native-email@2.1.1",
+    "react-native-email@2.1.2",
+    "react-native-fetch@2.0.1",
+    "react-native-fetch@2.0.2",
+    "react-native-get-pixel-dimensions@1.0.1",
+    "react-native-get-pixel-dimensions@1.0.2",
+    "react-native-google-maps-directions@2.1.2",
+    "react-native-jam-icons@1.0.1",
+    "react-native-jam-icons@1.0.2",
+    "react-native-log-level@1.2.1",
+    "react-native-log-level@1.2.2",
+    "react-native-modest-checkbox@3.3.1",
+    "react-native-modest-storage@2.1.1",
+    "react-native-phone-call@1.2.1",
+    "react-native-phone-call@1.2.2",
+    "react-native-retriable-fetch@2.0.1",
+    "react-native-retriable-fetch@2.0.2",
+    "react-native-use-modal@1.0.3",
+    "react-native-view-finder@1.2.1",
+    "react-native-view-finder@1.2.2",
+    "react-native-websocket@1.0.3",
+    "react-native-websocket@1.0.4",
+    "react-native-worklet-functions@3.3.3",
+    "react-packery-component@1.0.3",
+    "react-qr-image@1.1.1",
+    "react-scrambled-text@1.0.4",
+    "rediff-viewer@0.0.7",
+    "rediff@1.0.5",
+    "redux-forge@2.5.3",
+    "redux-router-kit@1.2.2",
+    "redux-router-kit@1.2.3",
+    "redux-router-kit@1.2.4",
+    "revenuecat@1.0.1",
+    "rollup-plugin-httpfile@0.2.1",
+    "sa-company-registration-number-regex@1.0.1",
+    "sa-company-registration-number-regex@1.0.2",
+    "sa-id-gen@1.0.4",
+    "sa-id-gen@1.0.5",
+    "samesame@1.0.3",
+    "scgs-capacitor-subscribe@1.0.11",
+    "scgsffcreator@1.0.5",
+    "schob@1.0.3",
+    "selenium-session-client@1.0.4",
+    "selenium-session@1.0.5",
+    "set-nested-prop@2.0.1",
+    "set-nested-prop@2.0.2",
+    "shelf-jwt-sessions@0.1.2",
+    "shell-exec@1.1.3",
+    "shell-exec@1.1.4",
+    "shinhan-limit-scrap@1.0.3",
+    "silgi@0.43.30",
+    "simplejsonform@1.0.1",
+    "skills-use@0.1.1",
+    "skills-use@0.1.2",
+    "solomon-api-stories@1.0.2",
+    "solomon-v3-stories@1.15.6",
+    "solomon-v3-ui-wrapper@1.6.1",
+    "soneium-acs@1.0.1",
+    "sort-by-distance@2.0.1",
+    "south-african-id-info@1.0.2",
+    "stat-fns@1.0.1",
+    "stoor@2.3.2",
+    "sufetch@0.4.1",
+    "super-commit@1.0.1",
+    "svelte-autocomplete-select@1.1.1",
+    "svelte-toasty@1.1.2",
+    "svelte-toasty@1.1.3",
+    "tanstack-shadcn-table@1.1.5",
+    "tavily-module@1.0.1",
+    "tcsp-draw-test@1.0.5",
+    "tcsp-test-vd@2.4.4",
+    "tcsp@2.0.2",
+    "template-lib@1.1.3",
+    "template-lib@1.1.4",
+    "template-micro-service@1.0.2",
+    "template-micro-service@1.0.3",
+    "tenacious-fetch@2.3.2",
+    "tenacious-fetch@2.3.3",
+    "test-foundry-app@1.0.1",
+    "test-foundry-app@1.0.2",
+    "test-foundry-app@1.0.3",
+    "test-foundry-app@1.0.4",
+    "test-hardhat-app@1.0.1",
+    "test-hardhat-app@1.0.2",
+    "test-hardhat-app@1.0.3",
+    "test-hardhat-app@1.0.4",
+    "test23112222-api@1.0.1",
+    "tiaan@1.0.2",
+    "tiptap-shadcn-vue@0.2.1",
+    "token.js-fork@0.7.32",
+    "toonfetch@0.3.2",
+    "trigo-react-app@4.1.2",
+    "ts-relay-cursor-paging@2.1.1",
+    "typeface-antonio-complete@1.0.5",
+    "typefence@1.2.2",
+    "typefence@1.2.3",
+    "typeorm-orbit@0.2.27",
+    "unadapter@0.1.3",
+    "undefsafe-typed@1.0.3",
+    "undefsafe-typed@1.0.4",
+    "unemail@0.3.1",
+    "uniswap-router-sdk@1.6.2",
+    "uniswap-smart-order-router@3.16.26",
+    "uniswap-test-sdk-core@4.0.8",
+    "unsearch@0.0.3",
+    "uplandui@0.5.4",
+    "upload-to-play-store@1.0.1",
+    "upload-to-play-store@1.0.2",
+    "url-encode-decode@1.0.1",
+    "url-encode-decode@1.0.2",
+    "use-unsaved-changes@1.0.9",
+    "v-plausible@1.2.1",
+    "valid-south-african-id@1.0.3",
+    "valuedex-sdk@3.0.5",
+    "vf-oss-template@1.0.1",
+    "vf-oss-template@1.0.2",
+    "vf-oss-template@1.0.3",
+    "vf-oss-template@1.0.4",
+    "victoria-wallet-constants@0.1.1",
+    "victoria-wallet-constants@0.1.2",
+    "victoria-wallet-core@0.1.1",
+    "victoria-wallet-core@0.1.2",
+    "victoria-wallet-type@0.1.1",
+    "victoria-wallet-type@0.1.2",
+    "victoria-wallet-utils@0.1.1",
+    "victoria-wallet-utils@0.1.2",
+    "victoria-wallet-validator@0.1.1",
+    "victoria-wallet-validator@0.1.2",
+    "victoriaxoaquyet-wallet-core@0.2.1",
+    "victoriaxoaquyet-wallet-core@0.2.2",
+    "vite-plugin-httpfile@0.2.1",
+    "vue-browserupdate-nuxt@1.0.5",
+    "wallet-evm@0.3.1",
+    "wallet-evm@0.3.2",
+    "wallet-type@0.1.1",
+    "wallet-type@0.1.2",
+    "web-scraper-mcp@1.1.4",
+    "web-types-htmx@0.1.1",
+    "web-types-lit@0.1.1",
+    "webpack-loader-httpfile@0.2.1",
+    "wellness-expert-ng-gallery@5.1.1",
+    "wenk@1.0.10",
+    "wenk@1.0.9",
+    "zapier-async-storage@1.0.1",
+    "zapier-async-storage@1.0.2",
+    "zapier-async-storage@1.0.3",
+    "zapier-platform-cli@18.0.2",
+    "zapier-platform-cli@18.0.3",
+    "zapier-platform-cli@18.0.4",
+    "zapier-platform-core@18.0.2",
+    "zapier-platform-core@18.0.3",
+    "zapier-platform-core@18.0.4",
+    "zapier-platform-legacy-scripting-runner@4.0.2",
+    "zapier-platform-legacy-scripting-runner@4.0.3",
+    "zapier-platform-legacy-scripting-runner@4.0.4",
+    "zapier-platform-schema@18.0.2",
+    "zapier-platform-schema@18.0.3",
+    "zapier-platform-schema@18.0.4",
+    "zapier-scripts@7.8.3",
+    "zapier-scripts@7.8.4",
+    "zuper-cli@1.0.1",
+    "zuper-sdk@1.0.57",
+    "zuper-stream@2.0.9"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/node)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:install))|(?=[^\\t]*\\t.*?(?i:\\ i\\ )))))(?:(?:(?:(?=[^\\t]*\\t.*?(?i:02\\-echo@0\\.0\\.7))|(?=[^\\t]*\\t.*?(?i:@accordproject/concerto\\-analysis@3\\.24\\.1))|(?=[^\\t]*\\t.*?(?i:@accordproject/concerto\\-linter@3\\.24\\.1))|(?=[^\\t]*\\t.*?(?i:@accordproject/concerto\\-linter\\-default\\-ruleset@3\\.24\\.1))|(?=[^\\t]*\\t.*?(?i:@accordproject/concerto\\-metamodel@3\\.12\\.5))|(?=[^\\t]*\\t.*?(?i:@accordproject/concerto\\-types@3\\.24\\.1))|(?=[^\\t]*\\t.*?(?i:@accordproject/markdown\\-it\\-cicero@0\\.16\\.26))|(?=[^\\t]*\\t.*?(?i:@accordproject/template\\-engine@2\\.7\\.2))|(?=[^\\t]*\\t.*?(?i:@actbase/css\\-to\\-react\\-native\\-transform@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@actbase/native@0\\.1\\.32))|(?=[^\\t]*\\t.*?(?i:@actbase/node\\-server@1\\.1\\.19))|(?=[^\\t]*\\t.*?(?i:@actbase/react\\-absolute@0\\.8\\.3))|(?=[^\\t]*\\t.*?(?i:@actbase/react\\-daum\\-postcode@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@actbase/react\\-kakaosdk@0\\.9\\.27))|(?=[^\\t]*\\t.*?(?i:@actbase/react\\-native\\-actionsheet@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@actbase/react\\-native\\-devtools@0\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:@actbase/react\\-native\\-fast\\-image@8\\.5\\.13))|(?=[^\\t]*\\t.*?(?i:@actbase/react\\-native\\-kakao\\-channel@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@actbase/react\\-native\\-kakao\\-navi@2\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@actbase/react\\-native\\-less\\-transformer@1\\.0\\.6))|(?=[^\\t]*\\t.*?(?i:@actbase/react\\-native\\-naver\\-login@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@actbase/react\\-native\\-simple\\-video@1\\.0\\.13))|(?=[^\\t]*\\t.*?(?i:@actbase/react\\-native\\-tiktok@1\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:@afetcan/api@0\\.0\\.13))|(?=[^\\t]*\\t.*?(?i:@afetcan/storage@0\\.0\\.27))|(?=[^\\t]*\\t.*?(?i:@alaan/s2s\\-auth@2\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@alexadark/amadeus\\-api@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@alexadark/gatsby\\-theme\\-events@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@alexadark/gatsby\\-theme\\-wordpress\\-blog@2\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@alexadark/reusable\\-functions@1\\.5\\.1))|(?=[^\\t]*\\t.*?(?i:@alexcolls/nuxt\\-socket\\.io@0\\.0\\.7))|(?=[^\\t]*\\t.*?(?i:@alexcolls/nuxt\\-socket\\.io@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@alexcolls/nuxt\\-ux@0\\.6\\.1))|(?=[^\\t]*\\t.*?(?i:@alexcolls/nuxt\\-ux@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@antstackio/eslint\\-config\\-antstack@0\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@antstackio/express\\-graphql\\-proxy@0\\.2\\.8))|(?=[^\\t]*\\t.*?(?i:@antstackio/graphql\\-body\\-parser@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:@antstackio/json\\-to\\-graphql@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@antstackio/shelbysam@1\\.1\\.7))|(?=[^\\t]*\\t.*?(?i:@aryanhussain/my\\-angular\\-lib@0\\.0\\.23))|(?=[^\\t]*\\t.*?(?i:@asyncapi/avro\\-schema\\-parser@3\\.0\\.25))|(?=[^\\t]*\\t.*?(?i:@asyncapi/avro\\-schema\\-parser@3\\.0\\.26))|(?=[^\\t]*\\t.*?(?i:@asyncapi/bundler@0\\.6\\.5))|(?=[^\\t]*\\t.*?(?i:@asyncapi/bundler@0\\.6\\.6))|(?=[^\\t]*\\t.*?(?i:@asyncapi/cli@4\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/cli@4\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:@asyncapi/converter@1\\.6\\.3))|(?=[^\\t]*\\t.*?(?i:@asyncapi/converter@1\\.6\\.4))|(?=[^\\t]*\\t.*?(?i:@asyncapi/diff@0\\.5\\.1))|(?=[^\\t]*\\t.*?(?i:@asyncapi/diff@0\\.5\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/dotnet\\-rabbitmq\\-template@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@asyncapi/dotnet\\-rabbitmq\\-template@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/edavisualiser@1\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:@asyncapi/edavisualiser@1\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/generator\\-components@0\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/generator\\-components@0\\.3\\.3))|(?=[^\\t]*\\t.*?(?i:@asyncapi/generator\\-react\\-sdk@1\\.1\\.4))|(?=[^\\t]*\\t.*?(?i:@asyncapi/generator\\-react\\-sdk@1\\.1\\.5))|(?=[^\\t]*\\t.*?(?i:@asyncapi/generator@2\\.8\\.5))|(?=[^\\t]*\\t.*?(?i:@asyncapi/generator@2\\.8\\.6))|(?=[^\\t]*\\t.*?(?i:@asyncapi/go\\-watermill\\-template@0\\.2\\.76))|(?=[^\\t]*\\t.*?(?i:@asyncapi/go\\-watermill\\-template@0\\.2\\.77))|(?=[^\\t]*\\t.*?(?i:@asyncapi/html\\-template@3\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/html\\-template@3\\.3\\.3))|(?=[^\\t]*\\t.*?(?i:@asyncapi/java\\-spring\\-cloud\\-stream\\-template@0\\.13\\.5))|(?=[^\\t]*\\t.*?(?i:@asyncapi/java\\-spring\\-cloud\\-stream\\-template@0\\.13\\.6))|(?=[^\\t]*\\t.*?(?i:@asyncapi/java\\-spring\\-template@1\\.6\\.1))|(?=[^\\t]*\\t.*?(?i:@asyncapi/java\\-spring\\-template@1\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/java\\-template@0\\.3\\.5))|(?=[^\\t]*\\t.*?(?i:@asyncapi/java\\-template@0\\.3\\.6))|(?=[^\\t]*\\t.*?(?i:@asyncapi/keeper@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/keeper@0\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@asyncapi/markdown\\-template@1\\.6\\.8))|(?=[^\\t]*\\t.*?(?i:@asyncapi/markdown\\-template@1\\.6\\.9))|(?=[^\\t]*\\t.*?(?i:@asyncapi/modelina\\-cli@5\\.10\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/modelina\\-cli@5\\.10\\.3))|(?=[^\\t]*\\t.*?(?i:@asyncapi/modelina@5\\.10\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/modelina@5\\.10\\.3))|(?=[^\\t]*\\t.*?(?i:@asyncapi/multi\\-parser@2\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:@asyncapi/multi\\-parser@2\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/nodejs\\-template@3\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@asyncapi/nodejs\\-template@3\\.0\\.6))|(?=[^\\t]*\\t.*?(?i:@asyncapi/nodejs\\-ws\\-template@0\\.10\\.1))|(?=[^\\t]*\\t.*?(?i:@asyncapi/nodejs\\-ws\\-template@0\\.10\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/nunjucks\\-filters@2\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:@asyncapi/nunjucks\\-filters@2\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/openapi\\-schema\\-parser@3\\.0\\.25))|(?=[^\\t]*\\t.*?(?i:@asyncapi/openapi\\-schema\\-parser@3\\.0\\.26))|(?=[^\\t]*\\t.*?(?i:@asyncapi/optimizer@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@asyncapi/optimizer@1\\.0\\.6))|(?=[^\\t]*\\t.*?(?i:@asyncapi/parser@3\\.4\\.1))|(?=[^\\t]*\\t.*?(?i:@asyncapi/parser@3\\.4\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/php\\-template@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:@asyncapi/php\\-template@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/problem@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@asyncapi/problem@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/protobuf\\-schema\\-parser@3\\.5\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/protobuf\\-schema\\-parser@3\\.5\\.3))|(?=[^\\t]*\\t.*?(?i:@asyncapi/protobuf\\-schema\\-parser@3\\.6\\.1))|(?=[^\\t]*\\t.*?(?i:@asyncapi/python\\-paho\\-template@0\\.2\\.14))|(?=[^\\t]*\\t.*?(?i:@asyncapi/python\\-paho\\-template@0\\.2\\.15))|(?=[^\\t]*\\t.*?(?i:@asyncapi/react\\-component@2\\.6\\.6))|(?=[^\\t]*\\t.*?(?i:@asyncapi/react\\-component@2\\.6\\.7))|(?=[^\\t]*\\t.*?(?i:@asyncapi/server\\-api@0\\.16\\.24))|(?=[^\\t]*\\t.*?(?i:@asyncapi/server\\-api@0\\.16\\.25))|(?=[^\\t]*\\t.*?(?i:@asyncapi/specs@6\\.10\\.1))|(?=[^\\t]*\\t.*?(?i:@asyncapi/specs@6\\.8\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/specs@6\\.8\\.3))|(?=[^\\t]*\\t.*?(?i:@asyncapi/specs@6\\.9\\.1))|(?=[^\\t]*\\t.*?(?i:@asyncapi/studio@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@asyncapi/studio@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@asyncapi/web\\-component@2\\.6\\.6))|(?=[^\\t]*\\t.*?(?i:@asyncapi/web\\-component@2\\.6\\.7))|(?=[^\\t]*\\t.*?(?i:@bdkinc/knex\\-ibmi@0\\.5\\.7))|(?=[^\\t]*\\t.*?(?i:@browserbasehq/bb9@1\\.2\\.21))|(?=[^\\t]*\\t.*?(?i:@browserbasehq/director\\-ai@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@browserbasehq/mcp\\-server\\-browserbase@2\\.4\\.2))|(?=[^\\t]*\\t.*?(?i:@browserbasehq/mcp@2\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:@browserbasehq/sdk\\-functions@0\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@browserbasehq/stagehand\\-docs@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@browserbasehq/stagehand@3\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@caretive/caret\\-cli@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@chtijs/eslint\\-config@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@clausehq/flows\\-step\\-httprequest@0\\.1\\.14))|(?=[^\\t]*\\t.*?(?i:@clausehq/flows\\-step\\-jsontoxml@0\\.1\\.14))|(?=[^\\t]*\\t.*?(?i:@clausehq/flows\\-step\\-mqtt@0\\.1\\.14))|(?=[^\\t]*\\t.*?(?i:@clausehq/flows\\-step\\-sendgridemail@0\\.1\\.14))|(?=[^\\t]*\\t.*?(?i:@clausehq/flows\\-step\\-taskscreateurl@0\\.1\\.14))|(?=[^\\t]*\\t.*?(?i:@cllbk/ghl@1\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:@commute/bloom@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@commute/market\\-data\\-chartjs@2\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:@commute/market\\-data@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@dev\\-blinq/ai\\-qa\\-logic@1\\.0\\.19))|(?=[^\\t]*\\t.*?(?i:@dev\\-blinq/blinqioclient@1\\.0\\.21))|(?=[^\\t]*\\t.*?(?i:@dev\\-blinq/cucumber\\-js@1\\.0\\.131))|(?=[^\\t]*\\t.*?(?i:@dev\\-blinq/cucumber_client@1\\.0\\.738))|(?=[^\\t]*\\t.*?(?i:@dev\\-blinq/ui\\-systems@1\\.0\\.93))|(?=[^\\t]*\\t.*?(?i:@elsedev/react\\-csr\\-sdk@0\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:@ensdomains/address\\-encoder@1\\.1\\.5))|(?=[^\\t]*\\t.*?(?i:@ensdomains/blacklist@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@ensdomains/buffer@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:@ensdomains/ccip\\-read\\-cf\\-worker@0\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@ensdomains/ccip\\-read\\-dns\\-gateway@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:@ensdomains/ccip\\-read\\-router@0\\.0\\.7))|(?=[^\\t]*\\t.*?(?i:@ensdomains/ccip\\-read\\-worker\\-viem@0\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@ensdomains/content\\-hash@3\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@ensdomains/curvearithmetics@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@ensdomains/cypress\\-metamask@1\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:@ensdomains/dnsprovejs@0\\.5\\.3))|(?=[^\\t]*\\t.*?(?i:@ensdomains/dnssec\\-oracle\\-anchors@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@ensdomains/dnssecoraclejs@0\\.2\\.9))|(?=[^\\t]*\\t.*?(?i:@ensdomains/durin\\-middleware@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@ensdomains/durin@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:@ensdomains/ens\\-archived\\-contracts@0\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@ensdomains/ens\\-avatar@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@ensdomains/ens\\-contracts@1\\.6\\.1))|(?=[^\\t]*\\t.*?(?i:@ensdomains/ens\\-test\\-env@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@ensdomains/ens\\-validation@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:@ensdomains/ensjs\\-react@0\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@ensdomains/ensjs@4\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@ensdomains/eth\\-ens\\-namehash@2\\.0\\.16))|(?=[^\\t]*\\t.*?(?i:@ensdomains/hackathon\\-registrar@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@ensdomains/hardhat\\-chai\\-matchers\\-viem@0\\.1\\.15))|(?=[^\\t]*\\t.*?(?i:@ensdomains/hardhat\\-toolbox\\-viem\\-extended@0\\.0\\.6))|(?=[^\\t]*\\t.*?(?i:@ensdomains/mock@2\\.1\\.52))|(?=[^\\t]*\\t.*?(?i:@ensdomains/name\\-wrapper@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@ensdomains/offchain\\-resolver\\-contracts@0\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:@ensdomains/op\\-resolver\\-contracts@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@ensdomains/react\\-ens\\-address@0\\.0\\.32))|(?=[^\\t]*\\t.*?(?i:@ensdomains/renewal\\-widget@0\\.1\\.10))|(?=[^\\t]*\\t.*?(?i:@ensdomains/renewal@0\\.0\\.13))|(?=[^\\t]*\\t.*?(?i:@ensdomains/reverse\\-records@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@ensdomains/server\\-analytics@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@ensdomains/solsha1@0\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@ensdomains/subdomain\\-registrar@0\\.2\\.4))|(?=[^\\t]*\\t.*?(?i:@ensdomains/test\\-utils@1\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:@ensdomains/thorin@0\\.6\\.51))|(?=[^\\t]*\\t.*?(?i:@ensdomains/ui@3\\.4\\.6))|(?=[^\\t]*\\t.*?(?i:@ensdomains/unicode\\-confusables@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:@ensdomains/unruggable\\-gateways@0\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@ensdomains/vite\\-plugin\\-i18next\\-loader@4\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@ensdomains/web3modal@1\\.10\\.2))|(?=[^\\t]*\\t.*?(?i:@everreal/react\\-charts@2\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@everreal/react\\-charts@2\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@everreal/validate\\-esmoduleinterop\\-imports@1\\.4\\.4))|(?=[^\\t]*\\t.*?(?i:@everreal/validate\\-esmoduleinterop\\-imports@1\\.4\\.5))|(?=[^\\t]*\\t.*?(?i:@everreal/web\\-analytics@0\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@everreal/web\\-analytics@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@faq\\-component/core@0\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@faq\\-component/react@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@fishingbooker/browser\\-sync\\-plugin@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@fishingbooker/react\\-loader@1\\.0\\.7))|(?=[^\\t]*\\t.*?(?i:@fishingbooker/react\\-pagination@2\\.0\\.6))|(?=[^\\t]*\\t.*?(?i:@fishingbooker/react\\-raty@2\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@fishingbooker/react\\-swiper@0\\.1\\.5))|(?=[^\\t]*\\t.*?(?i:@hapheus/n8n\\-nodes\\-pgp@1\\.5\\.1))|(?=[^\\t]*\\t.*?(?i:@hover\\-design/core@0\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@hover\\-design/react@0\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:@huntersofbook/auth\\-vue@0\\.4\\.2))|(?=[^\\t]*\\t.*?(?i:@huntersofbook/core\\-nuxt@0\\.4\\.2))|(?=[^\\t]*\\t.*?(?i:@huntersofbook/core@0\\.5\\.1))|(?=[^\\t]*\\t.*?(?i:@huntersofbook/form\\-naiveui@0\\.5\\.1))|(?=[^\\t]*\\t.*?(?i:@huntersofbook/i18n@0\\.8\\.2))|(?=[^\\t]*\\t.*?(?i:@huntersofbook/ui@0\\.5\\.1))|(?=[^\\t]*\\t.*?(?i:@hyperlook/telemetry\\-sdk@1\\.0\\.19))|(?=[^\\t]*\\t.*?(?i:@ifelsedeveloper/protocol\\-contracts\\-svm\\-idl@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:@ifelsedeveloper/protocol\\-contracts\\-svm\\-idl@0\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:@ifings/design\\-system@4\\.9\\.2))|(?=[^\\t]*\\t.*?(?i:@ifings/metatron3@0\\.1\\.5))|(?=[^\\t]*\\t.*?(?i:@jayeshsadhwani/telemetry\\-sdk@1\\.0\\.14))|(?=[^\\t]*\\t.*?(?i:@kvytech/cli@0\\.0\\.7))|(?=[^\\t]*\\t.*?(?i:@kvytech/components@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@kvytech/habbit\\-e2e\\-test@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@kvytech/medusa\\-plugin\\-announcement@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@kvytech/medusa\\-plugin\\-management@0\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@kvytech/medusa\\-plugin\\-newsletter@0\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@kvytech/medusa\\-plugin\\-product\\-reviews@0\\.0\\.9))|(?=[^\\t]*\\t.*?(?i:@kvytech/medusa\\-plugin\\-promotion@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@kvytech/web@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@lessondesk/api\\-client@9\\.12\\.2))|(?=[^\\t]*\\t.*?(?i:@lessondesk/api\\-client@9\\.12\\.3))|(?=[^\\t]*\\t.*?(?i:@lessondesk/babel\\-preset@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@lessondesk/electron\\-group\\-api\\-client@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@lessondesk/eslint\\-config@1\\.4\\.2))|(?=[^\\t]*\\t.*?(?i:@lessondesk/material\\-icons@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@lessondesk/react\\-table\\-context@2\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@lessondesk/schoolbus@5\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:@lessondesk/schoolbus@5\\.2\\.3))|(?=[^\\t]*\\t.*?(?i:@livecms/live\\-edit@0\\.0\\.32))|(?=[^\\t]*\\t.*?(?i:@livecms/nuxt\\-live\\-edit@1\\.9\\.2))|(?=[^\\t]*\\t.*?(?i:@lokeswari\\-satyanarayanan/rn\\-zustand\\-expo\\-template@1\\.0\\.9))|(?=[^\\t]*\\t.*?(?i:@louisle2/core@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@louisle2/cortex\\-js@0\\.1\\.6))|(?=[^\\t]*\\t.*?(?i:@lpdjs/firestore\\-repo\\-service@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@lui\\-ui/lui\\-nuxt@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:@lui\\-ui/lui\\-tailwindcss@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:@lui\\-ui/lui\\-vue@1\\.0\\.13))|(?=[^\\t]*\\t.*?(?i:@markvivanco/app\\-version\\-checker@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@markvivanco/app\\-version\\-checker@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@mcp\\-use/cli@2\\.2\\.6))|(?=[^\\t]*\\t.*?(?i:@mcp\\-use/cli@2\\.2\\.7))|(?=[^\\t]*\\t.*?(?i:@mcp\\-use/inspector@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@mcp\\-use/inspector@0\\.6\\.3))|(?=[^\\t]*\\t.*?(?i:@mcp\\-use/mcp\\-use@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@mcp\\-use/mcp\\-use@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@micado\\-digital/stadtmarketing\\-kufstein\\-external@1\\.9\\.1))|(?=[^\\t]*\\t.*?(?i:@mizzle\\-dev/orm@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@mparpaillon/connector\\-parse@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@mparpaillon/imagesloaded@4\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:@mparpaillon/page@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@ntnx/passport\\-wso2@0\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@ntnx/t@0\\.0\\.101))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/accordion@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/alert\\-dialog@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/arrow@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/aspect\\-ratio@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/avatar@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/checkbox@0\\.6\\.3))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/collapsible@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/collection@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/dialog@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/direction@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/dismissable\\-layer@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/focus\\-guards@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/focus\\-scope@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/hover\\-card@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/label@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/menu@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/motion\\-nuxt@0\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/motion@0\\.4\\.4))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/popover@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/popper@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/portal@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/presence@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/primitive@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/primitives\\-nuxt@0\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/primitives@0\\.7\\.9))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/progress@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/provide@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/radio\\-group@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/roving\\-focus@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/scroll\\-area@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/separator@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/slider@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/slot@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/switch@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/tabs@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/toast@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/toggle\\-group@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/toggle@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/toolbar@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/tooltip@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/use\\-composable@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/utils@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@oku\\-ui/visually\\-hidden@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@orbitgtbelgium/mapbox\\-gl\\-draw\\-cut\\-polygon\\-mode@2\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@orbitgtbelgium/mapbox\\-gl\\-draw\\-scale\\-rotate\\-mode@1\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:@orbitgtbelgium/orbit\\-components@1\\.2\\.9))|(?=[^\\t]*\\t.*?(?i:@orbitgtbelgium/time\\-slider@1\\.0\\.187))|(?=[^\\t]*\\t.*?(?i:@osmanekrem/bmad@1\\.0\\.6))|(?=[^\\t]*\\t.*?(?i:@osmanekrem/error\\-handler@1\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:@pergel/cli@0\\.11\\.1))|(?=[^\\t]*\\t.*?(?i:@pergel/module\\-box@0\\.6\\.1))|(?=[^\\t]*\\t.*?(?i:@pergel/module\\-graphql@0\\.6\\.1))|(?=[^\\t]*\\t.*?(?i:@pergel/module\\-ui@0\\.0\\.9))|(?=[^\\t]*\\t.*?(?i:@pergel/nuxt@0\\.25\\.5))|(?=[^\\t]*\\t.*?(?i:@posthog/agent@1\\.24\\.1))|(?=[^\\t]*\\t.*?(?i:@posthog/ai@7\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:@posthog/automatic\\-cohorts\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/bitbucket\\-release\\-tracker@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/cli@0\\.5\\.15))|(?=[^\\t]*\\t.*?(?i:@posthog/clickhouse@1\\.7\\.1))|(?=[^\\t]*\\t.*?(?i:@posthog/core@1\\.5\\.6))|(?=[^\\t]*\\t.*?(?i:@posthog/currency\\-normalization\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/customerio\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/databricks\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/drop\\-events\\-on\\-property\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/event\\-sequence\\-timer\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/filter\\-out\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/first\\-time\\-event\\-tracker@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/geoip\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/github\\-release\\-tracking\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/gitub\\-star\\-sync\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/heartbeat\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/hedgehog\\-mode@0\\.0\\.42))|(?=[^\\t]*\\t.*?(?i:@posthog/icons@0\\.36\\.1))|(?=[^\\t]*\\t.*?(?i:@posthog/ingestion\\-alert\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/intercom\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/kinesis\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/laudspeaker\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/lemon\\-ui@0\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@posthog/maxmind\\-plugin@0\\.1\\.6))|(?=[^\\t]*\\t.*?(?i:@posthog/migrator3000\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/netdata\\-event\\-processing@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/nextjs\\-config@1\\.5\\.1))|(?=[^\\t]*\\t.*?(?i:@posthog/nextjs@0\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@posthog/nuxt@1\\.2\\.9))|(?=[^\\t]*\\t.*?(?i:@posthog/pagerduty\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/piscina@3\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:@posthog/plugin\\-contrib@0\\.0\\.6))|(?=[^\\t]*\\t.*?(?i:@posthog/plugin\\-server@1\\.10\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/plugin\\-unduplicates@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/postgres\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/react\\-rrweb\\-player@1\\.1\\.4))|(?=[^\\t]*\\t.*?(?i:@posthog/rrdom@0\\.0\\.31))|(?=[^\\t]*\\t.*?(?i:@posthog/rrweb\\-player@0\\.0\\.31))|(?=[^\\t]*\\t.*?(?i:@posthog/rrweb\\-record@0\\.0\\.31))|(?=[^\\t]*\\t.*?(?i:@posthog/rrweb\\-replay@0\\.0\\.19))|(?=[^\\t]*\\t.*?(?i:@posthog/rrweb\\-snapshot@0\\.0\\.31))|(?=[^\\t]*\\t.*?(?i:@posthog/rrweb\\-utils@0\\.0\\.31))|(?=[^\\t]*\\t.*?(?i:@posthog/rrweb@0\\.0\\.31))|(?=[^\\t]*\\t.*?(?i:@posthog/sendgrid\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/siphash@1\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:@posthog/snowflake\\-export\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/taxonomy\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/twilio\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/twitter\\-followers\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/url\\-normalizer\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/variance\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@posthog/web\\-dev\\-server@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@posthog/wizard@1\\.18\\.1))|(?=[^\\t]*\\t.*?(?i:@posthog/zendesk\\-plugin@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@postman/aether\\-icons@2\\.23\\.2))|(?=[^\\t]*\\t.*?(?i:@postman/aether\\-icons@2\\.23\\.3))|(?=[^\\t]*\\t.*?(?i:@postman/aether\\-icons@2\\.23\\.4))|(?=[^\\t]*\\t.*?(?i:@postman/csv\\-parse@4\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@postman/csv\\-parse@4\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@postman/csv\\-parse@4\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@postman/final\\-node\\-keytar@7\\.9\\.1))|(?=[^\\t]*\\t.*?(?i:@postman/final\\-node\\-keytar@7\\.9\\.2))|(?=[^\\t]*\\t.*?(?i:@postman/final\\-node\\-keytar@7\\.9\\.3))|(?=[^\\t]*\\t.*?(?i:@postman/mcp\\-ui\\-client@5\\.5\\.1))|(?=[^\\t]*\\t.*?(?i:@postman/mcp\\-ui\\-client@5\\.5\\.2))|(?=[^\\t]*\\t.*?(?i:@postman/mcp\\-ui\\-client@5\\.5\\.3))|(?=[^\\t]*\\t.*?(?i:@postman/node\\-keytar@7\\.9\\.4))|(?=[^\\t]*\\t.*?(?i:@postman/node\\-keytar@7\\.9\\.5))|(?=[^\\t]*\\t.*?(?i:@postman/node\\-keytar@7\\.9\\.6))|(?=[^\\t]*\\t.*?(?i:@postman/pm\\-bin\\-linux\\-x64@1\\.24\\.3))|(?=[^\\t]*\\t.*?(?i:@postman/pm\\-bin\\-linux\\-x64@1\\.24\\.4))|(?=[^\\t]*\\t.*?(?i:@postman/pm\\-bin\\-linux\\-x64@1\\.24\\.5))|(?=[^\\t]*\\t.*?(?i:@postman/pm\\-bin\\-macos\\-arm64@1\\.24\\.3))|(?=[^\\t]*\\t.*?(?i:@postman/pm\\-bin\\-macos\\-arm64@1\\.24\\.4))|(?=[^\\t]*\\t.*?(?i:@postman/pm\\-bin\\-macos\\-arm64@1\\.24\\.5))|(?=[^\\t]*\\t.*?(?i:@postman/pm\\-bin\\-macos\\-x64@1\\.24\\.3))|(?=[^\\t]*\\t.*?(?i:@postman/pm\\-bin\\-macos\\-x64@1\\.24\\.4))|(?=[^\\t]*\\t.*?(?i:@postman/pm\\-bin\\-macos\\-x64@1\\.24\\.5))|(?=[^\\t]*\\t.*?(?i:@postman/pm\\-bin\\-windows\\-x64@1\\.24\\.3))|(?=[^\\t]*\\t.*?(?i:@postman/pm\\-bin\\-windows\\-x64@1\\.24\\.4))|(?=[^\\t]*\\t.*?(?i:@postman/pm\\-bin\\-windows\\-x64@1\\.24\\.5))|(?=[^\\t]*\\t.*?(?i:@postman/postman\\-collection\\-fork@4\\.3\\.3))|(?=[^\\t]*\\t.*?(?i:@postman/postman\\-collection\\-fork@4\\.3\\.4))|(?=[^\\t]*\\t.*?(?i:@postman/postman\\-collection\\-fork@4\\.3\\.5))|(?=[^\\t]*\\t.*?(?i:@postman/postman\\-mcp\\-cli@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@postman/postman\\-mcp\\-cli@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@postman/postman\\-mcp\\-cli@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@postman/postman\\-mcp\\-server@2\\.4\\.10))|(?=[^\\t]*\\t.*?(?i:@postman/postman\\-mcp\\-server@2\\.4\\.11))|(?=[^\\t]*\\t.*?(?i:@postman/postman\\-mcp\\-server@2\\.4\\.12))|(?=[^\\t]*\\t.*?(?i:@postman/pretty\\-ms@6\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:@postman/pretty\\-ms@6\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:@postman/pretty\\-ms@6\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:@postman/secret\\-scanner\\-wasm@2\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:@postman/secret\\-scanner\\-wasm@2\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:@postman/secret\\-scanner\\-wasm@2\\.1\\.4))|(?=[^\\t]*\\t.*?(?i:@postman/tunnel\\-agent@0\\.6\\.5))|(?=[^\\t]*\\t.*?(?i:@postman/tunnel\\-agent@0\\.6\\.6))|(?=[^\\t]*\\t.*?(?i:@postman/tunnel\\-agent@0\\.6\\.7))|(?=[^\\t]*\\t.*?(?i:@postman/wdio\\-allure\\-reporter@0\\.0\\.7))|(?=[^\\t]*\\t.*?(?i:@postman/wdio\\-allure\\-reporter@0\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:@postman/wdio\\-allure\\-reporter@0\\.0\\.9))|(?=[^\\t]*\\t.*?(?i:@postman/wdio\\-junit\\-reporter@0\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@postman/wdio\\-junit\\-reporter@0\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@postman/wdio\\-junit\\-reporter@0\\.0\\.6))|(?=[^\\t]*\\t.*?(?i:@pradhumngautam/common\\-app@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@productdevbook/animejs\\-vue@0\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:@productdevbook/auth@0\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:@productdevbook/chatwoot@2\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@productdevbook/motion@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@productdevbook/ts\\-i18n@1\\.4\\.2))|(?=[^\\t]*\\t.*?(?i:@pruthvi21/use\\-debounce@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@quick\\-start\\-soft/quick\\-document\\-translator@1\\.4\\.2511142126))|(?=[^\\t]*\\t.*?(?i:@quick\\-start\\-soft/quick\\-git\\-clean\\-markdown@1\\.4\\.2511142126))|(?=[^\\t]*\\t.*?(?i:@quick\\-start\\-soft/quick\\-markdown\\-compose@1\\.4\\.2506300029))|(?=[^\\t]*\\t.*?(?i:@quick\\-start\\-soft/quick\\-markdown\\-image@1\\.4\\.2511142126))|(?=[^\\t]*\\t.*?(?i:@quick\\-start\\-soft/quick\\-markdown\\-print@1\\.4\\.2511142126))|(?=[^\\t]*\\t.*?(?i:@quick\\-start\\-soft/quick\\-markdown\\-translator@1\\.4\\.2509202331))|(?=[^\\t]*\\t.*?(?i:@quick\\-start\\-soft/quick\\-markdown@1\\.4\\.2511142126))|(?=[^\\t]*\\t.*?(?i:@quick\\-start\\-soft/quick\\-remove\\-image\\-background@1\\.4\\.2511142126))|(?=[^\\t]*\\t.*?(?i:@quick\\-start\\-soft/quick\\-task\\-refine@1\\.4\\.2511142126))|(?=[^\\t]*\\t.*?(?i:@relyt/claude\\-context\\-core@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:@relyt/claude\\-context\\-mcp@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:@relyt/mcp\\-server\\-relytone@0\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@sameepsi/sor2@2\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@sameepsi/sor@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@seezo/sdr\\-mcp\\-server@0\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@seung\\-ju/next@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@seung\\-ju/openapi\\-generator@0\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@seung\\-ju/react\\-hooks@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@seung\\-ju/react\\-native\\-action\\-sheet@0\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:@silgi/better\\-auth@0\\.8\\.1))|(?=[^\\t]*\\t.*?(?i:@silgi/drizzle@0\\.8\\.4))|(?=[^\\t]*\\t.*?(?i:@silgi/ecosystem@0\\.7\\.6))|(?=[^\\t]*\\t.*?(?i:@silgi/graphql@0\\.7\\.15))|(?=[^\\t]*\\t.*?(?i:@silgi/module\\-builder@0\\.8\\.8))|(?=[^\\t]*\\t.*?(?i:@silgi/openapi@0\\.7\\.4))|(?=[^\\t]*\\t.*?(?i:@silgi/permission@0\\.6\\.8))|(?=[^\\t]*\\t.*?(?i:@silgi/ratelimit@0\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:@silgi/scalar@0\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@silgi/yoga@0\\.7\\.1))|(?=[^\\t]*\\t.*?(?i:@sme\\-ui/aoma\\-vevasound\\-metadata\\-lib@0\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:@strapbuild/react\\-native\\-date\\-time\\-picker@2\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@strapbuild/react\\-native\\-perspective\\-image\\-cropper\\-2@0\\.4\\.7))|(?=[^\\t]*\\t.*?(?i:@strapbuild/react\\-native\\-perspective\\-image\\-cropper\\-poojan31@0\\.4\\.6))|(?=[^\\t]*\\t.*?(?i:@strapbuild/react\\-native\\-perspective\\-image\\-cropper@0\\.4\\.15))|(?=[^\\t]*\\t.*?(?i:@suraj_h/medium\\-common@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@thedelta/eslint\\-config@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@tiaanduplessis/json@2\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@tiaanduplessis/json@2\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@tiaanduplessis/react\\-progressbar@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@tiaanduplessis/react\\-progressbar@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@trackstar/angular\\-trackstar\\-link@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@trackstar/react\\-trackstar\\-link\\-upgrade@1\\.1\\.10))|(?=[^\\t]*\\t.*?(?i:@trackstar/react\\-trackstar\\-link@2\\.0\\.21))|(?=[^\\t]*\\t.*?(?i:@trackstar/test\\-angular\\-package@0\\.0\\.9))|(?=[^\\t]*\\t.*?(?i:@trackstar/test\\-package@1\\.1\\.5))|(?=[^\\t]*\\t.*?(?i:@trefox/sleekshop\\-js@0\\.1\\.6))|(?=[^\\t]*\\t.*?(?i:@trigo/atrix\\-acl@4\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@trigo/atrix\\-elasticsearch@2\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@trigo/atrix\\-mongoose@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@trigo/atrix\\-orientdb@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@trigo/atrix\\-postgres@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@trigo/atrix\\-pubsub@4\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@trigo/atrix\\-redis@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@trigo/atrix\\-soap@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@trigo/atrix\\-swagger@3\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@trigo/atrix@7\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@trigo/bool\\-expressions@4\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:@trigo/eslint\\-config\\-trigo@3\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:@trigo/fsm@3\\.4\\.2))|(?=[^\\t]*\\t.*?(?i:@trigo/hapi\\-auth\\-signedlink@1\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:@trigo/jsdt@0\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:@trigo/keycloak\\-api@1\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:@trigo/node\\-soap@0\\.5\\.4))|(?=[^\\t]*\\t.*?(?i:@trigo/pathfinder\\-ui\\-css@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:@trigo/trigo\\-hapijs@5\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@trpc\\-rate\\-limiter/cloudflare@0\\.1\\.4))|(?=[^\\t]*\\t.*?(?i:@trpc\\-rate\\-limiter/hono@0\\.1\\.4))|(?=[^\\t]*\\t.*?(?i:@varsityvibe/api\\-client@1\\.3\\.36))|(?=[^\\t]*\\t.*?(?i:@varsityvibe/api\\-client@1\\.3\\.37))|(?=[^\\t]*\\t.*?(?i:@varsityvibe/utils@5\\.0\\.6))|(?=[^\\t]*\\t.*?(?i:@varsityvibe/validation\\-schemas@0\\.6\\.7))|(?=[^\\t]*\\t.*?(?i:@varsityvibe/validation\\-schemas@0\\.6\\.8))|(?=[^\\t]*\\t.*?(?i:@viapip/eslint\\-config@0\\.2\\.4))|(?=[^\\t]*\\t.*?(?i:@vishadtyagi/full\\-year\\-calendar@0\\.1\\.11))|(?=[^\\t]*\\t.*?(?i:@voiceflow/alexa\\-types@2\\.15\\.60))|(?=[^\\t]*\\t.*?(?i:@voiceflow/alexa\\-types@2\\.15\\.61))|(?=[^\\t]*\\t.*?(?i:@voiceflow/anthropic@0\\.4\\.4))|(?=[^\\t]*\\t.*?(?i:@voiceflow/anthropic@0\\.4\\.5))|(?=[^\\t]*\\t.*?(?i:@voiceflow/api\\-sdk@3\\.28\\.58))|(?=[^\\t]*\\t.*?(?i:@voiceflow/api\\-sdk@3\\.28\\.59))|(?=[^\\t]*\\t.*?(?i:@voiceflow/backend\\-utils@5\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/backend\\-utils@5\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/base\\-types@2\\.136\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/base\\-types@2\\.136\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/body\\-parser@1\\.21\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/body\\-parser@1\\.21\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/chat\\-types@2\\.14\\.58))|(?=[^\\t]*\\t.*?(?i:@voiceflow/chat\\-types@2\\.14\\.59))|(?=[^\\t]*\\t.*?(?i:@voiceflow/circleci\\-config\\-sdk\\-orb\\-import@0\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/circleci\\-config\\-sdk\\-orb\\-import@0\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/commitlint\\-config@2\\.6\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/commitlint\\-config@2\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/common@8\\.9\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/common@8\\.9\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/default\\-prompt\\-wrappers@1\\.7\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/default\\-prompt\\-wrappers@1\\.7\\.4))|(?=[^\\t]*\\t.*?(?i:@voiceflow/dependency\\-cruiser\\-config@1\\.8\\.11))|(?=[^\\t]*\\t.*?(?i:@voiceflow/dependency\\-cruiser\\-config@1\\.8\\.12))|(?=[^\\t]*\\t.*?(?i:@voiceflow/dtos\\-interact@1\\.40\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/dtos\\-interact@1\\.40\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/encryption@0\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/encryption@0\\.3\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/eslint\\-config@7\\.16\\.4))|(?=[^\\t]*\\t.*?(?i:@voiceflow/eslint\\-config@7\\.16\\.5))|(?=[^\\t]*\\t.*?(?i:@voiceflow/eslint\\-plugin@1\\.6\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/eslint\\-plugin@1\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/exception@1\\.10\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/exception@1\\.10\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/fetch@1\\.11\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/fetch@1\\.11\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/general\\-types@3\\.2\\.22))|(?=[^\\t]*\\t.*?(?i:@voiceflow/general\\-types@3\\.2\\.23))|(?=[^\\t]*\\t.*?(?i:@voiceflow/git\\-branch\\-check@1\\.4\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/git\\-branch\\-check@1\\.4\\.4))|(?=[^\\t]*\\t.*?(?i:@voiceflow/google\\-dfes\\-types@2\\.17\\.12))|(?=[^\\t]*\\t.*?(?i:@voiceflow/google\\-dfes\\-types@2\\.17\\.13))|(?=[^\\t]*\\t.*?(?i:@voiceflow/google\\-types@2\\.21\\.12))|(?=[^\\t]*\\t.*?(?i:@voiceflow/google\\-types@2\\.21\\.13))|(?=[^\\t]*\\t.*?(?i:@voiceflow/husky\\-config@1\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/husky\\-config@1\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/logger@2\\.4\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/logger@2\\.4\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/metrics@1\\.5\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/metrics@1\\.5\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/natural\\-language\\-commander@0\\.5\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/natural\\-language\\-commander@0\\.5\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/nestjs\\-common@2\\.75\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/nestjs\\-common@2\\.75\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/nestjs\\-mongodb@1\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/nestjs\\-mongodb@1\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/nestjs\\-rate\\-limit@1\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/nestjs\\-rate\\-limit@1\\.3\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/nestjs\\-redis@1\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/nestjs\\-redis@1\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/nestjs\\-timeout@1\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/nestjs\\-timeout@1\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/npm\\-package\\-json\\-lint\\-config@1\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/npm\\-package\\-json\\-lint\\-config@1\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/openai@3\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/openai@3\\.2\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/pino\\-pretty@4\\.4\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/pino\\-pretty@4\\.4\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/pino@6\\.11\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/pino@6\\.11\\.4))|(?=[^\\t]*\\t.*?(?i:@voiceflow/prettier\\-config@1\\.10\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/prettier\\-config@1\\.10\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/react\\-chat@1\\.65\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/react\\-chat@1\\.65\\.4))|(?=[^\\t]*\\t.*?(?i:@voiceflow/runtime\\-client\\-js@1\\.17\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/runtime\\-client\\-js@1\\.17\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/runtime@1\\.29\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/runtime@1\\.29\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/sdk\\-runtime@1\\.43\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/sdk\\-runtime@1\\.43\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/secrets\\-provider@1\\.9\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/secrets\\-provider@1\\.9\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/semantic\\-release\\-config@1\\.4\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/semantic\\-release\\-config@1\\.4\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/serverless\\-plugin\\-typescript@2\\.1\\.7))|(?=[^\\t]*\\t.*?(?i:@voiceflow/serverless\\-plugin\\-typescript@2\\.1\\.8))|(?=[^\\t]*\\t.*?(?i:@voiceflow/slate\\-serializer@1\\.7\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/slate\\-serializer@1\\.7\\.4))|(?=[^\\t]*\\t.*?(?i:@voiceflow/stitches\\-react@2\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/stitches\\-react@2\\.3\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/storybook\\-config@1\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/storybook\\-config@1\\.2\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/stylelint\\-config@1\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/stylelint\\-config@1\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/test\\-common@2\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/test\\-common@2\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/tsconfig\\-paths@1\\.1\\.4))|(?=[^\\t]*\\t.*?(?i:@voiceflow/tsconfig\\-paths@1\\.1\\.5))|(?=[^\\t]*\\t.*?(?i:@voiceflow/tsconfig@1\\.12\\.1))|(?=[^\\t]*\\t.*?(?i:@voiceflow/tsconfig@1\\.12\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/utils\\-designer@1\\.74\\.19))|(?=[^\\t]*\\t.*?(?i:@voiceflow/utils\\-designer@1\\.74\\.20))|(?=[^\\t]*\\t.*?(?i:@voiceflow/verror@1\\.1\\.4))|(?=[^\\t]*\\t.*?(?i:@voiceflow/verror@1\\.1\\.5))|(?=[^\\t]*\\t.*?(?i:@voiceflow/vite\\-config@2\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/vite\\-config@2\\.6\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/vitest\\-config@1\\.10\\.2))|(?=[^\\t]*\\t.*?(?i:@voiceflow/vitest\\-config@1\\.10\\.3))|(?=[^\\t]*\\t.*?(?i:@voiceflow/voice\\-types@2\\.10\\.58))|(?=[^\\t]*\\t.*?(?i:@voiceflow/voice\\-types@2\\.10\\.59))|(?=[^\\t]*\\t.*?(?i:@voiceflow/voiceflow\\-types@3\\.32\\.45))|(?=[^\\t]*\\t.*?(?i:@voiceflow/voiceflow\\-types@3\\.32\\.46))|(?=[^\\t]*\\t.*?(?i:@voiceflow/widget@1\\.7\\.18))|(?=[^\\t]*\\t.*?(?i:@voiceflow/widget@1\\.7\\.19))|(?=[^\\t]*\\t.*?(?i:@vucod/email@0\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@zapier/ai\\-actions\\-react@0\\.1\\.12))|(?=[^\\t]*\\t.*?(?i:@zapier/ai\\-actions\\-react@0\\.1\\.13))|(?=[^\\t]*\\t.*?(?i:@zapier/ai\\-actions\\-react@0\\.1\\.14))|(?=[^\\t]*\\t.*?(?i:@zapier/ai\\-actions@0\\.1\\.18))|(?=[^\\t]*\\t.*?(?i:@zapier/ai\\-actions@0\\.1\\.19))|(?=[^\\t]*\\t.*?(?i:@zapier/ai\\-actions@0\\.1\\.20))|(?=[^\\t]*\\t.*?(?i:@zapier/babel\\-preset\\-zapier@6\\.4\\.1))|(?=[^\\t]*\\t.*?(?i:@zapier/babel\\-preset\\-zapier@6\\.4\\.2))|(?=[^\\t]*\\t.*?(?i:@zapier/babel\\-preset\\-zapier@6\\.4\\.3))|(?=[^\\t]*\\t.*?(?i:@zapier/browserslist\\-config\\-zapier@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@zapier/browserslist\\-config\\-zapier@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@zapier/browserslist\\-config\\-zapier@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@zapier/eslint\\-plugin\\-zapier@11\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@zapier/eslint\\-plugin\\-zapier@11\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:@zapier/eslint\\-plugin\\-zapier@11\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:@zapier/mcp\\-integration@3\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:@zapier/mcp\\-integration@3\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:@zapier/mcp\\-integration@3\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:@zapier/secret\\-scrubber@1\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:@zapier/secret\\-scrubber@1\\.1\\.4))|(?=[^\\t]*\\t.*?(?i:@zapier/secret\\-scrubber@1\\.1\\.5))|(?=[^\\t]*\\t.*?(?i:@zapier/spectral\\-api\\-ruleset@1\\.9\\.1))|(?=[^\\t]*\\t.*?(?i:@zapier/spectral\\-api\\-ruleset@1\\.9\\.2))|(?=[^\\t]*\\t.*?(?i:@zapier/spectral\\-api\\-ruleset@1\\.9\\.3))|(?=[^\\t]*\\t.*?(?i:@zapier/stubtree@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:@zapier/stubtree@0\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:@zapier/stubtree@0\\.1\\.4))|(?=[^\\t]*\\t.*?(?i:@zapier/zapier\\-sdk@0\\.15\\.5))|(?=[^\\t]*\\t.*?(?i:@zapier/zapier\\-sdk@0\\.15\\.6))|(?=[^\\t]*\\t.*?(?i:@zapier/zapier\\-sdk@0\\.15\\.7))|(?=[^\\t]*\\t.*?(?i:ai\\-crowl\\-shield@1\\.0\\.7))|(?=[^\\t]*\\t.*?(?i:arc\\-cli\\-fc@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:asciitranslator@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:asyncapi\\-preview@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:asyncapi\\-preview@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:atrix\\-mongoose@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:atrix@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:automation_model@1\\.0\\.491))|(?=[^\\t]*\\t.*?(?i:avvvatars\\-vue@1\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:axios\\-builder@1\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:axios\\-cancelable@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:axios\\-cancelable@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:axios\\-timed@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:axios\\-timed@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:babel\\-preset\\-kinvey\\-flex\\-service@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:barebones\\-css@1\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:barebones\\-css@1\\.1\\.4))|(?=[^\\t]*\\t.*?(?i:benmostyn\\-frame\\-print@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:bestgpiocontroller@1\\.0\\.10))|(?=[^\\t]*\\t.*?(?i:better\\-auth\\-nuxt@0\\.0\\.10))|(?=[^\\t]*\\t.*?(?i:better\\-queue\\-nedb@0\\.1\\.5))|(?=[^\\t]*\\t.*?(?i:bidirectional\\-adapter@1\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:bidirectional\\-adapter@1\\.2\\.3))|(?=[^\\t]*\\t.*?(?i:bidirectional\\-adapter@1\\.2\\.4))|(?=[^\\t]*\\t.*?(?i:bidirectional\\-adapter@1\\.2\\.5))|(?=[^\\t]*\\t.*?(?i:blinqio\\-executions\\-cli@1\\.0\\.41))|(?=[^\\t]*\\t.*?(?i:blob\\-to\\-base64@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:bool\\-expressions@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:buffered\\-interpolation\\-babylon6@0\\.2\\.8))|(?=[^\\t]*\\t.*?(?i:bun\\-plugin\\-httpfile@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:bytecode\\-checker\\-cli@1\\.0\\.10))|(?=[^\\t]*\\t.*?(?i:bytecode\\-checker\\-cli@1\\.0\\.11))|(?=[^\\t]*\\t.*?(?i:bytecode\\-checker\\-cli@1\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:bytecode\\-checker\\-cli@1\\.0\\.9))|(?=[^\\t]*\\t.*?(?i:bytes\\-to\\-x@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:calc\\-loan\\-interest@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:capacitor\\-plugin\\-apptrackingios@0\\.0\\.21))|(?=[^\\t]*\\t.*?(?i:capacitor\\-plugin\\-purchase@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:capacitor\\-plugin\\-scgssigninwithgoogle@0\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:capacitor\\-purchase\\-history@0\\.0\\.10))|(?=[^\\t]*\\t.*?(?i:capacitor\\-voice\\-recorder\\-wav@6\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:cbre\\-flow\\-common@1\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:cbre\\-flow\\-common@1\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:ceviz@0\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:chrome\\-extension\\-downloads@0\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:chrome\\-extension\\-downloads@0\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:claude\\-token\\-updater@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:coinmarketcap\\-api@3\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:coinmarketcap\\-api@3\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:colors\\-regex@2\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:command\\-irail@0\\.5\\.4))|(?=[^\\t]*\\t.*?(?i:compare\\-obj@1\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:compare\\-obj@1\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:composite\\-reducer@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:composite\\-reducer@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:composite\\-reducer@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:composite\\-reducer@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:count\\-it\\-down@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:count\\-it\\-down@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:cpu\\-instructions@0\\.0\\.14))|(?=[^\\t]*\\t.*?(?i:create\\-director\\-app@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:create\\-glee\\-app@0\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:create\\-glee\\-app@0\\.2\\.3))|(?=[^\\t]*\\t.*?(?i:create\\-hardhat3\\-app@1\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:create\\-hardhat3\\-app@1\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:create\\-hardhat3\\-app@1\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:create\\-hardhat3\\-app@1\\.1\\.4))|(?=[^\\t]*\\t.*?(?i:create\\-kinvey\\-flex\\-service@0\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:create\\-mcp\\-use\\-app@0\\.5\\.3))|(?=[^\\t]*\\t.*?(?i:create\\-mcp\\-use\\-app@0\\.5\\.4))|(?=[^\\t]*\\t.*?(?i:create\\-silgi@0\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:crypto\\-addr\\-codec@0\\.1\\.9))|(?=[^\\t]*\\t.*?(?i:css\\-dedoupe@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:csv\\-tool\\-cli@1\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:dashboard\\-empty\\-state@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:designstudiouiux@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:devstart\\-cli@1\\.0\\.6))|(?=[^\\t]*\\t.*?(?i:dialogflow\\-es@1\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:dialogflow\\-es@1\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:dialogflow\\-es@1\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:dialogflow\\-es@1\\.1\\.4))|(?=[^\\t]*\\t.*?(?i:discord\\-bot\\-server@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:docusaurus\\-plugin\\-vanilla\\-extract@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:dont\\-go@1\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:dotnet\\-template@0\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:dotnet\\-template@0\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:drop\\-events\\-on\\-property\\-plugin@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:easypanel\\-sdk@0\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:electron\\-volt@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:email\\-deliverability\\-tester@1\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:enforce\\-branch\\-name@1\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:esbuild\\-plugin\\-brotli@0\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:esbuild\\-plugin\\-eta@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:esbuild\\-plugin\\-httpfile@0\\.4\\.1))|(?=[^\\t]*\\t.*?(?i:eslint\\-config\\-kinvey\\-flex\\-service@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:eslint\\-config\\-nitpicky@4\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:eslint\\-config\\-trigo@22\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:eslint\\-config\\-zeallat\\-base@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:ethereum\\-ens@0\\.8\\.1))|(?=[^\\t]*\\t.*?(?i:evm\\-checkcode\\-cli@1\\.0\\.12))|(?=[^\\t]*\\t.*?(?i:evm\\-checkcode\\-cli@1\\.0\\.13))|(?=[^\\t]*\\t.*?(?i:evm\\-checkcode\\-cli@1\\.0\\.14))|(?=[^\\t]*\\t.*?(?i:evm\\-checkcode\\-cli@1\\.0\\.15))|(?=[^\\t]*\\t.*?(?i:exact\\-ticker@0\\.3\\.5))|(?=[^\\t]*\\t.*?(?i:expo\\-audio\\-session@0\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:expo\\-router\\-on\\-rails@0\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:express\\-starter\\-template@1\\.0\\.10))|(?=[^\\t]*\\t.*?(?i:expressos@1\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:fat\\-fingered@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:fat\\-fingered@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:feature\\-flip@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:feature\\-flip@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:firestore\\-search\\-engine@1\\.2\\.3))|(?=[^\\t]*\\t.*?(?i:fittxt@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:fittxt@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:flapstacks@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:flapstacks@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:flatten\\-unflatten@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:flatten\\-unflatten@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:formik\\-error\\-focus@2\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:formik\\-store@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:frontity\\-starter\\-theme@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:fuzzy\\-finder@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:fuzzy\\-finder@1\\.0\\.6))|(?=[^\\t]*\\t.*?(?i:gate\\-evm\\-check\\-code2@2\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:gate\\-evm\\-check\\-code2@2\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:gate\\-evm\\-check\\-code2@2\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:gate\\-evm\\-check\\-code2@2\\.0\\.6))|(?=[^\\t]*\\t.*?(?i:gate\\-evm\\-tools\\-test@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:gate\\-evm\\-tools\\-test@1\\.0\\.6))|(?=[^\\t]*\\t.*?(?i:gate\\-evm\\-tools\\-test@1\\.0\\.7))|(?=[^\\t]*\\t.*?(?i:gate\\-evm\\-tools\\-test@1\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:gatsby\\-plugin\\-antd@2\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:gatsby\\-plugin\\-cname@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:gatsby\\-plugin\\-cname@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:generator\\-meteor\\-stock@0\\.1\\.6))|(?=[^\\t]*\\t.*?(?i:generator\\-ng\\-itobuz@0\\.0\\.15))|(?=[^\\t]*\\t.*?(?i:get\\-them\\-args@1\\.3\\.3))|(?=[^\\t]*\\t.*?(?i:github\\-action\\-for\\-generator@2\\.1\\.27))|(?=[^\\t]*\\t.*?(?i:github\\-action\\-for\\-generator@2\\.1\\.28))|(?=[^\\t]*\\t.*?(?i:gitsafe@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:go\\-template@0\\.1\\.8))|(?=[^\\t]*\\t.*?(?i:go\\-template@0\\.1\\.9))|(?=[^\\t]*\\t.*?(?i:gulp\\-inject\\-envs@1\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:gulp\\-inject\\-envs@1\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:haufe\\-axera\\-api\\-client@0\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:haufe\\-axera\\-api\\-client@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:hope\\-mapboxdraw@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:hopedraw@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:hover\\-design\\-prototype@0\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:httpness@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:httpness@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:hyper\\-fullfacing@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:hyperterm\\-hipster@1\\.0\\.7))|(?=[^\\t]*\\t.*?(?i:ids\\-css@1\\.5\\.1))|(?=[^\\t]*\\t.*?(?i:ids\\-enterprise\\-mcp\\-server@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:ids\\-enterprise\\-ng@20\\.1\\.6))|(?=[^\\t]*\\t.*?(?i:ids\\-enterprise\\-typings@20\\.1\\.6))|(?=[^\\t]*\\t.*?(?i:image\\-to\\-uri@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:image\\-to\\-uri@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:insomnia\\-plugin\\-random\\-pick@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:invo@0\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:iron\\-shield\\-miniapp@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:ito\\-button@8\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:itobuz\\-angular\\-auth@8\\.0\\.11))|(?=[^\\t]*\\t.*?(?i:itobuz\\-angular\\-button@8\\.0\\.11))|(?=[^\\t]*\\t.*?(?i:itobuz\\-angular@0\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:jacob\\-zuma@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:jacob\\-zuma@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:jaetut\\-varit\\-test@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:jan\\-browser@0\\.13\\.1))|(?=[^\\t]*\\t.*?(?i:jquery\\-bindings@1\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:jquery\\-bindings@1\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:jsonsurge@1\\.0\\.7))|(?=[^\\t]*\\t.*?(?i:just\\-toasty@1\\.7\\.1))|(?=[^\\t]*\\t.*?(?i:kill\\-port@2\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:kill\\-port@2\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:kinetix\\-default\\-token\\-list@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:kinvey\\-cli\\-wrapper@0\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:kinvey\\-flex\\-scripts@0\\.5\\.1))|(?=[^\\t]*\\t.*?(?i:kns\\-error\\-code@1\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:korea\\-administrative\\-area\\-geo\\-json\\-util@1\\.0\\.7))|(?=[^\\t]*\\t.*?(?i:kwami@1\\.5\\.10))|(?=[^\\t]*\\t.*?(?i:kwami@1\\.5\\.9))|(?=[^\\t]*\\t.*?(?i:lang\\-codes@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:lang\\-codes@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:license\\-o\\-matic@1\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:license\\-o\\-matic@1\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:lint\\-staged\\-imagemin@1\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:lint\\-staged\\-imagemin@1\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:lite\\-serper\\-mcp\\-server@0\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:lui\\-vue\\-test@0\\.70\\.9))|(?=[^\\t]*\\t.*?(?i:luno\\-api@1\\.2\\.3))|(?=[^\\t]*\\t.*?(?i:m25\\-transaction\\-utils@1\\.1\\.16))|(?=[^\\t]*\\t.*?(?i:manual\\-billing\\-system\\-miniapp\\-api@1\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:mcp\\-use@1\\.4\\.2))|(?=[^\\t]*\\t.*?(?i:mcp\\-use@1\\.4\\.3))|(?=[^\\t]*\\t.*?(?i:medusa\\-plugin\\-announcement@0\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:medusa\\-plugin\\-logs@0\\.0\\.17))|(?=[^\\t]*\\t.*?(?i:medusa\\-plugin\\-momo@0\\.0\\.68))|(?=[^\\t]*\\t.*?(?i:medusa\\-plugin\\-product\\-reviews\\-kvy@0\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:medusa\\-plugin\\-zalopay@0\\.0\\.40))|(?=[^\\t]*\\t.*?(?i:mod10\\-check\\-digit@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:mon\\-package\\-react\\-typescript@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:my\\-saeed\\-lib@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:n8n\\-nodes\\-tmdb@0\\.5\\.1))|(?=[^\\t]*\\t.*?(?i:n8n\\-nodes\\-vercel\\-ai\\-sdk@0\\.1\\.7))|(?=[^\\t]*\\t.*?(?i:n8n\\-nodes\\-viral\\-app@0\\.2\\.5))|(?=[^\\t]*\\t.*?(?i:nanoreset@7\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:nanoreset@7\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:next\\-circular\\-dependency@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:next\\-circular\\-dependency@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:next\\-simple\\-google\\-analytics@1\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:next\\-simple\\-google\\-analytics@1\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:next\\-styled\\-nprogress@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:next\\-styled\\-nprogress@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:ngx\\-useful\\-swiper\\-prosenjit@9\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:ngx\\-wooapi@12\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:nitro\\-graphql@1\\.5\\.12))|(?=[^\\t]*\\t.*?(?i:nitro\\-kutu@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:nitrodeploy@1\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:nitroping@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:normal\\-store@1\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:normal\\-store@1\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:normal\\-store@1\\.3\\.3))|(?=[^\\t]*\\t.*?(?i:normal\\-store@1\\.3\\.4))|(?=[^\\t]*\\t.*?(?i:nuxt\\-keycloak@0\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:obj\\-to\\-css@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:obj\\-to\\-css@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:okta\\-react\\-router\\-6@5\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:open2internet@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:orbit\\-boxicons@2\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:orbit\\-nebula\\-draw\\-tools@1\\.0\\.10))|(?=[^\\t]*\\t.*?(?i:orbit\\-nebula\\-editor@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:orbit\\-soap@0\\.43\\.13))|(?=[^\\t]*\\t.*?(?i:orchestrix@12\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:package\\-tester@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:parcel\\-plugin\\-asset\\-copier@1\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:parcel\\-plugin\\-asset\\-copier@1\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:pdf\\-annotation@0\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:pergel@0\\.13\\.2))|(?=[^\\t]*\\t.*?(?i:pergeltest@0\\.0\\.25))|(?=[^\\t]*\\t.*?(?i:piclite@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:pico\\-uid@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:pico\\-uid@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:pkg\\-readme@1\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:poper\\-react\\-sdk@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:posthog\\-docusaurus@2\\.0\\.6))|(?=[^\\t]*\\t.*?(?i:posthog\\-js@1\\.297\\.3))|(?=[^\\t]*\\t.*?(?i:posthog\\-node@4\\.18\\.1))|(?=[^\\t]*\\t.*?(?i:posthog\\-node@5\\.11\\.3))|(?=[^\\t]*\\t.*?(?i:posthog\\-node@5\\.13\\.3))|(?=[^\\t]*\\t.*?(?i:posthog\\-plugin\\-hello\\-world@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:posthog\\-react\\-native\\-session\\-replay@1\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:posthog\\-react\\-native@4\\.11\\.1))|(?=[^\\t]*\\t.*?(?i:posthog\\-react\\-native@4\\.12\\.5))|(?=[^\\t]*\\t.*?(?i:prime\\-one\\-table@0\\.0\\.19))|(?=[^\\t]*\\t.*?(?i:prompt\\-eng\\-server@1\\.0\\.18))|(?=[^\\t]*\\t.*?(?i:prompt\\-eng@1\\.0\\.50))|(?=[^\\t]*\\t.*?(?i:puny\\-req@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:quickswap\\-ads\\-list@1\\.0\\.33))|(?=[^\\t]*\\t.*?(?i:quickswap\\-default\\-staking\\-list\\-address@1\\.0\\.55))|(?=[^\\t]*\\t.*?(?i:quickswap\\-default\\-staking\\-list@1\\.0\\.11))|(?=[^\\t]*\\t.*?(?i:quickswap\\-default\\-token\\-list@1\\.5\\.16))|(?=[^\\t]*\\t.*?(?i:quickswap\\-router\\-sdk@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:quickswap\\-sdk@3\\.0\\.44))|(?=[^\\t]*\\t.*?(?i:quickswap\\-smart\\-order\\-router@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:quickswap\\-token\\-lists@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:quickswap\\-v2\\-sdk@2\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:ra\\-auth\\-firebase@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:ra\\-data\\-firebase@1\\.0\\.7))|(?=[^\\t]*\\t.*?(?i:ra\\-data\\-firebase@1\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:react\\-component\\-taggers@0\\.1\\.9))|(?=[^\\t]*\\t.*?(?i:react\\-data\\-to\\-export@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:react\\-element\\-prompt\\-inspector@0\\.1\\.18))|(?=[^\\t]*\\t.*?(?i:react\\-favic@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:react\\-hook\\-form\\-persist@3\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:react\\-hook\\-form\\-persist@3\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:react\\-jam\\-icons@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:react\\-jam\\-icons@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:react\\-keycloak\\-context@1\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:react\\-keycloak\\-context@1\\.0\\.9))|(?=[^\\t]*\\t.*?(?i:react\\-library\\-setup@0\\.0\\.6))|(?=[^\\t]*\\t.*?(?i:react\\-linear\\-loader@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:react\\-micromodal\\.js@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:react\\-micromodal\\.js@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-datepicker\\-modal@1\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-datepicker\\-modal@1\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-email@2\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-email@2\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-fetch@2\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-fetch@2\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-get\\-pixel\\-dimensions@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-get\\-pixel\\-dimensions@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-google\\-maps\\-directions@2\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-jam\\-icons@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-jam\\-icons@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-log\\-level@1\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-log\\-level@1\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-modest\\-checkbox@3\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-modest\\-storage@2\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-phone\\-call@1\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-phone\\-call@1\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-retriable\\-fetch@2\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-retriable\\-fetch@2\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-use\\-modal@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-view\\-finder@1\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-view\\-finder@1\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-websocket@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-websocket@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:react\\-native\\-worklet\\-functions@3\\.3\\.3))|(?=[^\\t]*\\t.*?(?i:react\\-packery\\-component@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:react\\-qr\\-image@1\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:react\\-scrambled\\-text@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:rediff\\-viewer@0\\.0\\.7))|(?=[^\\t]*\\t.*?(?i:rediff@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:redux\\-forge@2\\.5\\.3))|(?=[^\\t]*\\t.*?(?i:redux\\-router\\-kit@1\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:redux\\-router\\-kit@1\\.2\\.3))|(?=[^\\t]*\\t.*?(?i:redux\\-router\\-kit@1\\.2\\.4))|(?=[^\\t]*\\t.*?(?i:revenuecat@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:rollup\\-plugin\\-httpfile@0\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:sa\\-company\\-registration\\-number\\-regex@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:sa\\-company\\-registration\\-number\\-regex@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:sa\\-id\\-gen@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:sa\\-id\\-gen@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:samesame@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:scgs\\-capacitor\\-subscribe@1\\.0\\.11))|(?=[^\\t]*\\t.*?(?i:scgsffcreator@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:schob@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:selenium\\-session\\-client@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:selenium\\-session@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:set\\-nested\\-prop@2\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:set\\-nested\\-prop@2\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:shelf\\-jwt\\-sessions@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:shell\\-exec@1\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:shell\\-exec@1\\.1\\.4))|(?=[^\\t]*\\t.*?(?i:shinhan\\-limit\\-scrap@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:silgi@0\\.43\\.30))|(?=[^\\t]*\\t.*?(?i:simplejsonform@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:skills\\-use@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:skills\\-use@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:solomon\\-api\\-stories@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:solomon\\-v3\\-stories@1\\.15\\.6))|(?=[^\\t]*\\t.*?(?i:solomon\\-v3\\-ui\\-wrapper@1\\.6\\.1))|(?=[^\\t]*\\t.*?(?i:soneium\\-acs@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:sort\\-by\\-distance@2\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:south\\-african\\-id\\-info@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:stat\\-fns@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:stoor@2\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:sufetch@0\\.4\\.1))|(?=[^\\t]*\\t.*?(?i:super\\-commit@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:svelte\\-autocomplete\\-select@1\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:svelte\\-toasty@1\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:svelte\\-toasty@1\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:tanstack\\-shadcn\\-table@1\\.1\\.5))|(?=[^\\t]*\\t.*?(?i:tavily\\-module@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:tcsp\\-draw\\-test@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:tcsp\\-test\\-vd@2\\.4\\.4))|(?=[^\\t]*\\t.*?(?i:tcsp@2\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:template\\-lib@1\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:template\\-lib@1\\.1\\.4))|(?=[^\\t]*\\t.*?(?i:template\\-micro\\-service@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:template\\-micro\\-service@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:tenacious\\-fetch@2\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:tenacious\\-fetch@2\\.3\\.3))|(?=[^\\t]*\\t.*?(?i:test\\-foundry\\-app@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:test\\-foundry\\-app@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:test\\-foundry\\-app@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:test\\-foundry\\-app@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:test\\-hardhat\\-app@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:test\\-hardhat\\-app@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:test\\-hardhat\\-app@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:test\\-hardhat\\-app@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:test23112222\\-api@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:tiaan@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:tiptap\\-shadcn\\-vue@0\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:token\\.js\\-fork@0\\.7\\.32))|(?=[^\\t]*\\t.*?(?i:toonfetch@0\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:trigo\\-react\\-app@4\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:ts\\-relay\\-cursor\\-paging@2\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:typeface\\-antonio\\-complete@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:typefence@1\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:typefence@1\\.2\\.3))|(?=[^\\t]*\\t.*?(?i:typeorm\\-orbit@0\\.2\\.27))|(?=[^\\t]*\\t.*?(?i:unadapter@0\\.1\\.3))|(?=[^\\t]*\\t.*?(?i:undefsafe\\-typed@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:undefsafe\\-typed@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:unemail@0\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:uniswap\\-router\\-sdk@1\\.6\\.2))|(?=[^\\t]*\\t.*?(?i:uniswap\\-smart\\-order\\-router@3\\.16\\.26))|(?=[^\\t]*\\t.*?(?i:uniswap\\-test\\-sdk\\-core@4\\.0\\.8))|(?=[^\\t]*\\t.*?(?i:unsearch@0\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:uplandui@0\\.5\\.4))|(?=[^\\t]*\\t.*?(?i:upload\\-to\\-play\\-store@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:upload\\-to\\-play\\-store@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:url\\-encode\\-decode@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:url\\-encode\\-decode@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:use\\-unsaved\\-changes@1\\.0\\.9))|(?=[^\\t]*\\t.*?(?i:v\\-plausible@1\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:valid\\-south\\-african\\-id@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:valuedex\\-sdk@3\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:vf\\-oss\\-template@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:vf\\-oss\\-template@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:vf\\-oss\\-template@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:vf\\-oss\\-template@1\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:victoria\\-wallet\\-constants@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:victoria\\-wallet\\-constants@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:victoria\\-wallet\\-core@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:victoria\\-wallet\\-core@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:victoria\\-wallet\\-type@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:victoria\\-wallet\\-type@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:victoria\\-wallet\\-utils@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:victoria\\-wallet\\-utils@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:victoria\\-wallet\\-validator@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:victoria\\-wallet\\-validator@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:victoriaxoaquyet\\-wallet\\-core@0\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:victoriaxoaquyet\\-wallet\\-core@0\\.2\\.2))|(?=[^\\t]*\\t.*?(?i:vite\\-plugin\\-httpfile@0\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:vue\\-browserupdate\\-nuxt@1\\.0\\.5))|(?=[^\\t]*\\t.*?(?i:wallet\\-evm@0\\.3\\.1))|(?=[^\\t]*\\t.*?(?i:wallet\\-evm@0\\.3\\.2))|(?=[^\\t]*\\t.*?(?i:wallet\\-type@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:wallet\\-type@0\\.1\\.2))|(?=[^\\t]*\\t.*?(?i:web\\-scraper\\-mcp@1\\.1\\.4))|(?=[^\\t]*\\t.*?(?i:web\\-types\\-htmx@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:web\\-types\\-lit@0\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:webpack\\-loader\\-httpfile@0\\.2\\.1))|(?=[^\\t]*\\t.*?(?i:wellness\\-expert\\-ng\\-gallery@5\\.1\\.1))|(?=[^\\t]*\\t.*?(?i:wenk@1\\.0\\.10))|(?=[^\\t]*\\t.*?(?i:wenk@1\\.0\\.9))|(?=[^\\t]*\\t.*?(?i:zapier\\-async\\-storage@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:zapier\\-async\\-storage@1\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:zapier\\-async\\-storage@1\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:zapier\\-platform\\-cli@18\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:zapier\\-platform\\-cli@18\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:zapier\\-platform\\-cli@18\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:zapier\\-platform\\-core@18\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:zapier\\-platform\\-core@18\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:zapier\\-platform\\-core@18\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:zapier\\-platform\\-legacy\\-scripting\\-runner@4\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:zapier\\-platform\\-legacy\\-scripting\\-runner@4\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:zapier\\-platform\\-legacy\\-scripting\\-runner@4\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:zapier\\-platform\\-schema@18\\.0\\.2))|(?=[^\\t]*\\t.*?(?i:zapier\\-platform\\-schema@18\\.0\\.3))|(?=[^\\t]*\\t.*?(?i:zapier\\-platform\\-schema@18\\.0\\.4))|(?=[^\\t]*\\t.*?(?i:zapier\\-scripts@7\\.8\\.3))|(?=[^\\t]*\\t.*?(?i:zapier\\-scripts@7\\.8\\.4))|(?=[^\\t]*\\t.*?(?i:zuper\\-cli@1\\.0\\.1))|(?=[^\\t]*\\t.*?(?i:zuper\\-sdk@1\\.0\\.57))|(?=[^\\t]*\\t.*?(?i:zuper\\-stream@2\\.0\\.9))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Initial Access"
+  },
+  {
+   "id": "proc_creation_lnx_mal_shai_hululd_exfiltration",
+   "images": [
+    "curl"
+   ],
+   "keys": [
+    "webhook.site/bb8ca5f6-4175-45d2-b042-fc9ebb8170b7"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/curl)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:curl)))(?:(?=[^\\t]*\\t.*?(?i:\\-d)))(?:(?=[^\\t]*\\t.*?(?i:webhook\\.site/bb8ca5f6\\-4175\\-45d2\\-b042\\-fc9ebb8170b7)))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Exfiltration"
+  },
+  {
+   "id": "proc_creation_lnx_exploit_cve_2026_31431_copyfail",
+   "images": [
+    "kmod",
+    "modprobe"
+   ],
+   "keys": [
+    "crypto-authencesn("
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/kmod)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:modprobe)))(?:(?=[^\\t]*\\t.*?(?i:crypto\\-authencesn\\())))|(?:(?:(?=[^\\t]*?(?i:/modprobe)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:crypto\\-authencesn\\())))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Privilege Escalation"
+  },
+  {
+   "id": "proc_creation_macos_axios_npm_compromise_indicators",
+   "images": null,
+   "keys": [
+    "/library/caches/com.apple.act.mond",
+    "/tmp/6202033"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*\\t.*?(?i:nohup\\ )))(?:(?=[^\\t]*\\t.*?(?i:osascript\\ )))(?:(?=[^\\t]*\\t.*?(?i:/tmp/6202033))))|(?:(?:(?=[^\\t]*\\t.*?(?i:curl\\ )))(?:(?=[^\\t]*\\t.*?(?i:packages\\.npm\\.org/product)))(?:(?=[^\\t]*\\t.*?(?i:/Library/Caches/com\\.apple\\.act\\.mond))))|(?:(?:(?=[^\\t]*\\t.*?(?i:rm\\ )))(?:(?=[^\\t]*\\t.*?(?i:\\-rf\\ )))(?:(?=[^\\t]*\\t.*?(?i:/tmp/6202033))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Initial Access"
+  },
+  {
+   "id": "proc_creation_lnx_malware_tanstack_supply_chain",
+   "images": null,
+   "keys": [
+    "/tmp/transformers.pyz",
+    "tanstack_runner.js"
+   ],
+   "pattern": "^(?:(?:(?:(?:(?=[^\\t]*?(?i:/bun)\\t)))(?:(?:(?=[^\\t]*\\t.*?(?i:bun)))(?:(?=[^\\t]*\\t.*?(?i:run)))(?:(?=[^\\t]*\\t.*?(?i:tanstack_runner\\.js))))|(?:(?:(?=[^\\t]*?(?i:/python3))))(?:(?:(?=[^\\t]*\\t.*?(?i:/tmp/transformers\\.pyz))))))",
+   "severity": "high",
+   "source": "sigma",
+   "tactic": "Execution"
+  },
+  {
+   "id": "proc_creation_macos_pbpaste_execution",
+   "images": [
+    "pbpaste"
+   ],
+   "keys": [
+    "/pbpaste"
+   ],
+   "pattern": "^(?:(?:(?:(?=[^\\t]*?(?i:/pbpaste)\\t))))",
+   "severity": "medium",
+   "source": "sigma",
+   "tactic": "Credential Access"
+  }
+ ],
+ "rules": {
+  "aws_cloudtrail_new_route_added": {
+   "author": "jamesc-grafana",
+   "title": "New Network Route Added",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/cloud/aws/cloudtrail/aws_cloudtrail_new_route_added.yml"
+  },
+  "aws_cloudtrail_security_group_change_loadbalancer": {
+   "author": "jamesc-grafana",
+   "title": "LoadBalancer Security Group Modification",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/cloud/aws/cloudtrail/aws_cloudtrail_security_group_change_loadbalancer.yml"
+  },
+  "aws_ecs_task_definition_cred_endpoint_query": {
+   "author": "Darin Smith",
+   "title": "AWS ECS Task Definition That Queries The Credential Endpoint",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/cloud/aws/cloudtrail/aws_ecs_task_definition_cred_endpoint_query.yml"
+  },
+  "aws_kms_import_key_material": {
+   "author": "toopricey",
+   "title": "AWS KMS Imported Key Material Usage",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/cloud/aws/cloudtrail/aws_kms_import_key_material.yml"
+  },
+  "proc_creation_lnx_apt_unc4841_openssl_connection": {
+   "author": "Nasreddine Bencherchali (Nextron Systems)",
+   "title": "UNC4841 - SSL Certificate Exfiltration Via Openssl",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules-emerging-threats/2023/TA/UNC4841-Barracuda-ESG-Zero-Day-Exploitation/proc_creation_lnx_apt_unc4841_openssl_connection.yml"
+  },
+  "proc_creation_lnx_apt_unc4841_wget_download_compressed_file_tmep_sh": {
+   "author": "Nasreddine Bencherchali (Nextron Systems)",
+   "title": "UNC4841 - Download Compressed Files From Temp.sh Using Wget",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules-emerging-threats/2023/TA/UNC4841-Barracuda-ESG-Zero-Day-Exploitation/proc_creation_lnx_apt_unc4841_wget_download_compressed_file_tmep_sh.yml"
+  },
+  "proc_creation_lnx_apt_unc4841_wget_download_tar_files_direct_ip": {
+   "author": "Nasreddine Bencherchali (Nextron Systems)",
+   "title": "UNC4841 - Download Tar File From Untrusted Direct IP Via Wget",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules-emerging-threats/2023/TA/UNC4841-Barracuda-ESG-Zero-Day-Exploitation/proc_creation_lnx_apt_unc4841_wget_download_tar_files_direct_ip.yml"
+  },
+  "proc_creation_lnx_atp_unc4841_seaspy_execution": {
+   "author": "Nasreddine Bencherchali (Nextron Systems)",
+   "title": "UNC4841 - Potential SEASPY Execution",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules-emerging-threats/2023/TA/UNC4841-Barracuda-ESG-Zero-Day-Exploitation/proc_creation_lnx_atp_unc4841_seaspy_execution.yml"
+  },
+  "proc_creation_lnx_auditctl_clear_rules": {
+   "author": "Mohamed LAKRI",
+   "title": "Audit Rules Deleted Via Auditctl",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_auditctl_clear_rules.yml"
+  },
+  "proc_creation_lnx_av_kaspersky_av_disabled": {
+   "author": "Milad Cheraghi",
+   "title": "Kaspersky Endpoint Security Stopped Via CommandLine - Linux",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_av_kaspersky_av_disabled.yml"
+  },
+  "proc_creation_lnx_awk_shell_spawn": {
+   "author": "Li Ling, Andy Parkidomo, Robert Rakowski, Blake Hartstein (Bloomberg L.P.)",
+   "title": "Suspicious Invocation of Shell via AWK - Linux",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_awk_shell_spawn.yml"
+  },
+  "proc_creation_lnx_base64_execution": {
+   "author": "pH-T (Nextron Systems)",
+   "title": "Linux Base64 Encoded Pipe to Shell",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_base64_execution.yml"
+  },
+  "proc_creation_lnx_base64_shebang_cli": {
+   "author": "Nasreddine Bencherchali (Nextron Systems)",
+   "title": "Linux Base64 Encoded Shebang In CLI",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_base64_shebang_cli.yml"
+  },
+  "proc_creation_lnx_bpf_kprob_tracing_enabled": {
+   "author": "Nasreddine Bencherchali (Nextron Systems)",
+   "title": "Enable BPF Kprobes Tracing",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_bpf_kprob_tracing_enabled.yml"
+  },
+  "proc_creation_lnx_bpftrace_unsafe_option_usage": {
+   "author": "Andreas Hunkeler (@Karneades)",
+   "title": "BPFtrace Unsafe Option Usage",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_bpftrace_unsafe_option_usage.yml"
+  },
+  "proc_creation_lnx_capsh_shell_invocation": {
+   "author": "Li Ling, Andy Parkidomo, Robert Rakowski, Blake Hartstein (Bloomberg L.P.)",
+   "title": "Capsh Shell Invocation - Linux",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_capsh_shell_invocation.yml"
+  },
+  "proc_creation_lnx_chattr_immutable_removal": {
+   "author": "Nasreddine Bencherchali (Nextron Systems)",
+   "title": "Remove Immutable File Attribute",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_chattr_immutable_removal.yml"
+  },
+  "proc_creation_lnx_clear_logs": {
+   "author": "Ömer Günal, oscd.community",
+   "title": "Linux Logs Clearing Attempts",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_clear_logs.yml"
+  },
+  "proc_creation_lnx_clear_syslog": {
+   "author": "Max Altgelt (Nextron Systems), Roberto Rodriguez (Cyb3rWard0g), OTR (Open Threat Research), MSTIC",
+   "title": "Syslog Clearing or Removal Via System Utilities",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_clear_syslog.yml"
+  },
+  "proc_creation_lnx_crontab_removal": {
+   "author": "Nasreddine Bencherchali (Nextron Systems)",
+   "title": "Remove Scheduled Cron Task/Job",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_crontab_removal.yml"
+  },
+  "proc_creation_lnx_crypto_mining": {
+   "author": "Florian Roth (Nextron Systems)",
+   "title": "Linux Crypto Mining Indicators",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_crypto_mining.yml"
+  },
+  "proc_creation_lnx_curl_wget_exec_tmp": {
+   "author": "Aayush Gupta",
+   "title": "Suspicious Download and Execute Pattern via Curl/Wget",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_curl_wget_exec_tmp.yml"
+  },
+  "proc_creation_lnx_dd_process_injection": {
+   "author": "Joseph Kamau",
+   "title": "Potential Linux Process Code Injection Via DD Utility",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_dd_process_injection.yml"
+  },
+  "proc_creation_lnx_disable_ufw": {
+   "author": "Joseliyo Sanchez, @Joseliyo_Jstnk",
+   "title": "UFW Disable Attempt",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_disable_ufw.yml"
+  },
+  "proc_creation_lnx_env_shell_invocation": {
+   "author": "Li Ling, Andy Parkidomo, Robert Rakowski, Blake Hartstein (Bloomberg L.P.)",
+   "title": "Shell Invocation via Env Command - Linux",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_env_shell_invocation.yml"
+  },
+  "proc_creation_lnx_esxcli_network_discovery": {
+   "author": "Cedric Maurugeon",
+   "title": "ESXi Network Configuration Discovery Via ESXCLI",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_esxcli_network_discovery.yml"
+  },
+  "proc_creation_lnx_esxcli_permission_change_admin": {
+   "author": "Nasreddine Bencherchali (Nextron Systems)",
+   "title": "ESXi Admin Permission Assigned To Account Via ESXCLI",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_esxcli_permission_change_admin.yml"
+  },
+  "proc_creation_lnx_esxcli_storage_discovery": {
+   "author": "Nasreddine Bencherchali (Nextron Systems), Cedric Maurugeon",
+   "title": "ESXi Storage Information Discovery Via ESXCLI",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_esxcli_storage_discovery.yml"
+  },
+  "proc_creation_lnx_esxcli_syslog_config_change": {
+   "author": "Cedric Maurugeon",
+   "title": "ESXi Syslog Configuration Change Via ESXCLI",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_esxcli_syslog_config_change.yml"
+  },
+  "proc_creation_lnx_esxcli_system_discovery": {
+   "author": "Cedric Maurugeon",
+   "title": "ESXi System Information Discovery Via ESXCLI",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_esxcli_system_discovery.yml"
+  },
+  "proc_creation_lnx_esxcli_user_account_creation": {
+   "author": "Cedric Maurugeon",
+   "title": "ESXi Account Creation Via ESXCLI",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_esxcli_user_account_creation.yml"
+  },
+  "proc_creation_lnx_esxcli_vm_discovery": {
+   "author": "Cedric Maurugeon",
+   "title": "ESXi VM List Discovery Via ESXCLI",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_esxcli_vm_discovery.yml"
+  },
+  "proc_creation_lnx_esxcli_vm_kill": {
+   "author": "Nasreddine Bencherchali (Nextron Systems), Cedric Maurugeon",
+   "title": "ESXi VM Kill Via ESXCLI",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_esxcli_vm_kill.yml"
+  },
+  "proc_creation_lnx_esxcli_vsan_discovery": {
+   "author": "Nasreddine Bencherchali (Nextron Systems), Cedric Maurugeon",
+   "title": "ESXi VSAN Information Discovery Via ESXCLI",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_esxcli_vsan_discovery.yml"
+  },
+  "proc_creation_lnx_exploit_cve_2019_14287": {
+   "author": "Florian Roth (Nextron Systems)",
+   "title": "Sudo Privilege Escalation CVE-2019-14287",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules-emerging-threats/2019/Exploits/CVE-2019-14287/proc_creation_lnx_exploit_cve_2019_14287.yml"
+  },
+  "proc_creation_lnx_exploit_cve_2025_5054_or_cve_2025_4598": {
+   "author": "Milad Cheraghi",
+   "title": "Potential Exploitation of CVE-2025-5054 or CVE-2025-4598",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules-emerging-threats/2025/Exploits/CVE_2025_4598/proc_creation_lnx_exploit_cve_2025_5054_or_cve_2025_4598.yml"
+  },
+  "proc_creation_lnx_exploit_cve_2026_31431_copyfail": {
+   "author": "Gene Kazimiarovich",
+   "title": "Authencesn Crypto Module Load via Modprobe - Copy-Fail Indicator",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules-emerging-threats/2026/Exploits/CVE-2026-31431/proc_creation_lnx_exploit_cve_2026_31431_copyfail.yml"
+  },
+  "proc_creation_lnx_groupdel": {
+   "author": "Tuan Le (NCSGroup)",
+   "title": "Group Has Been Deleted Via Groupdel",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_groupdel.yml"
+  },
+  "proc_creation_lnx_iptables_flush_ufw": {
+   "author": "Joseliyo Sanchez, @Joseliyo_Jstnk",
+   "title": "Flush Iptables Ufw Chain",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_iptables_flush_ufw.yml"
+  },
+  "proc_creation_lnx_mal_shai_hulud_indicator": {
+   "author": "Swachchhanda Shrawan Poudel (Nextron Systems)",
+   "title": "Shai-Hulud Malware Indicators - Linux",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules-emerging-threats/2025/Malware/Shai-Hulud/proc_creation_lnx_mal_shai_hulud_indicator.yml"
+  },
+  "proc_creation_lnx_mal_shai_hulud_malicious_npm_package_installation": {
+   "author": "Swachchhanda Shrawan Poudel (Nextron Systems)",
+   "title": "Shai-Hulud 2.0 Malicious NPM Package Installation - Linux",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules-emerging-threats/2025/Malware/Shai-Hulud/proc_creation_lnx_mal_shai_hulud_malicious_npm_package_installation.yml"
+  },
+  "proc_creation_lnx_mal_shai_hululd_exfiltration": {
+   "author": "Swachchhanda Shrawan Poudel (Nextron Systems)",
+   "title": "Shai-Hulud NPM Package Malicious Exfiltration via Curl",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules-emerging-threats/2025/Malware/Shai-Hulud/proc_creation_lnx_mal_shai_hululd_exfiltration.yml"
+  },
+  "proc_creation_lnx_malware_tanstack_supply_chain": {
+   "author": "Leonardo Gasparini",
+   "title": "TanStack Supply-Chain Attack Execution Indicators - Linux",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules-emerging-threats/2026/Malware/TanStack-Supply-Chain/proc_creation_lnx_malware_tanstack_supply_chain.yml"
+  },
+  "proc_creation_lnx_mount_hidepid": {
+   "author": "Joseliyo Sanchez, @Joseliyo_Jstnk",
+   "title": "Mount Execution With Hidepid Parameter",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_mount_hidepid.yml"
+  },
+  "proc_creation_lnx_netcat_reverse_shell": {
+   "author": "@d4ns4n_, Nasreddine Bencherchali (Nextron Systems)",
+   "title": "Potential Netcat Reverse Shell Execution",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_netcat_reverse_shell.yml"
+  },
+  "proc_creation_lnx_nohup": {
+   "author": "Christopher Peacock @SecurePeacock, SCYTHE @scythe_io",
+   "title": "Nohup Execution",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_nohup.yml"
+  },
+  "proc_creation_lnx_nohup_susp_execution": {
+   "author": "Joseliyo Sanchez, @Joseliyo_Jstnk",
+   "title": "Suspicious Nohup Execution",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_nohup_susp_execution.yml"
+  },
+  "proc_creation_lnx_perl_reverse_shell": {
+   "author": "@d4ns4n_, Nasreddine Bencherchali (Nextron Systems)",
+   "title": "Potential Perl Reverse Shell Execution",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_perl_reverse_shell.yml"
+  },
+  "proc_creation_lnx_php_reverse_shell": {
+   "author": "@d4ns4n_",
+   "title": "Potential PHP Reverse Shell",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_php_reverse_shell.yml"
+  },
+  "proc_creation_lnx_pua_trufflehog": {
+   "author": "Swachchhanda Shrawan Poudel (Nextron Systems)",
+   "title": "PUA - TruffleHog Execution - Linux",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_pua_trufflehog.yml"
+  },
+  "proc_creation_lnx_python_base64_encoded_execution": {
+   "author": "Hugh Ryan (HueCodes), Swachchhanda Shrawan Poudel (Nextron Systems)",
+   "title": "Python One-Liners with Base64 Decoding - Linux",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_python_base64_encoded_execution.yml"
+  },
+  "proc_creation_lnx_python_pty_spawn": {
+   "author": "Nextron Systems",
+   "title": "Python Spawning Pretty TTY Via PTY Module",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_python_pty_spawn.yml"
+  },
+  "proc_creation_lnx_python_reverse_shell": {
+   "author": "@d4ns4n_, Nasreddine Bencherchali (Nextron Systems)",
+   "title": "Python Reverse Shell Execution Via PTY And Socket Modules",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_python_reverse_shell.yml"
+  },
+  "proc_creation_lnx_python_shell_os_system": {
+   "author": "Li Ling, Andy Parkidomo, Robert Rakowski, Blake Hartstein (Bloomberg L.P.)",
+   "title": "Inline Python Execution - Spawn Shell Via OS System Library",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_python_shell_os_system.yml"
+  },
+  "proc_creation_lnx_rsync_shell_execution": {
+   "author": "Li Ling, Andy Parkidomo, Robert Rakowski, Blake Hartstein (Bloomberg L.P.), Florian Roth",
+   "title": "Shell Execution via Rsync - Linux",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_rsync_shell_execution.yml"
+  },
+  "proc_creation_lnx_ruby_reverse_shell": {
+   "author": "@d4ns4n_",
+   "title": "Potential Ruby Reverse Shell",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_ruby_reverse_shell.yml"
+  },
+  "proc_creation_lnx_schedule_task_job_cron": {
+   "author": "Alejandro Ortuno, oscd.community",
+   "title": "Scheduled Cron Task/Job - Linux",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_schedule_task_job_cron.yml"
+  },
+  "proc_creation_lnx_security_tools_disabling": {
+   "author": "Ömer Günal, Alejandro Ortuno, oscd.community",
+   "title": "Disabling Security Tools",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_security_tools_disabling.yml"
+  },
+  "proc_creation_lnx_ssh_shell_execution": {
+   "author": "Li Ling, Andy Parkidomo, Robert Rakowski, Blake Hartstein (Bloomberg L.P.)",
+   "title": "Shell Invocation Via Ssh - Linux",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_ssh_shell_execution.yml"
+  },
+  "proc_creation_lnx_ssm_agent_abuse": {
+   "author": "Muhammad Faisal",
+   "title": "Potential Linux Amazon SSM Agent Hijacking",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_ssm_agent_abuse.yml"
+  },
+  "proc_creation_lnx_susp_curl_useragent": {
+   "author": "Nasreddine Bencherchali (Nextron Systems)",
+   "title": "Suspicious Curl Change User Agents - Linux",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_susp_curl_useragent.yml"
+  },
+  "proc_creation_lnx_susp_exec_from_dev_shm": {
+   "author": "Stan Beukers",
+   "title": "Process Execution From Shared Memory Directory",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_susp_exec_from_dev_shm.yml"
+  },
+  "proc_creation_lnx_susp_history_delete": {
+   "author": "Florian Roth (Nextron Systems)",
+   "title": "History File Deletion",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_susp_history_delete.yml"
+  },
+  "proc_creation_lnx_susp_hktl_execution": {
+   "author": "Nasreddine Bencherchali (Nextron Systems), Georg Lauenstein (sure[secure])",
+   "title": "Linux HackTool Execution",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_susp_hktl_execution.yml"
+  },
+  "proc_creation_lnx_susp_pipe_shell": {
+   "author": "Florian Roth (Nextron Systems)",
+   "title": "Linux Shell Pipe to Shell",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_susp_pipe_shell.yml"
+  },
+  "proc_creation_lnx_susp_recon_indicators": {
+   "author": "Florian Roth (Nextron Systems)",
+   "title": "Linux Recon Indicators",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_susp_recon_indicators.yml"
+  },
+  "proc_creation_lnx_susp_shell_script_exec_from_susp_location": {
+   "author": "Joseliyo Sanchez, @Joseliyo_Jstnk",
+   "title": "Execution Of Script Located In Potentially Suspicious Directory",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_susp_shell_script_exec_from_susp_location.yml"
+  },
+  "proc_creation_lnx_systemctl_mask_power_settings": {
+   "author": "Milad Cheraghi, Nasreddine Bencherchali",
+   "title": "Mask System Power Settings Via Systemctl",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_systemctl_mask_power_settings.yml"
+  },
+  "proc_creation_lnx_touch_susp": {
+   "author": "Joseliyo Sanchez, @Joseliyo_Jstnk",
+   "title": "Touch Suspicious Service File",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_touch_susp.yml"
+  },
+  "proc_creation_lnx_triple_cross_rootkit_execve_hijack": {
+   "author": "Nasreddine Bencherchali (Nextron Systems)",
+   "title": "Triple Cross eBPF Rootkit Execve Hijack",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_triple_cross_rootkit_execve_hijack.yml"
+  },
+  "proc_creation_lnx_triple_cross_rootkit_install": {
+   "author": "Nasreddine Bencherchali (Nextron Systems)",
+   "title": "Triple Cross eBPF Rootkit Install Commands",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_triple_cross_rootkit_install.yml"
+  },
+  "proc_creation_lnx_userdel": {
+   "author": "Tuan Le (NCSGroup)",
+   "title": "User Has Been Deleted Via Userdel",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_userdel.yml"
+  },
+  "proc_creation_lnx_usermod_susp_group": {
+   "author": "TuanLe (GTSC)",
+   "title": "User Added To Root/Sudoers Group Using Usermod",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_usermod_susp_group.yml"
+  },
+  "proc_creation_lnx_vim_shell_execution": {
+   "author": "Nasreddine Bencherchali (Nextron Systems), Luc Génaux",
+   "title": "Vim GTFOBin Abuse - Linux",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_vim_shell_execution.yml"
+  },
+  "proc_creation_lnx_xterm_reverse_shell": {
+   "author": "@d4ns4n_",
+   "title": "Potential Xterm Reverse Shell",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/linux/process_creation/proc_creation_lnx_xterm_reverse_shell.yml"
+  },
+  "proc_creation_macos_axios_npm_compromise_indicators": {
+   "author": "Swachchhanda Shrawan Poudel (Nextron Systems)",
+   "title": "Axios NPM Compromise Indicators - macOS",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules-emerging-threats/2026/Malware/Axios-NPM-Compromise/proc_creation_macos_axios_npm_compromise_indicators.yml"
+  },
+  "proc_creation_macos_clear_system_logs": {
+   "author": "remotephone, oscd.community",
+   "title": "Indicator Removal on Host - Clear Mac System Logs",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_clear_system_logs.yml"
+  },
+  "proc_creation_macos_create_hidden_account": {
+   "author": "Daniil Yugoslavskiy, oscd.community",
+   "title": "Hidden User Creation",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_create_hidden_account.yml"
+  },
+  "proc_creation_macos_disable_security_tools": {
+   "author": "Daniil Yugoslavskiy, oscd.community",
+   "title": "Disable Security Tools",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_disable_security_tools.yml"
+  },
+  "proc_creation_macos_dscl_add_user_to_admin_group": {
+   "author": "Sohan G (D4rkCiph3r)",
+   "title": "User Added To Admin Group Via Dscl",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_dscl_add_user_to_admin_group.yml"
+  },
+  "proc_creation_macos_dseditgroup_add_to_admin_group": {
+   "author": "Sohan G (D4rkCiph3r)",
+   "title": "User Added To Admin Group Via DseditGroup",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_dseditgroup_add_to_admin_group.yml"
+  },
+  "proc_creation_macos_dsenableroot_enable_root_account": {
+   "author": "Sohan G (D4rkCiph3r)",
+   "title": "Root Account Enable Via Dsenableroot",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_dsenableroot_enable_root_account.yml"
+  },
+  "proc_creation_macos_find_cred_in_files": {
+   "author": "Igor Fits, Mikhail Larin, oscd.community",
+   "title": "Credentials In Files",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_find_cred_in_files.yml"
+  },
+  "proc_creation_macos_hdiutil_mount": {
+   "author": "Omar Khaled (@beacon_exe)",
+   "title": "Disk Image Mounting Via Hdiutil - MacOS",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_hdiutil_mount.yml"
+  },
+  "proc_creation_macos_jxa_in_memory_execution": {
+   "author": "Sohan G (D4rkCiph3r)",
+   "title": "JXA In-memory Execution Via OSAScript",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_jxa_in_memory_execution.yml"
+  },
+  "proc_creation_macos_malware_amos_curl_post": {
+   "author": "Jason Phang Vern - Onn, Robbin Ooi Zhen Heng (Gen Digital)",
+   "title": "Atomic MacOS Stealer - FileGrabber Activity",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules-emerging-threats/2025/Malware/Atomic-MacOS-Stealer/proc_creation_macos_malware_amos_curl_post.yml"
+  },
+  "proc_creation_macos_nscurl_usage": {
+   "author": "Daniel Cortez",
+   "title": "File Download Via Nscurl - MacOS",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_nscurl_usage.yml"
+  },
+  "proc_creation_macos_osacompile_runonly_execution": {
+   "author": "Sohan G (D4rkCiph3r)",
+   "title": "OSACompile Run-Only Execution",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_osacompile_runonly_execution.yml"
+  },
+  "proc_creation_macos_payload_decoded_and_decrypted": {
+   "author": "Tim Rauch (rule), Elastic (idea)",
+   "title": "Payload Decoded and Decrypted via Built-in Utilities",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_payload_decoded_and_decrypted.yml"
+  },
+  "proc_creation_macos_pbpaste_execution": {
+   "author": "Daniel Cortez",
+   "title": "Clipboard Data Collection Via Pbpaste",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules-threat-hunting/macos/process_creation/proc_creation_macos_pbpaste_execution.yml"
+  },
+  "proc_creation_macos_persistence_via_plistbuddy": {
+   "author": "Sohan G (D4rkCiph3r)",
+   "title": "Potential Persistence Via PlistBuddy",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_persistence_via_plistbuddy.yml"
+  },
+  "proc_creation_macos_remote_access_tools_meshagent_arguments": {
+   "author": "Norbert Jaśniewicz (AlphaSOC)",
+   "title": "Remote Access Tool - Potential MeshAgent Execution - MacOS",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_remote_access_tools_meshagent_arguments.yml"
+  },
+  "proc_creation_macos_susp_in_memory_download_and_compile": {
+   "author": "Sohan G (D4rkCiph3r), Red Canary (idea)",
+   "title": "Potential In-Memory Download And Compile Of Payloads",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_susp_in_memory_download_and_compile.yml"
+  },
+  "proc_creation_macos_susp_macos_firmware_activity": {
+   "author": "Austin Songer @austinsonger",
+   "title": "Suspicious MacOS Firmware Activity",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_susp_macos_firmware_activity.yml"
+  },
+  "proc_creation_macos_sysadminctl_add_user_to_admin_group": {
+   "author": "Sohan G (D4rkCiph3r)",
+   "title": "User Added To Admin Group Via Sysadminctl",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_sysadminctl_add_user_to_admin_group.yml"
+  },
+  "proc_creation_macos_tail_base64_decode_from_image": {
+   "author": "Joseliyo Sanchez, @Joseliyo_Jstnk",
+   "title": "Potential Base64 Decoded From Images",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_tail_base64_decode_from_image.yml"
+  },
+  "proc_creation_macos_tmutil_delete_backup": {
+   "author": "Pratinav Chandra",
+   "title": "Time Machine Backup Deletion Attempt Via Tmutil - MacOS",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_tmutil_delete_backup.yml"
+  },
+  "proc_creation_macos_tmutil_disable_backup": {
+   "author": "Pratinav Chandra",
+   "title": "Time Machine Backup Disabled Via Tmutil - MacOS",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_tmutil_disable_backup.yml"
+  },
+  "proc_creation_macos_tmutil_exclude_file_from_backup": {
+   "author": "Pratinav Chandra",
+   "title": "New File Exclusion Added To Time Machine Via Tmutil - MacOS",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_tmutil_exclude_file_from_backup.yml"
+  },
+  "proc_creation_macos_wizardupdate_malware_infection": {
+   "author": "Tim Rauch (rule), Elastic (idea)",
+   "title": "Potential WizardUpdate Malware Infection",
+   "uri": "https://github.com/SigmaHQ/sigma/blob/05d1031f537e830b76da53bae2400c5814c89165/rules/macos/process_creation/proc_creation_macos_wizardupdate_malware_infection.yml"
+  }
+ },
+ "screen": "(?:\\ (?:\\-(?:\\-(?:algo=rx/0\\ |cpu\\-priority=|nicehash|results=verified)|name\\ \\.htpasswd|o\\ pool\\.|perm\\ \\-4000\\ |u\\#)|>(?:\\ /var/log/syslog|/var/log/syslog|\\|\\ /var/log/syslog))|\\-(?:\\-(?:donate\\-level=0|meshservicename)|display)|\\.connect|/(?:a(?:ircrack\\-ng|utorecon)|b(?:loodhound\\-python|pfdos)|c(?:obaltstrike|rackmapexec|url)|d(?:ev/shm/|irb(?:uster)?)|e(?:bpfki|vil\\-winrm|yewitness)|f(?:eroxbuster|fuf)|gobuster|h(?:a(?:shcat|voc)|oaxshell\\.py|ttpx|ydra)|jo(?:hn|omscan)|l(?:egion|i(?:brary/caches/com\\.apple\\.act\\.mond|npeas))|m(?:erlin(?:\\-agent|server\\-linux\\-x64)|sf(?:console|venom))|n(?:aabu|crack|etdiscover|ikto|uclei|xc\\-ubuntu\\-latest)|p(?:idhide|s(?:\\-empire(?:\\ server)?|py(?:32(?:s)?|64(?:s)?))|ython)|recon\\-ng|s(?:etoolkit|liver\\-(?:client|server)|niper|qlmap|ys/kernel/debug/tracing/events/kprobes/)|t(?:eamserver|m(?:p/(?:6202033|transformers\\.pyz)|util)|rufflehog)|ufw\\-init|v(?:ar/log/syslog|illain\\.py)|w(?:fuzz|get|hatweb|pscan|riteblocker))|0tzg9uyxrllwxldmvsp|:(?:\\ >\\ /var/log/syslog|>(?:\\ /var/log/syslog|/var/log/syslog))|>\\|/var/log/syslog|addexclusion|b(?:as(?:e64\\ |h\\ \\-c\\ )|pftrace)|c(?:3ryyxr1bst(?:0y3a6ly|1zha6ly)|rontab)|disable|f(?:ile(?:=@/tmp/out\\.zip|grabber)|rom\\ pty\\ |sockopen)|i(?:mport\\ pty|yevymlul(?:2(?:jhc2|rhc2|zpc2)|3(?:no|pza)))|journalctl\\ \\-\\-(?:rotate|vacuum)|l(?:azagne|s1kb25hdgutbgv2zww9)|n(?:0cmf0dw0rd(?:gnwoi8v|wrwoi8v)|sdata\\.datawithcontentsofurl)|os(?:\\.system\\(|acompile)|password|s(?:h(?:\\ \\-c\\ (?:/sbin/modprobe\\ msr\\ allow_writes=on)?|a(?:1hulud|i\\-hulud))|tratum\\+(?:tcp://|udp://))|t(?:anstack_runner\\.js|cpsocket|lwrvbmf0zs1szxzlbd|mutil)|zdhjhdhvtk3(?:rjcdovl|vkcdovl))"
+}

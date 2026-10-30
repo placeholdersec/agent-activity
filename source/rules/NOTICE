@@ -1,0 +1,95 @@
+The rule files in this folder are derived from these open-source works.
+Each one's licence is in licenses/.
+
+aws.json
+  - iam-dataset by Ian Mckay (https://github.com/iann0036/iam-dataset),
+    commit c649fa85fef5e69c87d22f00d0b324923fd3e560, MIT. Used: the mapping of SDK methods to
+    IAM actions and each action's access level, reduced to one access code per
+    method and the SDK service names.
+  - TrailDiscover by Adan Alvarez (https://github.com/adanalvarez/TrailDiscover),
+    commit 30365958eb362392acc0b40e3e5fae6ce2dc8002, licensed under CC BY 4.0
+    (https://creativecommons.org/licenses/by/4.0/). Used: each event's name,
+    source and MITRE ATT&CK tactics, and whether it was used in the wild,
+    which sets severity. Changed: only events whose calls change something, or
+    whose tactic is Credential Access or Exfiltration, are kept.
+  - panther-analysis by Panther Labs (https://github.com/panther-labs/panther-analysis),
+    commit 4d78f77d545e474064f9921924d54e1e368ceffd, Apache-2.0. Used: from the AWS
+    CloudTrail rules, each rule's ID, severity, MITRE ATT&CK tactic and the
+    event names in its code, checked against iam-dataset; rules about
+    console sign-ins or VPC endpoint traffic, and rules naming more than 25
+    events, are left out. The rules' other conditions are not used, so
+    a call is flagged by name alone.
+  - pathfinding.cloud by Datadog (https://github.com/DataDog/pathfinding.cloud),
+    commit ecc3d092e7e409497474c8d39eb92f61810d815f, Apache-2.0. Used: privilege
+    escalation paths that need a single permission.
+  - Sigma, as below: AWS CloudTrail rules flag the calls they name, where no
+    other source flags them, by name alone (their other conditions are not
+    used); the rule's file name is the finding's ID.
+
+github.json
+  - panther-analysis, as above: from the GitHub rules, the rule ID, severity
+    and tactic for each audit action. The mapping of gh commands to audit
+    actions is this project's own.
+
+secrets.json
+  - claude-code-safety-net, copyright (c) 2026 J Liew
+    (https://github.com/kenryu42/claude-code-safety-net),
+    commit 71baf747e2a5246bdf613a2894f2d6e7a5ad80bf, MIT. Used: the names, paths
+    and extensions of files that hold secrets, extracted from its rule
+    definitions.
+
+shell.json
+  - shellfirm by Elad Kaplan (https://github.com/kaplanelad/shellfirm),
+    commit 7ebf869770c197bf5591bdcf4003f6373af6c211, Apache-2.0. Used: Critical and High checks, without
+    the fs, base, network and docker packs, with only git:push_mirror
+    and git:push_delete_branch from the git pack (collect.py's own rule ranks
+    force pushes by the branch they target), and without the
+    "-strict" checks, and without the four checks for running fetched code
+    (shell:curl_pipe_to_shell, wget_pipe_to_shell, eval_curl and
+    curl_pipe_to_interpreter), which collect.py's own rule replaces so it can
+    rank the code by its source. Changed: converted from YAML to JSON; each
+    check gained a MITRE ATT&CK tactic decided by its ID.
+
+mcp_tools.json
+  - github-mcp-server by GitHub (https://github.com/github/github-mcp-server),
+    commit f692b2d981855ae4ee25e8bfff50d4733ff85b82, MIT. Used: each tool's name and
+    whether its readOnlyHint annotation is set, from pkg/github/__toolsnaps__.
+  The other servers' lists, the SQL tools and the verbs are this project's
+  own, from each server's tool documentation (named in the file).
+
+sigma.json
+  - Sigma rules by the SigmaHQ project and each rule's authors
+    (https://github.com/SigmaHQ/sigma), commit 05d1031f537e830b76da53bae2400c5814c89165,
+    licensed under the Detection Rule License (DRL) 1.1
+    (https://github.com/SigmaHQ/Detection-Rule-License; its text is in
+    licenses/sigma.LICENSE). Each rule's title, authors ("author" field) and
+    link are in the file's "rules", shipped with the tool. Used: Linux and macOS process_creation rules
+    of level medium, high or critical, without those whose only tactics are
+    Discovery, Reconnaissance or Collection, those that need fields the logs
+    don't hold (parent process, user) and those that fall below the
+    precision bar on coding agents' commands. Changed: each rule's detection
+    is converted to one regular expression on the program and its command
+    line; the level sets the severity (critical and high: high; medium:
+    medium) and the first ATT&CK tactic tag the tactic (Stealth and Defense
+    Impairment: Defense Evasion).
+
+read_only.json
+  - Codex by OpenAI (https://github.com/openai/codex), commit 3b45c29062ff0e76e71c91b6753290400e7fa8da,
+    Apache-2.0; its NOTICE is in licenses/codex.NOTICE. Used: the commands
+    its is_safe_command.rs runs without asking (the "known safe" list) and the
+    options that make find, rg and base64 unsafe, extracted from the source.
+    collect.py reports no Sigma or shellfirm rule on such a command (unless
+    its output is piped into a shell); reading a secret file with it still
+    counts.
+
+known_sources.json is this project's own compilation: the official install
+scripts of well-known tools, each with the page of the tool's documentation it
+was checked against (in the row's "source"), and lists of code host
+organisations and of hosts whose content anyone can publish.
+
+well_known_hosts.json is this project's own short list of well-known services
+(code hosts, package registries, the major clouds, AI providers, common SaaS),
+used only by the report.
+
+Of the Apache-2.0 works, pathfinding.cloud and Codex ship a NOTICE file; they
+are in licenses/. shellfirm and panther-analysis ship none at the commits used.

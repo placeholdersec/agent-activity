@@ -1,0 +1,16 @@
+{
+ "about": [
+  "Well-known services, for the report's Rare pill: a web host data was sent to that was seen on only one machine and is not one of these.",
+  "Matched on the host or any host under it (github.com covers api.github.com). A host in known_sources.json's unknown_hosts, where anyone can publish, is never well-known."
+ ],
+ "hosts": [
+  "github.com", "githubusercontent.com", "gitlab.com", "bitbucket.org",
+  "npmjs.org", "npmjs.com", "yarnpkg.com", "pypi.org", "pythonhosted.org", "crates.io", "rubygems.org",
+  "golang.org", "go.dev", "maven.org", "gradle.org", "nuget.org", "docker.io", "docker.com", "ghcr.io", "quay.io",
+  "amazonaws.com", "aws.amazon.com", "googleapis.com", "google.com", "azure.com", "windows.net",
+  "microsoft.com", "microsoftonline.com", "cloudflare.com",
+  "anthropic.com", "openai.com", "huggingface.co",
+  "slack.com", "atlassian.com", "atlassian.net", "notion.so", "linear.app", "sentry.io", "datadoghq.com",
+  "stripe.com", "vercel.com", "netlify.com", "heroku.com", "supabase.co", "figma.com"
+ ]
+}

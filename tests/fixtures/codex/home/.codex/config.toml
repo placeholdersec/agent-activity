@@ -1,0 +1,3 @@
+model = "gpt-5-codex"
+[mcp_servers.linear]
+env = { TOKEN = "CONFIG-SECRET-VALUE" }

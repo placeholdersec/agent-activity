@@ -1,0 +1,66 @@
+[
+ {
+  "action": "repo.access",
+  "id": "Github.Repo.VisibilityChange",
+  "pattern": "^gh\\s+repo\\s+(edit|create)\\b[^|;&\\n]*(--visibility[ =]public|--public\\b)",
+  "severity": "high",
+  "source": "panther",
+  "tactic": "Exfiltration"
+ },
+ {
+  "action": "repo.access",
+  "id": "Github.Repo.VisibilityChange",
+  "pattern": "^gh\\s+api\\b[^|;&\\n]*visibility\\W+public",
+  "severity": "high",
+  "source": "panther",
+  "tactic": "Exfiltration"
+ },
+ {
+  "action": "protected_branch.destroy",
+  "id": "GitHub.Branch.ProtectionDisabled",
+  "pattern": "^gh\\s+api\\b(?=[^|;&\\n]*(-X|--method)\\s*DELETE)[^|;&\\n]*branches/\\S+/protection",
+  "severity": "high",
+  "source": "panther",
+  "tactic": "Defense Evasion"
+ },
+ {
+  "action": "repo.add_member",
+  "id": "Github.Repo.CollaboratorChange",
+  "pattern": "^gh\\s+api\\b(?=[^|;&\\n]*(-X|--method)\\s*PUT)[^|;&\\n]*repos/\\S+/collaborators/",
+  "severity": "medium",
+  "source": "panther",
+  "tactic": "Persistence"
+ },
+ {
+  "action": "org.update_member",
+  "id": "GitHub.User.RoleUpdated",
+  "pattern": "^gh\\s+api\\b(?=[^|;&\\n]*(-X|--method)\\s*PUT)(?=[^|;&\\n]*(\\brole\\W+(admin|owner)\\b|orgs/[^/\\s]+/teams/[^/\\s]*(admin|owner)[^/\\s]*/memberships/))[^|;&\\n]*orgs/\\S+/memberships/",
+  "severity": "high",
+  "source": "panther",
+  "tactic": "Persistence"
+ },
+ {
+  "action": "org.add_member",
+  "id": "GitHub.Org.Modified",
+  "pattern": "^gh\\s+api\\b(?=[^|;&\\n]*(-X|--method)\\s*PUT)[^|;&\\n]*orgs/\\S+/memberships/",
+  "severity": "low",
+  "source": "panther",
+  "tactic": "Persistence"
+ },
+ {
+  "action": "public_key.create",
+  "id": "GitHub.User.AccessKeyCreated",
+  "pattern": "^gh\\s+(repo\\s+deploy-key|ssh-key)\\s+add\\b",
+  "severity": "low",
+  "source": "panther",
+  "tactic": "Persistence"
+ },
+ {
+  "action": "repository_secret_scanning_push_protection.disable",
+  "id": "GitHub.Advanced.Security.Change",
+  "pattern": "^gh\\s+api\\b[^|;&\\n]*secret_scanning_push_protection\\W+disabled",
+  "severity": "low",
+  "source": "panther",
+  "tactic": "Defense Evasion"
+ }
+]

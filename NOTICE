@@ -1,0 +1,8 @@
+Agent activity
+Copyright 2026 <PLACEHOLDER> Security
+
+Licensed under the Apache License, Version 2.0 (LICENSE).
+
+The rule files in source/rules/ are derived from third-party open-source
+works; source/rules/NOTICE names each one and source/rules/licenses/ holds
+their licences.

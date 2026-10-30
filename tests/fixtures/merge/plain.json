@@ -1,0 +1,19 @@
+{
+ "schema": "agent-activity-endpoint/1",
+ "collector": {"version": "0.13.0", "rules": ["shell.json"]},
+ "endpoint": {"hostname": "build-01", "name": "build-01", "machine_id": "", "os": "Linux 6.8",
+              "collected_at": "2026-10-20T09:00:00Z", "days": 30, "first_activity": "", "last_activity": ""},
+ "users": [{"name": "dana", "sessions": 3, "shell_commands": 40, "mcp_calls": 0, "web_fetches": 2,
+            "sessions_by_group": {"risky_actions": {"high": 0, "medium": 0, "none": 3},
+                                  "changes": {"cloud_or_published": 0, "code_or_data": 1, "read_only": 2}}}],
+ "totals": {"shell_commands": 40, "findings": 0, "mcp_calls": 0, "web_fetches": 2},
+ "findings": [],
+ "resources": {
+  "aws": [], "azure": [], "gcp": [], "kubernetes": [], "registries": [], "mcp": [], "ssh": [],
+  "repositories": [{"name": "acme/api", "reads": 12, "changes": 2, "users": ["dana"]}],
+  "web": [{"name": "pypi.org", "reads": 2, "changes": 0, "users": ["dana"]}]
+ },
+ "executed_other_code": {"commands": 6, "of": 40, "by_kind": {"builds_tests": 4, "inline_code": 2}},
+ "format": {"claude_code_versions": {"2.1.300": 90}, "entries": 90, "unparsed_entries": 0, "tool_uses": {"Bash": 40}},
+ "errors": {"homes_skipped": 0, "files_skipped": 1, "calls_skipped": 0, "large_entries_skipped": 3}
+}

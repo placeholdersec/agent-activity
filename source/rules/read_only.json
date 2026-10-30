@@ -1,0 +1,57 @@
+{
+ "programs": [
+  "base64",
+  "cat",
+  "cd",
+  "cut",
+  "echo",
+  "expr",
+  "false",
+  "find",
+  "grep",
+  "head",
+  "id",
+  "ls",
+  "nl",
+  "numfmt",
+  "paste",
+  "pwd",
+  "rev",
+  "rg",
+  "sed",
+  "seq",
+  "stat",
+  "tac",
+  "tail",
+  "tr",
+  "true",
+  "uname",
+  "uniq",
+  "wc",
+  "which",
+  "whoami"
+ ],
+ "unsafe_options": {
+  "base64": [
+   "-o",
+   "--output"
+  ],
+  "find": [
+   "-exec",
+   "-execdir",
+   "-ok",
+   "-okdir",
+   "-delete",
+   "-fls",
+   "-fprint",
+   "-fprint0",
+   "-fprintf"
+  ],
+  "rg": [
+   "--pre",
+   "--hostname-bin",
+   "--search-zip",
+   "-z"
+  ]
+ }
+}

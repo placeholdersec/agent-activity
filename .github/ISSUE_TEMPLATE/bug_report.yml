@@ -1,0 +1,31 @@
+name: Bug report
+description: Something didn't work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Don't paste real session logs, prompts, paths or secrets. A minimal, synthetic log line is best.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: "`collector.version` in the collected file"
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS and Python version
+      placeholder: macOS 15.4, Python 3.9.6
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what you expected
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: How to reproduce

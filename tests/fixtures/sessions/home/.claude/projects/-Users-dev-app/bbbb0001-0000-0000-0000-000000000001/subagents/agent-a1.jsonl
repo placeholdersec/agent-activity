@@ -1,0 +1,1 @@
+{"type": "assistant", "timestamp": "2026-10-21T09:00:00.000Z", "cwd": "/Users/dev/app", "sessionId": "bbbb0001-0000-0000-0000-000000000001", "isSidechain": true, "version": "2.1.300", "uuid": "u2", "message": {"role": "assistant", "content": [{"type": "tool_use", "id": "toolu_s1_2", "name": "Bash", "input": {"command": "curl -X POST https://api.example.com/items -d '{}'"}}]}}

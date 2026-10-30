@@ -1,0 +1,26 @@
+name: Detection gap
+description: A risky command that wasn't flagged, or a harmless one that was.
+labels: [detection]
+body:
+  - type: textarea
+    id: command
+    attributes:
+      label: Command text
+      description: Mask any secrets.
+      render: shell
+    validations:
+      required: true
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind
+      options:
+        - Missed (should be flagged)
+        - False positive (shouldn't be flagged)
+        - Wrong severity or tactic
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
