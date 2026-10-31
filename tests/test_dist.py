@@ -27,6 +27,10 @@ def without_time(text):
     return data
 
 
+# macOS's own python3 where it exists, else the Python running the tests (Linux images have no /usr/bin/python3).
+SYSTEM_PYTHON = "/usr/bin/python3" if os.path.exists("/usr/bin/python3") else sys.executable
+
+
 class Python39(unittest.TestCase):
 
     def test_no_fstring_nests_its_own_quote(self):
@@ -94,12 +98,12 @@ class Built(unittest.TestCase):
                 shutil.copy(BUILT, here / "agent-activity.py")
                 if not writable:
                     here.chmod(0o555)
-                done = subprocess.run(["/usr/bin/python3", here / "agent-activity.py", "--home", logs,
+                done = subprocess.run([SYSTEM_PYTHON, here / "agent-activity.py", "--home", logs,
                                        "--name", "Asset 7", "--days", str(support.days())],
                                       capture_output=True, text=True, env=dict(os.environ, HOME=str(home)))
                 out = (here / "agent-activity-files" if writable else home) / "agent-activity-Asset_7.json"
                 self.assertEqual(done.stdout.splitlines(), [
-                    f"Read the Claude Code logs of home: 17 agent commands in the last {support.days()} days.",
+                    f"Read the Claude Code logs of 1 user: 17 agent commands in the last {support.days()} days.",
                     f"Saved {out}", "Send this file to your security team."], done.stderr)
                 self.assertEqual(json.loads(out.read_text())["endpoint"]["name"], "Asset_7")
                 here.chmod(0o755)
@@ -113,7 +117,8 @@ class Built(unittest.TestCase):
         self.assertEqual(collect.default_folder(True, "Linux", "/root"), "/var/lib/agent-activity")
         self.assertEqual(collect.default_name("C02XK1ABCD", "a1b2c3d4e5f60718", "dana-mbp.local"), "C02XK1ABCD")
         self.assertEqual(collect.default_name("To Be Filled By O.E.M.", "a1b2c3d4e5f60718", "box"), "a1b2c3d4e5f6")
-        self.assertEqual(collect.default_name("", "", "box.corp.example"), "box")
+        self.assertEqual(collect.default_name("", "", "box.corp.example"), collect.host_hash("box.corp.example")[2:14])
+        self.assertNotIn("box", collect.default_name("", "", "box.corp.example"))
 
     def test_upload_request(self):
         azure = collect.upload_request("https://acct.blob.core.windows.net/c/{name}.json?sv=1&sig=x", "C02 X/1", b"{}")

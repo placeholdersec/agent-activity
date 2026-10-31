@@ -98,7 +98,7 @@ not written.
 
 ### Users
 
-For each user, identified by their home folder:
+For each user, numbered `user-1`, `user-2` and so on, never by name:
 
 - How many sessions they had, per agent when there are Codex sessions
 - How many sessions fell in each group, by worst risky action and by kind of
@@ -133,7 +133,9 @@ output.
 - Claude Code and Codex versions
 - How many log entries couldn't be read
 - How many times each tool was used
-- The machine's name, host name, hashed hardware ID and OS
+- The machine's name (its serial number unless you set `--name`), a hash of its
+  host name, a hashed hardware ID and the OS. The host name itself is never
+  written, because it often holds the owner's name.
 - The first and last day of activity
 
 ## What it sends

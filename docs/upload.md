@@ -18,6 +18,12 @@ Provide the link in one of three ways:
 - Enter it between the quotes of `UPLOAD_URL = ""` near the top of
   `agent-activity.py`.
 
+> [!NOTE]
+> Editing `UPLOAD_URL` changes the file, so it no longer matches `SHA256SUMS` or
+> the build verification step. Verify the download first, then edit only that line:
+> `diff` against the verified copy should show nothing else. Where you can pass
+> arguments, prefer Jamf parameter 4 or `--upload`, which leave the file unchanged.
+
 `{name}` in the link is replaced with the machine's name, which is its serial
 number by default. This gives each machine its own file from a single link.
 

@@ -14,7 +14,7 @@ systems they changed.
 
 ![A flow from coding agents to the systems they changed: cloud providers, code repositories, SaaS tools via MCP, websites and APIs, and Kubernetes](docs/images/report-changes.png)
 
-- **Nothing to install.** Agent Activity is one Python file that uses only the
+- **No dependencies.** Agent Activity is one Python file that uses only the
   standard library.
 - **Runs locally.** It reads logs on the machine and writes one JSON file.
   Nothing is sent anywhere unless you provide an upload link.

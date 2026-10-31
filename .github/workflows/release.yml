@@ -3,6 +3,11 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to check (runs every check, publishes nothing)"
+        required: true
 
 permissions:
   contents: read
@@ -16,13 +21,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.13"
       - name: Version matches the tag
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
         run: |
           v=$(python -c "import re,sys; print(re.search(r'^VERSION = \"([^\"]+)\"', open('source/collect.py').read(), re.M).group(1))")
-          test "v$v" = "$GITHUB_REF_NAME"
+          test "v$v" = "$TAG"
       - name: agent-activity.py is built from source/
         run: |
           python source/bundle.py
@@ -34,6 +42,16 @@ jobs:
           sha256sum agent-activity.py > SHA256SUMS
           awk -v v="${GITHUB_REF_NAME#v}" '$0 ~ "^## \\[" v "\\]" {on=1; next} /^## \[/ {on=0} on' CHANGELOG.md > notes.md
       - name: Publish
+        if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" agent-activity.py SHA256SUMS --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            mkdir published
+            gh release download "$GITHUB_REF_NAME" -p agent-activity.py -p SHA256SUMS -D published
+            cmp published/agent-activity.py agent-activity.py && cmp published/SHA256SUMS SHA256SUMS
+            echo "$GITHUB_REF_NAME is already published with identical files."
+          else
+            pre=""; case "$GITHUB_REF_NAME" in v0.*|*-*) pre="--prerelease";; esac
+            gh release create "$GITHUB_REF_NAME" agent-activity.py SHA256SUMS --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag $pre
+          fi

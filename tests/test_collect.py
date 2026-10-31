@@ -1,6 +1,7 @@
 import collections
 import datetime
 import json
+import socket
 import os
 import pathlib
 import subprocess
@@ -944,6 +945,19 @@ class Determinism(unittest.TestCase):
             data["endpoint"].pop("collected_at")
             without_session_ids(data)
         self.assertEqual(json.dumps(first, sort_keys=False), json.dumps(second, sort_keys=False))
+
+
+class NoNames(unittest.TestCase):
+
+    def test_no_login_or_host_name_in_the_file(self):
+        data, _, _ = support.collect("resources")
+        text = json.dumps(data)
+        self.assertEqual([u["name"] for u in data["users"]], ["user-1"])
+        self.assertTrue(data["endpoint"]["hostname"].startswith("h_"))
+        self.assertNotIn(socket.gethostname(), text)
+        self.assertNotIn(socket.gethostname().split(".")[0], text)
+        for f in data["findings"]:
+            self.assertEqual(f.get("users", ["user-1"]), ["user-1"])
 
 
 if __name__ == "__main__":

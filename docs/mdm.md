@@ -40,6 +40,12 @@ upload link:
 - **Other MDMs:** enter the link between the quotes of `UPLOAD_URL = ""` near the
   top of the file before you add it to the MDM.
 
+> [!NOTE]
+> Editing `UPLOAD_URL` changes the file, so it no longer matches `SHA256SUMS` or
+> the build verification step. Verify the download first, then edit only that line:
+> `diff` against the verified copy should show nothing else. Where you can pass
+> arguments, prefer Jamf parameter 4 or `--upload`, which leave the file unchanged.
+
 If your MDM can collect files from machines, you can gather them from the folder
 in Step 1 instead.
 

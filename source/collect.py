@@ -33,7 +33,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 SCHEMA = "agent-activity-endpoint/1"
 HERE = pathlib.Path(__file__).resolve().parent
 SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
@@ -2887,8 +2887,8 @@ def scan_part(facts, text, argv, folder, path=None, fed=False):
     return found
 
 
-def collect_user(facts, home, days):
-    user = os.path.basename(home.rstrip("/"))
+def collect_user(facts, home, days, number=1):
+    user = f"user-{number}"
     _REMOTES.clear()
     profiles = aws_profiles(home)
     calls, outputs, mcp, fetches, sessions, reads, days_active, per = read_user(home, days, facts.format)
@@ -3109,11 +3109,15 @@ def hardware():
 
 
 def default_name(serial, hashed, hostname):
-    """The serial number, which the MDM lists; host names often hold the owner's name."""
+    """The serial number, which the MDM lists; host names often hold the owner's name, so never one."""
     if serial and not NO_SERIAL.match(serial):
         return serial
-    return hashed[:12] or hostname.split(".")[0] or \
-        hashlib.sha256(f"{hostname}:{os.getuid()}:{os.path.expanduser('~')}".encode()).hexdigest()[:12]
+    return hashed[:12] or host_hash(hostname)[2:14]
+
+
+def host_hash(hostname):
+    """Stable across runs, so a machine collected twice is still recognised, without its name."""
+    return "h_" + hashlib.sha256(f"agent-activity-host:{hostname.lower()}".encode()).hexdigest()[:16]
 
 
 FILES_FOLDER = "agent-activity-files"
@@ -3244,7 +3248,7 @@ def main(argv=None, upload_url=""):
         OWNER.update(given=home, home=os.path.realpath(home), uid=uid)
         try:
             with as_user(uid, gid):
-                users.append(collect_user(facts, home, args.days))
+                users.append(collect_user(facts, home, args.days, len(users) + 1))
         except Exception as error:
             ERRORS["homes_skipped"] += 1
             print(f"Couldn't read {home}: {error}.", file=sys.stderr)
@@ -3258,7 +3262,7 @@ def main(argv=None, upload_url=""):
     out_data = {
         "schema": SCHEMA,
         "collector": {"version": VERSION, "rules": rule_files()},
-        "endpoint": {"hostname": socket.gethostname(),
+        "endpoint": {"hostname": host_hash(socket.gethostname()),
                      "name": name,
                      "machine_id": hashed,
                      "os": f"{platform.system()} {platform.release()}",
@@ -3292,7 +3296,7 @@ def main(argv=None, upload_url=""):
             why = f"Couldn't write {out}: {error.strerror}."
     else:
         fail(why)
-    who = users[0]["name"] if len(users) == 1 else f"{len(users)} users"
+    who = "1 user" if len(users) == 1 else f"{len(users)} users"
     read = [a for a, n in (("Claude Code", facts.format["entries"]),
                            ("Codex", facts.format.get("codex", {}).get("entries"))) if n]
     if read:
