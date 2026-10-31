@@ -10,9 +10,9 @@ Agent Activity shows what coding agents did on your team's machines. It reads
 the Claude Code and Codex session logs on each machine and builds a single,
 self-contained HTML report of the risky commands your agents ran or attempted,
 mapped to MITRE ATT&CK, and the code repositories, cloud accounts and online
-systems they changed.
+systems they wrote to.
 
-![A flow from coding agents to the systems they changed: cloud providers, code repositories, SaaS tools via MCP, websites and APIs, and Kubernetes](docs/images/report-changes.png)
+![A flow from coding agents to the systems they accessed: websites and APIs, SaaS tools via MCP, code repositories, Kubernetes, SSH hosts and cloud providers](docs/images/report-systems.png)
 
 - **No dependencies.** Agent Activity is one Python file that uses only the
   standard library.
@@ -53,10 +53,10 @@ desktop, open the file at the path the command prints.
 
 1. **Risky actions** the agents ran or attempted, by MITRE ATT&CK tactic and
    severity, with the machines and sessions behind each one.
-2. **Change actions** to shared resources, including repositories, cloud
-   accounts, clusters, registries and online services, by kind and provider.
-3. **Resources** the agents changed or only accessed, by name.
-4. **Other code** the agents started, such as scripts, inline code, builds and
+2. **Systems** the agents accessed, including repositories, cloud accounts,
+   clusters, registries and online services, by kind and provider, with which
+   ones they wrote to and which they only read.
+3. **Other code** the agents started, such as scripts, inline code, builds and
    containers. An agent's own command policies can't inspect this code.
 
 Findings come from detection rules derived from open-source rule sets,

@@ -37,12 +37,12 @@ OTHER_CODE_NAMES = {"inline_code": "inline code", "scripts": "scripts", "contain
                     "deploy_tools": "deploy tools"}
 LEARN_MORE = "https://www.placeholdersec.com/assessment/learn-more"  # the page is sent only the two counts
 OTHER_CODE_WHAT = {
-    "inline_code": "python -c, node -e, or a script typed straight into the command",
-    "scripts": "python deploy.py, ./run.sh: a script file",
-    "containers": "docker run, docker exec, docker compose up",
-    "task_runners": "make, npm run, npx: whatever the target or script runs",
-    "builds_tests": "pytest, cargo test, go test: project code",
-    "deploy_tools": "terraform apply, pulumi up, cdk deploy",
+    "inline_code": ("Code typed straight into the command", ("python -c", "node -e")),
+    "scripts": ("A script file", ("python deploy.py", "./run.sh")),
+    "containers": ("Whatever runs inside the container", ("docker run", "docker exec", "docker compose up")),
+    "task_runners": ("Whatever the target or script runs", ("make", "npm run", "npx")),
+    "builds_tests": ("The project's own code, run by its build or tests", ("pytest", "cargo test", "go test")),
+    "deploy_tools": ("Whatever the tool works out to deploy", ("terraform apply", "pulumi up", "cdk deploy")),
 }
 # In the order a sentence names them.
 OTHER_CODE_STARTED = (("scripts", "a script"), ("inline_code", "inline code"), ("task_runners", "a build"),
@@ -411,15 +411,10 @@ CHANGED_KINDS = (("aws", "AWS account", "AWS accounts"), ("repositories", "repos
                  ("gcp", "Google Cloud project", "Google Cloud projects"),
                  ("kubernetes", "Kubernetes cluster", "Kubernetes clusters"),
                  ("mcp", "SaaS tool via MCP", "SaaS tools via MCP"))
-AGENT_TIP = ("The agent wrote this code itself while it worked. Nobody reviewed it before it ran, "
-             "and it leaves no file behind.")
-AGENT_WRITTEN = (f'<span class="pill warn flag" tabindex="0" role="note" '
-                 f'aria-label="Agent-written. {AGENT_TIP}" data-tip="{AGENT_TIP}">'
-                 '<svg class="i" aria-hidden="true"><use href="#i-alert"/></svg>Agent-written</span>')
-CHANGE_WORDS = {"repositories": ("write", "writes"), "web": ("send", "sends"),
-                "registries": ("publish", "publishes")}
 UNNAMED_AS = {"aws": ("unknown", "Account not identifiable"), "azure": ("default", "Subscription not named"),
               "gcp": ("default", "Project not named"), "kubernetes": ("current", "Context not named")}
+
+
 def unnamed(kind, x):
     """Whether `x` is the cloud asset of its kind the logs don't name."""
     return kind in UNNAMED_AS and x["name"] in UNNAMED
@@ -435,20 +430,11 @@ def local_mcp(x):
     return bool(LOCAL_MCP.search(x["name"]))
 
 
-def ranked(r, kind, key):
-    """A kind's assets, those with `key` (changes, calls) first, most first."""
-    return sorted(r[kind].values(), key=lambda x: (not x[key], x["name"] in UNNAMED, -x[key], -x["reads"],
-                                                   -x["calls"], x["name"]))
-
-
 # One group per dimension for each machine and session: its worst risky action, its broadest change.
 GROUPS = {"risky_actions": RISK_GROUPS, "changes": CHANGE_GROUPS}
 GROUP_NAMES = {"high": "High-risk", "medium": "Medium-risk", "none": "None",
                "cloud_or_published": "Cloud & packages", "code_or_data": "Code & data",
                "read_only": "No changes"}
-GROUP_KEYS = {name: g for g, name in GROUP_NAMES.items()}
-CELL_TONE = {"high": "pill danger", "medium": "pill warn", "cloud_or_published": "pill accent",
-             "code_or_data": "pill code"}
 
 
 def session_groups(users):
@@ -652,8 +638,6 @@ def coverage(f):
 PART = re.compile(r"<!--part:(\w+)-->\n?(.*?)\n?<!--/part:\1-->\n?", re.S)
 WHEN = re.compile(r"<!--if:(\w+)-->\n?(.*?)<!--/if:\1-->\n?", re.S)
 SLOT = re.compile(r"\{\{\{(\w+)\}\}\}|\{\{(\w+)\}\}")
-RISK_TONE = {"high": "danger", "medium": "warn", "low": "muted"}
-
 
 WELL_KNOWN = json.loads(shipped("rules/well_known_hosts.json"))["hosts"]
 RARE = ('<span class="pill warn rare" title="Seen on only one machine and not a well-known service">'
@@ -730,15 +714,6 @@ def font_css():
 def logo_svg():
     svg = shipped("assets/wordmark.svg").decode("utf-8")
     return re.sub(r"^<\?xml[^>]*>\s*", "", svg).replace("<svg ", '<svg role="img" aria-label="logo" ', 1)
-
-
-def machine_chips(by_endpoint, cap=10):
-    """Machine chips with counts, sorted by name, never by count."""
-    items = sorted(by_endpoint.items(), key=lambda kv: (kv[0].lower(), kv[0]))
-    chips = "".join(f'<span class="mc"><svg class="i" aria-hidden="true"><use href="#i-monitor"/></svg>'
-                    f'{escape(name)}<b title="times">{n:,}</b></span>' for name, n in items[:cap])
-    more = f'<span class="mc more">+{len(items) - cap:,} more</span>' if len(items) > cap else ""
-    return f'<div class="mcs">{chips}{more}</div>'
 
 
 def names(endpoints, cap=10):
@@ -855,17 +830,6 @@ def report(m, org):
     }
 
 
-# (kind, title, icon, row noun, change noun)
-RESOURCE_PANELS = (("aws", "AWS accounts", "cloud", "Account", "Changes"),
-                   ("azure", "Azure subscriptions", "cloud", "Subscription", "Changes"),
-                   ("gcp", "Google Cloud projects", "cloud", "Project", "Changes"),
-                   ("kubernetes", "Kubernetes", "cloud", "Context", "Changes"),
-                   ("repositories", "Code repositories", "branch", "Repository", "Writes"),
-                   ("registries", "Registries", "package", "Registry", "Publishes"),
-                   ("web", "Web hosts", "globe", "Host", "Sends"),
-                   ("ai", "AI APIs", "globe", "Host", "Prompts"),
-                   ("mcp", "Tools via MCP", "plug", "Server", "Changes"),
-                   ("ssh", "SSH hosts", "server", "Host", "Commands"))
 MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 
@@ -899,28 +863,6 @@ def lines(d, n_end):
     if total and d["sessions_with"]:
         spread.append(f"in <b>{d['sessions_with']:,} of {total:,}</b> {noun(total, 'session')}")
     return {"headline": headline, "spread": " · ".join(spread)}
-
-
-def kind_what(k):
-    """What a breakdown row counts: "2 AWS accounts and 1 account not identifiable"."""
-    parts = [plural(k["n"], k["one"], k["many"])] if k["n"] or not k["unnamed"] else []
-    if k["unnamed"]:
-        word, rest = UNNAMED_AS[k["kind"]][1].lower().split(" ", 1)
-        parts.append(f"{plural(k['unnamed'], word)} {rest}")
-    return joined(parts)
-
-
-def on_assets(kinds):
-    """A breakdown's assets: "3 assets and 1 not named"."""
-    n, u = sum(k["n"] for k in kinds), sum(k["unnamed"] for k in kinds)
-    named = [plural(n, "asset")] if n or not u else []
-    return joined(named + ([f"{u:,} not named" if n else plural(u, "asset") + " not named"] if u else []))
-
-
-def example_label(k, n):
-    if k == n:
-        return "The command" if n == 1 else f"The {n:,} commands"
-    return f"{'One example' if k == 1 else f'{k} examples'} of {n:,} runs"
 
 
 TACTIC_PLAIN = {"Impact": ("trash", "Deleted or overwrote things"),
@@ -1000,64 +942,15 @@ def changes_by_kind(m):
     return out
 
 
-def change_table(by_kind, kinds, cap=100):
-    groups_ = [(k, by_kind[k]) for k in kinds if k in by_kind]
-    groups_.sort(key=lambda kx: -sum(x["changes"] for x in kx[1]))
-    rows = []
-    for k, xs in groups_:
-        if len(groups_) > 1:
-            rows.append(f'<tr class="grp"><td>{escape(SYSTEM[k][1])}</td><td class="num">{sum(x["changes"] for x in xs):,}</td></tr>')
-        rows += [f'<tr><td>{system_name(k, x)}</td><td class="num">{x["changes"]:,}</td></tr>' for x in xs[:cap]]
-        if len(xs) > cap:
-            rows.append(f'<tr><td colspan="2" class="muted">And {len(xs) - cap:,} more in the facts file.</td></tr>')
-    return '<table><tr><th>System</th><th class="num">Changes</th></tr>' + "".join(rows) + "</table>"
-
-
-def head_and_figures(m, rep, panels):
-    by_kind = changes_by_kind(m)
-    n_changes = sum(x["changes"] for xs in by_kind.values() for x in xs)
-    n_systems = sum(1 for xs in by_kind.values() for x in xs)
+def head_and_figures(m, rep):
+    n_changes = sum(x["changes"] for xs in changes_by_kind(m).values() for x in xs)
     sev = rep["by_severity"]
-    once = ONCE_PER_SESSION if m["per_session"] else ""
     n_risky = sev["high"]["sessions"] + sev["medium"]["sessions"]
-    chg = panel(panels, "top-changes", "Changes to your systems", plural(n_changes, "change"),
-                "<table><tr><th>Kind of system</th><th class=\"num\">Changes</th></tr>" + "".join(
-                    f'<tr><td>{escape(SYSTEM[k][1])}</td><td class="num">{sum(x["changes"] for x in xs):,}</td></tr>'
-                    for k, xs in sorted(by_kind.items(), key=lambda kx: -sum(x["changes"] for x in kx[1]))) + "</table>")
-    tactics = tactic_counts(rep)
-    rsk = panel(panels, "top-risky", "Risky actions", f"{sev['high']['sessions']:,} high and {sev['medium']['sessions']:,} medium risk{once}",
-                "<table><tr><th>Kind of action</th><th class=\"num\">High</th><th class=\"num\">Medium</th></tr>" + "".join(
-                    f'<tr><td>{escape(TACTIC_PLAIN.get(t, ("", t))[1])}<div class="muted">ATT&amp;CK: {escape(t)}</div></td>'
-                    f'<td class="num">{dash(d["high"])}</td><td class="num">{dash(d["medium"])}</td></tr>'
-                    for t, d in tactics) + "</table>")
-    example = next((f["label"] for f in rep["findings"] if f["severity"] == "high"), None)
     pencil = '<svg class="i chg" aria-hidden="true"><use href="#i-pencil"/></svg>'
     alert = '<svg class="i rsk" aria-hidden="true"><use href="#i-alert"/></svg>'
     return (f'<section class="panel heads"><h2>Your agents acted on your systems, and some of what they ran was risky.</h2>'
-            f'<div class="head"{chg}>{pencil}<b>{n_changes:,}</b><span class="t">{noun(n_changes, "time")} agents changed your code, cloud or online services</span>'
-            f'<span class="s">in {kinds_in(by_kind)}</span><span class="dwl">See the breakdown ›</span></div>'
-            f'<div class="head"{rsk}>{alert}<b>{n_risky:,}</b><span class="t">{noun(n_risky, "risky action")} agents ran or tried</span>'
-            f'<span class="s">{sev["high"]["sessions"]:,} of them high risk'
-            + (f", such as “{escape(example)}”" if example else "") + (". Each is counted once per session." if once else "")
-            + '</span><span class="dwl">See the breakdown ›</span></div></section>')
-
-
-KIND_WORDS = {"repositories": ("repository", "repositories"), "registries": ("registry", "registries"),
-              "aws": ("AWS account", "AWS accounts"), "gcp": ("cloud project", "cloud projects"),
-              "azure": ("Azure subscription", "Azure subscriptions"), "kubernetes": ("cluster", "clusters"),
-              "web": ("website", "websites"), "mcp": ("SaaS tool", "SaaS tools")}
-
-
-def dash(n):
-    return f"{n:,}" if n else "–"
-
-
-def kinds_in(by_kind):
-    """"33 repositories, cloud projects, clusters and websites": the count, then the kinds."""
-    n = sum(1 for xs in by_kind.values() for _ in xs)
-    order = ("repositories", "gcp", "aws", "azure", "kubernetes", "registries", "web", "mcp")
-    words = [KIND_WORDS[k][n > 1] for k in order if k in by_kind]
-    return f"{n:,} " + joined(words) if words else plural(n, "system")
+            f'<a class="head" href="#risky">{alert}<b>{n_risky:,}</b><span class="t">{noun(n_risky, "risky action")} agents ran or tried</span></a>'
+            f'<a class="head" href="#systems">{pencil}<b>{n_changes:,}</b><span class="t">{noun(n_changes, "write operation")} agents ran on your systems</span></a></section>')
 
 
 def tactic_counts(rep):
@@ -1110,7 +1003,7 @@ def sessions_line(m, sessions_by_finding):
     severity = {f"{k[0]}:{k[1]}": f["severity"] for k, f in m["findings"].items() if not f["local_only"]}
     risky = sum(1 for r in records if any(severity.get(x["id"]) in ("high", "medium") for x in r["findings"]))
     return (f'<div class="seslink">{icon("history")}<span><b>{len(records):,}</b> {noun(len(records), "session")} had a medium- '
-            f'or high-risk action or a change; <b>{risky:,}</b> ran or tried a medium- or high-risk one.</span>'
+            f'or high-risk action or a write operation; <b>{risky:,}</b> ran or tried a medium- or high-risk one.</span>'
             f'<span class="dwlink" data-dw="sessions" data-arg="*" data-label="" tabindex="0" role="button">See the sessions ›</span></div>')
 
 
@@ -1144,8 +1037,6 @@ def risky_section(m, rep, panels, sessions_by_finding):
                   + ('<th class="num">Machines</th>' if n_end > 1 else '<th></th>') + '</tr>'
                   + "".join(rows) + "</table>")
     return (f'<section class="panel" id="risky"><div class="k">01</div><h2>Agents ran or tried risky actions.</h2>'
-            f'<p class="caveat">Each one was run or tried{", and is counted once per session" if m["per_session"] else ""}. '
-            'The logs don’t record whether it worked.</p>'
             + (f'<div class="fleet-row">{fleet}{key}</div>' if n_end > 1 else "")
             + f'{matrix}{sessions_line(m, sessions_by_finding)}{all_actions(rep, sessions_by_finding)}</section>')
 
@@ -1193,21 +1084,67 @@ def all_actions(rep, sessions_by_finding=None):
             + ('<th>Sessions</th>' if sessions_by_finding else "") + '</tr>' + "".join(rows) + "</table></div></div></details>")
 
 
-def changes_section(m, rep, panels):
-    """Machines -> kind of system -> provider; a kind with one provider goes straight to its label."""
-    by_kind = changes_by_kind(m)
+def accessed(m):
+    out = {}
+    for kind in KINDS:
+        xs = [x for x in m["resources"][kind].values() if x["reads"] or x["changes"] or x["calls"] or x.get("conversation")]
+        if xs:
+            out[kind] = sorted(xs, key=lambda x: (not counts_change(kind, x), -x["changes"], -(x["reads"] + x["calls"]),
+                                                  unnamed(kind, x), x["name"]))
+    return out
+
+
+def systems_panel(rep, by_kind, kinds, cap=300):
+    out = []
+    for k in kinds:
+        xs = by_kind[k]
+        chg = [x for x in xs if counts_change(k, x)]
+        rest = [x for x in xs if not counts_change(k, x)]
+
+        def name(x):
+            talk = x.get("conversation")
+            said = f'<div class="muted">{plural(talk, "comment or review", "comments or reviews")}</div>' if talk else ""
+            rare_ = RARE if k == "web" and x["name"] in rep["rare"] else ""
+            return f"{system_name(k, x)}{rare_}{said}"
+        head = f'<span class="sgn">{escape(SYSTEM[k][1])}</span>' if len(kinds) > 1 else ""
+        part = [head]
+        if chg:
+            what, col = "Written to", "Write operations"
+            part.append(f'<p class="sgh">{what}: {len(chg):,}</p><table><tr><th>System</th><th class="num">{col}</th></tr>'
+                        + "".join(f'<tr><td>{name(x)}</td><td class="num">{x["changes"]:,}</td></tr>' for x in chg[:cap])
+                        + (f'<tr><td colspan="2" class="muted">And {len(chg) - cap:,} more in the facts file.</td></tr>'
+                           if len(chg) > cap else "") + "</table>")
+        if rest:
+            word = "Commands run, not sorted into reads and writes" if k == "ssh" else "Read only"
+            chips = "".join(f'<span class="chip acc">{escape(UNNAMED_AS[k][1] if unnamed(k, x) else x["name"])}'
+                            + (f' · {plural(x["conversation"], "comment or review", "comments or reviews")}'
+                               if x.get("conversation") else "") + '</span>'
+                            + (RARE if k == "web" and x["name"] in rep["rare"] else "") for x in rest[:cap])
+            if len(rest) > cap:
+                chips += f'<span class="chip more">+{len(rest) - cap:,} more in the facts file</span>'
+            part.append(f'<p class="sgh">{word}: {len(rest):,}</p><div class="chips">{chips}</div>')
+        out.append(f'<div class="sg">{"".join(part)}</div>')
+    talked = any(x.get("conversation") for k in kinds for x in by_kind[k])
+    return (("<p class=\"muted\">Comments, reviews, reactions, labels and issues are counted apart, not as write operations.</p>"
+             if talked else "") + "".join(out))
+
+
+def systems_section(m, rep, panels):
+    by_kind = accessed(m)
     if not by_kind:
-        return ('<section class="panel" id="changes"><div class="k">02</div><h2>Agents didn’t change your systems.</h2>'
-                '<p class="muted">No change to a repository, cloud account, cluster, registry, web host or SaaS tool.</p></section>')
-    total = {k: sum(x["changes"] for x in xs) for k, xs in by_kind.items()}
+        return ('<section class="panel" id="systems"><div class="k">02</div><h2>Agents didn’t access your systems.</h2>'
+                '<p class="muted">No repository, cloud account, cluster, registry, server, website or SaaS tool.</p></section>')
+    total = {k: len(xs) for k, xs in by_kind.items()}
+    moved = {k: sum(bool(counts_change(k, x)) for x in xs) for k, xs in by_kind.items()}
     cats = []
     for cname, cicon in CATEGORIES:
-        mem = sorted((k for k in by_kind if SYSTEM[k][2] == cname), key=lambda k: -total[k])
+        mem = sorted((k for k in by_kind if SYSTEM[k][2] == cname), key=lambda k: (-total[k], -moved[k]))
         if mem:
             cats.append((cname, cicon, mem, sum(total[k] for k in mem)))
     cats.sort(key=lambda c: -c[3])
     grand = sum(c[3] for c in cats)
-    W, LX, XM, TX, SPAN = 980, 190, 430, 640, 150
+    n_changed = sum(moved.values())
+    W, LX, XM, TX, SPAN = 980, 190, 430, 640, 170
     wof = lambda n: max(2.0, n * SPAN / grand)
     y, leaves = 30.0, []
     for ci, (_, _, mem, _) in enumerate(cats):
@@ -1220,185 +1157,116 @@ def changes_section(m, rep, panels):
         y += 10
     H = int(y + 6)
     LY = H / 2
-    machines = rep["dimensions"]["changes"]["machines_any"]
-    out = [f'<svg viewBox="0 0 {W} {H}" class="flow" role="img" aria-label="Changes agents made, by kind of system and provider">']
+    on = len({e for xs in by_kind.values() for x in xs for e in x["endpoints"]})
+
+    def band(xa, xb, k, top_a, top_b):
+        w = wof(total[k])
+        return link(xa, top_a + w / 2, xb, top_b + w / 2, w, "").replace(' class=""', "")
+
+    out = [f'<svg viewBox="0 0 {W} {H}" class="flow" role="img" aria-label="Systems agents accessed, by kind and provider, and how many they wrote to">']
     src = LY - sum(wof(c[3]) for c in cats) / 2
+    bands = []
     for ci, (cname, _, mem, ctot) in enumerate(cats):
-        wc = wof(ctot); sy = src + wc / 2; src += wc
         ys = [ly for c, _, ly in leaves if c == ci]
+        wc = sum(wof(total[k]) for k in mem)
         if len(mem) == 1:
+            k = mem[0]
             # Kept at its own height so it never crosses the other branches.
-            out.append(link(LX + 8, sy, XM, ys[0], wc, "br"))
-            out.append(f'<path d="M{XM},{ys[0]:.1f} H{TX - 12}" class="br" stroke-width="{wc:.1f}"/>')
+            bands.append(band(LX + 8, XM, k, src, ys[0] - wc / 2))
+            bands.append(band(XM, TX - 12, k, ys[0] - wc / 2, ys[0] - wc / 2))
+            src += wc
             continue
         my = sum(ys) / len(ys)
-        out.append(link(LX + 8, sy, XM, my, wc, "br"))
-        attr = panel(panels, f"cat-{ci}", cname, plural(ctot, "change"), change_table(by_kind, mem))
+        a, b = src, my - wc / 2
+        for k, ty in zip(mem, ys):
+            w = wof(total[k])
+            bands.append(band(LX + 8, XM, k, a, b))
+            bands.append(band(XM + 5, TX - 12, k, b, ty - w / 2))
+            a += w; b += w
+        src += wc
+        cmoved = sum(moved[k] for k in mem)
+        attr = panel(panels, f"cat-{ci}", cname, f"{ctot:,} accessed · {cmoved:,} written to", systems_panel(rep, by_kind, mem))
         out.append(f'<rect x="{XM}" y="{my - wc / 2 - 3:.1f}" width="5" height="{wc + 6:.1f}" class="ink"/>'
                    f'<g{attr}><text x="{XM + 2}" y="{my - wc / 2 - 10:.1f}" text-anchor="middle" class="fn">{escape(cname)}: '
                    f'<tspan class="fl">{ctot:,}</tspan></text></g>')
-        off = my - wc / 2
-        for k, ty in zip(mem, ys):
-            w = wof(total[k]); out.append(link(XM + 5, off + w / 2, TX - 12, ty, w, "br")); off += w
+    out.insert(1, f'<g class="bands">{"".join(bands)}</g>')
     for _, k, ty in leaves:
-        unit = noun(total[k], "time") + " data was sent" if k == "web" else noun(total[k], "change")
-        attr = panel(panels, f"kind-{k}", SYSTEM[k][1], f"{total[k]:,} {unit}", change_table(by_kind, [k]))
+        sub = f"{moved[k]:,} written to" if moved[k] else "commands run" if k == "ssh" else "none written to"
+        attr = panel(panels, f"kind-{k}", SYSTEM[k][1], f"{total[k]:,} accessed · {moved[k]:,} written to",
+                     systems_panel(rep, by_kind, [k]))
         out.append(f'<g{attr}><rect x="{TX - 6}" y="{ty - 18:.1f}" width="{W - TX}" height="36" class="hit"/>'
                    + ficon(SYSTEM[k][0], TX, ty - 13)
-                   + f'<text x="{TX + 34}" y="{ty + 5:.1f}" class="fn">{escape(SYSTEM[k][1])}: {total[k]:,} <tspan class="fl">{unit}</tspan></text></g>')
+                   + f'<text x="{TX + 34}" y="{ty + 5:.1f}" class="fn">{escape(SYSTEM[k][1])}: {total[k]:,} '
+                   f'<tspan class="fl">· {sub}</tspan></text></g>')
     out.append(f'<line x1="{LX + 8}" y1="{LY - SPAN / 2 - 8:.1f}" x2="{LX + 8}" y2="{LY + SPAN / 2 + 8:.1f}" class="ink" style="stroke:var(--ink)" stroke-width="2"/>'
                + ficon("laptop", LX - 40, LY - 52, 30, "mu")
-               + f'<text x="{LX - 6}" y="{LY - 4:.1f}" text-anchor="end" class="fn">Agents on {machines:,} of {rep["endpoints"]:,}</text>'
-               f'<text x="{LX - 6}" y="{LY + 16:.1f}" text-anchor="end" class="fl">{noun(rep["endpoints"], "machine")} made changes</text></svg>')
-    return (f'<section class="panel" id="changes"><div class="k">02</div><h2>Agents didn’t stop at read-only actions. '
-            f'They performed write actions.</h2><div class="flowbox">{"".join(out)}</div></section>')
-
-
-def system_bar(changed_n, accessed_n):
-    """A kind's bar: changed on the left, accessed only on the right, each label on its part."""
-    total = changed_n + accessed_n
-    w = 100 * changed_n / total if total else 0
-    lc = "on" if w >= 22 else "off"           # the changed label sits on the orange part
-    la = "on" if 100 - w < 26 else "off"      # the accessed label sits on the orange part
-    # A part too narrow for its words has them just past its end.
-    past = "" if lc == "on" else ' style="left:calc(%.2f%% + 8px)"' % max(w, 1.2)
-    before = "" if la == "off" else ' style="right:calc(%.2f%% + 8px)"' % (100 - w)
-    return ('<span class="sbar">'
-            + (f'<span class="c" style="width:{max(w, 1.2):.2f}%"></span>' if changed_n else "")
-            + (f'<span class="lbl l {lc}"{past}><b>{changed_n:,}</b> changed</span>' if changed_n else "")
-            + (f'<span class="lbl r {la}"{before}><b>{accessed_n:,}</b> accessed only</span>' if accessed_n else "")
-            + "</span>")
-
-
-def systems_section(m, rep, panels):
-    rows = []
-    for cname, cicon, kinds in (("Cloud", "cloud", ("gcp", "aws", "azure")), ("Compute", "hex", ("kubernetes", "ssh")),
-                                ("Git", "branch", ("repositories", "registries")), ("Online services", "globe", ("mcp", "web"))):
-        named = changed_n = talked = 0
-        groups_ = []
-        for k in kinds:
-            xs = [x for x in m["resources"][k].values() if x["reads"] or x["changes"] or x["calls"] or x.get("conversation")]
-            if not xs:
-                continue
-            xs.sort(key=lambda x: (not counts_change(k, x), -x["changes"], -(x["reads"] + x["calls"]), x["name"]))
-            named += sum(not unnamed(k, x) for x in xs)
-            changed_n += sum(bool(counts_change(k, x)) and not unnamed(k, x) for x in xs)
-            shown = xs if len(xs) <= 300 else [x for x in xs if counts_change(k, x)][:200]
-            talked += sum(bool(x.get("conversation")) for x in xs)
-
-            def chip(x):
-                name = escape(UNNAMED_AS[k][1] if unnamed(k, x) else x["name"])
-                rare_ = RARE if k == "web" and x["name"] in rep["rare"] else ""
-                talk = x.get("conversation")
-                said = f" · {plural(talk, 'comment or review', 'comments or reviews')}" if talk else ""
-                if counts_change(k, x):
-                    return f'<span class="chip chg">{name}<b>{x["changes"]:,}</b>{said}</span>{rare_}'
-                return f'<span class="chip acc">{name}{said}</span>{rare_}'
-            chips = "".join(chip(x) for x in shown)
-            if len(shown) < len(xs):
-                chips += f'<span class="chip more">+{len(xs) - len(shown):,} more in the facts file</span>'
-            groups_.append(f'<div class="sg"><span class="sgn">{escape(SYSTEM[k][1])}</span><div class="chips">{chips}</div></div>')
-        if not groups_:
-            continue
-        attr = panel(panels, f"sys-{cname}", cname, f"{changed_n:,} changed of {named:,} accessed",
-                     '<p class="muted">The number on a name is how many times agents changed it.'
-                     + (" Comments, reviews, reactions, labels and issues are counted apart, not as changes." if talked else "") + '</p>' + "".join(groups_))
-        rows.append(f'<div class="srow"{attr}><span class="st">{icon(cicon)}{cname}</span>'
-                    + system_bar(changed_n, named - changed_n) + '</div>')
-    if not rows:
-        return ""
-    return ('<section class="panel" id="systems"><div class="k">03</div><h2>Systems your agents accessed or changed.</h2>'
-            + "".join(rows) + "</section>")
+               + f'<text x="{LX - 6}" y="{LY - 4:.1f}" text-anchor="end" class="fn">Agents on {on:,} of {rep["endpoints"]:,}</text>'
+               f'<text x="{LX - 6}" y="{LY + 16:.1f}" text-anchor="end" class="fl">{noun(rep["endpoints"], "machine")} accessed</text>'
+               f'<text x="{LX - 6}" y="{LY + 34:.1f}" text-anchor="end" class="fl">{plural(grand, "system")}</text></svg>')
+    title = ("Systems your agents accessed and wrote to" if n_changed
+             else "Systems your agents accessed. They wrote to none of them.")
+    return (f'<section class="panel" id="systems"><div class="k">02</div><h2>{title}</h2>'
+            f'<div class="flowbox">{"".join(out)}</div></section>')
 
 
 def guardrails_section(m, rep, panels):
-    """All commands: what agent policies can't check (code a command started), and what they can, by what it did."""
     total, blind = m["commands"], m["other_code_commands"]
     if not total:
         return ""
     learn = f"{LEARN_MORE}?exec={blind}&total={total}"
-    by_kind = changes_by_kind(m)
-    # Each branch counts commands that started no other code, by the first kind of system they changed.
-    vc = m["visible_changes"]
-    BR = [] if vc is None else [b for b in (
-        ("branch", "Code repositories", vc["code"], ("repositories", "registries")),
-        ("cloud", "Cloud and Kubernetes", vc["cloud"], ("aws", "gcp", "azure", "kubernetes")),
-        ("globe", "Websites and APIs", vc["web"], ("web",))) if b[2]]
-    rest = total - blind - sum(b[2] for b in BR)
+    rest = total - blind
     kinds = [(k, n) for k, n in most_first(m["other_code"]) if n]
-    top_kind = kinds[0][1] if kinds else 1
-    kinds_table = ('<table class="kt"><tr><th>Kind of code</th><th class="num">Commands</th><th></th>'
-                   f'<th class="num">Of the {blind:,}</th></tr>' + "".join(
-        f'<tr><td>{escape((OTHER_CODE_NAMES.get(k, k))[:1].upper() + OTHER_CODE_NAMES.get(k, k)[1:])}'
-        f'<div class="muted">{escape(OTHER_CODE_WHAT.get(k, ""))}</div></td><td class="num">{n:,}</td>'
-        f'<td class="kb"><span style="width:{max(0.6, 100 * n / top_kind):.2f}%"></span></td>'
-        f'<td class="num">{share(n, blind)}</td></tr>'
-        for k, n in kinds) + '</table><p class="muted kn">One command can be more than one kind, so the shares can add up to more than 100%.</p>')
+    kinds_list = '<div class="kl">' + "".join(
+        f'<div class="kr"><div class="kh"><b>{escape(OTHER_CODE_NAMES.get(k, k)[:1].upper() + OTHER_CODE_NAMES.get(k, k)[1:])}</b>'
+        f'<span>{share(n, blind)}</span></div>'
+        f'<div class="kbar"><span style="width:{max(0.8, 100 * n / blind):.2f}%"></span></div>'
+        f'<div class="kd">{escape(OTHER_CODE_WHAT.get(k, ("", ()))[0])}<span class="n">{plural(n, "command")}</span></div>'
+        f'<div class="kx">{"".join(f"<code>{escape(x)}</code>" for x in OTHER_CODE_WHAT.get(k, ("", ()))[1])}</div></div>'
+        for k, n in kinds) + '</div><p class="muted kn">A command can be more than one kind, so the shares can add up to more than 100%.</p>'
     blind_attr = panel(panels, "blind", "Started other code", f"{plural(blind, 'command')} · {share(blind, total)} of all {total:,}",
-                       "<p>These commands started other code: builds, tests, scripts, or code the agent wrote on the spot. "
-                       "Agent policies see only the command that started it, such as <code>npm test</code>, not what that code "
-                       "then read, changed or sent.</p>" + kinds_table
+                       "<p>Agent policies see only the command, such as <code>npm test</code>, not what the code it "
+                       "started then did. By kind of code:</p>" + kinds_list
                        + f'<a class="lm" href="{escape(learn)}" target="_blank" rel="noopener">Learn more</a>')
-    RW, OX, TX, SPAN, GAP = 980, 46, 440, 210, 26
-    items = BR + [("laptop", "Everyday work on the machine", rest, ())]
-    wB = max(1.5, blind * SPAN / total)
-    wd = [max(1.5, b[2] * SPAN / total) for b in items]
+    RW, OX, TX, SPAN = 980, 46, 440, 210
+    wB, wR = max(1.5, blind * SPAN / total), max(1.5, rest * SPAN / total)
     X0 = OX + 100
     b_top = 46.0
     a_top = b_top + wB + 46
-    ty = [0.0] * len(items)
-    ty[-1] = a_top + wd[-1] / 2
-    y = a_top + wd[-1] + 34
-    for i in range(len(BR)):
-        ty[i] = y + 10; y += 66
-    RH = int(y + 4)
-    s_top = (b_top + a_top + sum(wd)) / 2 - (sum(wd) + wB) / 2
-    out = [f'<svg viewBox="0 0 {RW} {RH}" class="flow" role="img" aria-label="All agent commands: code agent policies cannot check, and what they can check">']
-    yy = s_top
-    out.append(link(X0, yy + wB / 2, TX - 40, b_top + wB / 2, wB, "") .replace('class=""', 'style="fill:none;stroke:url(#hz)"'))
-    yy += wB
+    ry = a_top + wR / 2
+    RH = int(a_top + max(wR, 56) + 30)
+    s_top = (b_top + a_top + wR) / 2 - (wR + wB) / 2
+    out = [f'<svg viewBox="0 0 {RW} {RH}" class="flow" role="img" aria-label="All agent commands: those that started other code, which agent policies cannot check, and the rest">']
+    out.append(link(X0, s_top + wB / 2, TX - 40, b_top + wB / 2, wB, "").replace('class=""', 'style="fill:none;stroke:url(#hz)"'))
     out.append(f'<g{blind_attr}><rect x="{TX - 34}" y="{b_top + wB / 2 - 26:.1f}" width="{380}" height="52" class="hit"/>'
                f'<circle cx="{TX - 6}" cy="{b_top + wB / 2:.1f}" r="26" style="fill:var(--panel);stroke:var(--risk-med)" stroke-width="2.5"/>'
                f'<text x="{TX - 6}" y="{b_top + wB / 2 + 10:.1f}" text-anchor="middle" class="qm">?</text>'
                f'<text x="{TX + 34}" y="{b_top + wB / 2 + 5:.1f}" class="fn">Started other code: {blind:,} {noun(blind, "command")}</text></g>')
-    order = [len(items) - 1] + list(range(len(BR)))
-    for i in order:
-        ic, name, n, kinds_ = items[i]
-        w = wd[i]
-        cls = "pale" if i == len(items) - 1 else "br"
-        out.append(link(X0, yy + w / 2, TX - 12, ty[i], w, cls)); yy += w
-        if i == len(items) - 1:
-            out.append(ficon(ic, TX, ty[i] - 13, 24, "mu")
-                       + f'<text x="{TX + 34}" y="{ty[i] - 3:.1f}" class="fn quiet">{name}</text>'
-                       f'<text x="{TX + 34}" y="{ty[i] + 17:.1f}" class="fl">most of what agents ran: reading, searching, editing files</text>')
-        else:
-            table = change_table(by_kind, kinds_) if any(k in by_kind for k in kinds_) else ""
-            attr = panel(panels, f"seen-{i}", name, plural(n, "command"),
-                         f'<p class="muted">{plural(n, "command")} changed these systems without starting other code. '
-                         f'The table counts every change agents made to them.</p>' + table)
-            out.append(f'<g{attr}><rect x="{TX - 6}" y="{ty[i] - 18:.1f}" width="{380}" height="36" class="hit"/>' + ficon(ic, TX, ty[i] - 13)
-                       + f'<text x="{TX + 34}" y="{ty[i] + 5:.1f}" class="fn">{name}: {plural(n, "command")}</text></g>')
+    out.append(link(X0, s_top + wB + wR / 2, TX - 12, ry, wR, "pale")
+               + ficon("laptop", TX, ry - 13, 24, "mu")
+               + f'<text x="{TX + 34}" y="{ry - 3:.1f}" class="fn quiet">Everything else: {rest:,} {noun(rest, "command")}</text>'
+               f'<text x="{TX + 34}" y="{ry + 17:.1f}" class="fl">the command itself shows what it does</text>')
     BX = 846
     brace = lambda y1, y2, col: (f'<path d="M{BX},{y1:.1f} q9,0 9,9 L{BX + 9},{(y1 + y2) / 2 - 9:.1f} q0,9 9,9 q-9,0 -9,9 '
                                  f'L{BX + 9},{y2 - 9:.1f} q0,9 -9,9" style="fill:none;stroke:{col}" stroke-width="1.6" stroke-linecap="round"/>')
     label = lambda y1, y2, a, b, cls: (f'<text x="{BX + 26}" y="{(y1 + y2) / 2 - 4:.1f}" class="{cls}">{a}</text>'
                                        f'<text x="{BX + 26}" y="{(y1 + y2) / 2 + 14:.1f}" class="{cls}">{b}</text>')
     yb1, yb2 = b_top + wB / 2 - max(28, wB / 2), b_top + wB / 2 + max(28, wB / 2)
-    ya1, ya2 = a_top, (ty[len(BR) - 1] if BR else ty[-1]) + 24
+    ya1, ya2 = ry - max(28, wR / 2), ry + max(28, wR / 2)
     out.append(brace(yb1, yb2, "var(--risk-med)") + label(yb1, yb2, "Invisible to", "agent policies", "fork-b"))
     out.append(brace(ya1, ya2, "var(--line)") + label(ya1, ya2, "Visible to", "agent policies", "fork-a"))
-    OY = s_top + (sum(wd) + wB) / 2
-    out.append(f'<rect x="{X0 - 6}" y="{s_top:.1f}" width="6" height="{sum(wd) + wB:.1f}" class="ink"/>' + ficon("laptop", OX - 8, OY - 26, 52, "mu")
+    OY = s_top + (wR + wB) / 2
+    out.append(f'<rect x="{X0 - 6}" y="{s_top:.1f}" width="6" height="{wR + wB:.1f}" class="ink"/>' + ficon("laptop", OX - 8, OY - 26, 52, "mu")
                + f'<text x="{OX + 18}" y="{OY + 46:.1f}" text-anchor="middle" class="fl">{plural(total, "command")}</text>'
                f'<text x="{OX + 18}" y="{OY + 64:.1f}" text-anchor="middle" class="fl">on {plural(rep["endpoints"], "machine")}</text></svg>')
     quarter = share(blind, total)
-    return (f'<section class="panel" id="guardrails"><div class="k">04</div>'
+    return (f'<section class="panel" id="guardrails"><div class="k">03</div>'
             f'<h2>{quarter} of what agents executed couldn’t be evaluated with confidence using the native guardrails.</h2>'
+            '<p class="muted">These commands started other code, such as a script, a build or a test. A guardrail sees '
+            'only the command, so judging what that code did needs its runtime context.</p>'
             f'<div class="flowbox">{"".join(out)}</div>'
             f'<div class="big"><span class="q" aria-hidden="true">?</span><b>{blind:,}</b><div><div class="t">agent {noun(blind, "command")} started other code</div>'
-            f'<div class="s">{share(blind, total)} of all {plural(total, "command")}. We can’t see what that code read, changed or sent.</div></div>'
-            f'<a class="lm" href="{escape(learn)}" target="_blank" rel="noopener">Learn more</a></div>'
-            f'<details class="more"><summary>See what kind of code it was</summary><div>{kinds_table}</div></details></section>')
+            f'<div class="s">{share(blind, total)} of all {plural(total, "command")}.</div></div>'
+            f'<a class="lm" href="{escape(learn)}" target="_blank" rel="noopener">Learn more</a></div></section>')
 
 
 def share(part, whole):
@@ -1465,10 +1333,10 @@ def html_report(m, org, rep, with_sessions=True):
               "collected": " to ".join(dict.fromkeys((m["collected"][0][:10], m["collected"][-1][:10]))),
               "machines": f"{rep['endpoints']:,}", "machines_word": noun(rep["endpoints"], "machine"),
               "activity": " – ".join(map(day, dict.fromkeys(m["span"]))) if m["span"] else rep["span"].capitalize(),
-              "unread": unread, "unread_short": unread.split(".")[0], "idle": rep["idle"],
+              "idle": rep["idle"],
               "read_problems": "".join(f"<li>{escape(t)}</li>" for t in (unread, large) if t),
-              "figures": head_and_figures(m, rep, panels), "risky": risky_section(m, rep, panels, by_finding),
-              "changes": changes_section(m, rep, panels), "systems": systems_section(m, rep, panels),
+              "figures": head_and_figures(m, rep), "risky": risky_section(m, rep, panels, by_finding),
+              "systems": systems_section(m, rep, panels),
               "guardrails": guardrails_section(m, rep, panels),
               "panels": "".join(f'<template id="dw-{escape(i)}" data-title="{escape(t)}" data-sub="{escape(s)}">{inner}</template>'
                                 for i, (t, s, inner) in panels.items()),

@@ -4,6 +4,21 @@ All notable changes to this project are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.1.2] - 2026-10-31
+
+### Changed
+
+- The report's changes and systems sections are now one: a flow of every
+  system agents accessed, by kind and provider. Each kind opens a list of what
+  agents wrote to and what they only read.
+- The report says "write operations" instead of "changes" throughout.
+- The two summary numbers jump to their sections.
+- The other-code section shows two branches, commands that started other code
+  and everything else, with a subtitle on why the first can't be checked; its
+  breakdown by kind of code is one list in the side panel.
+- Notes repeated elsewhere in the report are gone, including the header's
+  unreadable-entries label, which stays under "About this data".
+
 ## [0.1.1] - 2026-10-31
 
 ### Security
@@ -44,5 +59,6 @@ All notable changes to this project are listed here. The format follows
 - One file, `agent-activity.py`, built reproducibly from `source/`, with no
   dependencies beyond the Python 3.9+ standard library.
 
+[0.1.2]: https://github.com/placeholdersec/agent-activity/releases/tag/v0.1.2
 [0.1.1]: https://github.com/placeholdersec/agent-activity/releases/tag/v0.1.1
 [0.1.0]: https://github.com/placeholdersec/agent-activity/releases/tag/v0.1.0

@@ -33,7 +33,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 SCHEMA = "agent-activity-endpoint/1"
 HERE = pathlib.Path(__file__).resolve().parent
 SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}

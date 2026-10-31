@@ -85,8 +85,6 @@ class Merge(unittest.TestCase):
                          ["aws s3 rb s3://old-bucket --force", "aws s3 rb s3://old --profile staging"])
         self.assertIn('<div class="ex"><code>aws s3 rb s3://old-bucket --force</code>'
                       '<code>aws s3 rb s3://old --profile staging</code></div>', self.html)
-        self.assertEqual([report.example_label(k, n) for k, n in ((1, 1), (2, 2), (1, 95), (3, 95))],
-                         ["The command", "The 2 commands", "One example of 95 runs", "3 examples of 95 runs"])
 
     def test_sigma_findings_name_their_authors(self):
         # The Detection Rule License asks that each finding of a rule name its authors.
@@ -215,7 +213,8 @@ class Plain(unittest.TestCase):
         for word in ("{{", "AWS", "GitHub"):
             self.assertNotIn(word, page)
         self.assertIn("Started other code: 6 commands", page)
-        self.assertIn('<span class="pill warn" title="1 log file couldn\'t be read.">', page)
+        self.assertIn("<li>1 log file couldn't be read.</li>", page)
+        self.assertNotIn('<span class="pill warn" title=', page)
         self.assertIn("3 very large log entries, such as pasted images, were skipped. No commands were missed.",
                       page)
         self.assertEqual(facts["totals"]["shell_commands"], 40)  # the older file isn't counted twice
@@ -310,13 +309,13 @@ class Changes(unittest.TestCase):
             page = unescape(html.read_text(encoding="utf-8"))
             facts = json.loads(html.with_name("report.facts.json").read_text(encoding="utf-8"))
         self.assertEqual(facts["groups"]["endpoints"]["build-01"]["changes"], "Cloud & packages")
-        # A change in an account the logs don't name is counted and named as such.
+        # A write in an account the logs don't name is counted and named as such.
         self.assertIn('<tr><td><span class="unn">Account not identifiable</span></td><td class="num">3</td></tr>', page)
-        self.assertIn('AWS: 3 <tspan class="fl">changes</tspan>', page)
-        self.assertIn('Kubernetes: 6 <tspan class="fl">changes</tspan>', page)
-        # 3 clusters changed; the account read but not changed is accessed only.
-        self.assertIn('<span class="chip chg">eks-prod-eu-1-admin<b>2</b></span>', page)
-        self.assertIn('<span class="chip acc">111111111111</span>', page)
+        self.assertIn('AWS: 2 <tspan class="fl">· 1 written to</tspan>', page)
+        self.assertIn('Kubernetes: 3 <tspan class="fl">· 3 written to</tspan>', page)
+        # 3 clusters written to; the account only read is read only.
+        self.assertIn('<tr><td><code>eks-prod-eu-1-admin</code></td><td class="num">2</td></tr>', page)
+        self.assertIn('<p class="sgh">Read only: 1</p><div class="chips"><span class="chip acc">111111111111</span>', page)
 
 
 class Page(unittest.TestCase):
@@ -350,7 +349,7 @@ class Page(unittest.TestCase):
         self.assertIn(f"default-src 'none'; script-src 'sha256-{script_hash}';", page)
         # Every repository has a name in its panel, changed ones first with how many times.
         self.assertTrue(all(f"acme/r{i:02}<" in page for i in range(12)))
-        self.assertLess(page.index('<span class="chip chg">acme/r11<b>1</b>'), page.index('<span class="chip acc">acme/r00<'))
+        self.assertLess(page.index('<code>acme/r11</code></td><td class="num">1<'), page.index('<span class="chip acc">acme/r00<'))
         self.assertEqual(facts["rare_destinations"], 2)
         self.assertEqual(page.count('class="pill warn rare"'), 2)
         # Every row and branch that opens a panel has one.
@@ -448,28 +447,23 @@ class SessionBadges(unittest.TestCase):
 
 
 class CommandBranches(unittest.TestCase):
-    def test_branches_count_commands_never_more_than_all(self):
+    def test_two_branches_only(self):
         data = plain_file()
         data["executed_other_code"] = dict(data["executed_other_code"], visible_changes={"code": 3, "cloud": 0, "web": 1})
-        data["resources"]["mcp"] = [{"name": "linear", "reads": 0, "changes": 50, "calls": 50, "users": ["dana"],
-                                     "tools": {"create_issue": 50}}]
         page, facts, _ = report_of(data)
-        self.assertIn("Code repositories: 3 commands", page)
-        self.assertIn("Websites and APIs: 1 command", page)
-        self.assertNotIn("SaaS tools", re.search(r'id="guardrails".*?</section>', page, re.S).group(0))
+        section = re.search(r'id="guardrails".*?</section>', page, re.S).group(0)
+        total, blind = data["executed_other_code"]["of"], data["executed_other_code"]["commands"]
+        self.assertIn(f"Started other code: {blind:,} commands", section)
+        self.assertIn(f"Everything else: {total - blind:,} commands", section)
+        for name in ("Code repositories", "Cloud and Kubernetes", "Websites and APIs"):
+            self.assertNotIn(name, section)
         self.assertEqual(facts["visible_changes"], {"code": 3, "cloud": 0, "web": 1})
 
-    def test_older_files_have_no_branches(self):
+    def test_older_files_have_no_visible_changes(self):
         new = plain_file()
         new["executed_other_code"] = dict(new["executed_other_code"], visible_changes={"code": 3, "cloud": 0, "web": 0})
         old = plain_file(endpoint=dict(new["endpoint"], hostname="old-01", name="old-01"))
-        old["resources"]["mcp"] = [{"name": "linear", "reads": 0, "changes": 50, "calls": 50, "users": ["dana"],
-                                    "tools": {"create_issue": 50}}]
-        page, facts, _ = report_of(new, old)
-        section = re.search(r'id="guardrails".*?</section>', page, re.S).group(0)
-        self.assertNotIn("Code repositories:", section)
-        self.assertNotIn("Websites", section)
-        self.assertIn("Everyday work on the machine", section)
+        _, facts, _ = report_of(new, old)
         self.assertIsNone(facts["visible_changes"])
 
     def test_more_commands_than_ran_is_a_bad_file(self):
@@ -519,7 +513,7 @@ class Conversation(unittest.TestCase):
         self.assertEqual(facts["changed_assets"], {"repositories": 1})
         self.assertEqual(repos["acme/old"]["conversation"], 0)
         self.assertIn('<span class="chip acc">acme/api · 12 comments or reviews</span>', page)
-        self.assertIn('<span class="chip chg">acme/web<b>2</b> · 1 comment or review</span>', page)
+        self.assertIn('<code>acme/web</code><div class="muted">1 comment or review</div></td><td class="num">2<', page)
         self.assertIn('"acme/api" r0/c0/conversation12', digest)
 
 
@@ -528,8 +522,8 @@ class OncePerSession(unittest.TestCase):
         data = plain_file(findings=[finding(session_count=2)])
         page, facts, digest = report_of(data)
         self.assertIn('<b>2</b><span class="t">risky actions agents ran or tried</span>', page)
-        self.assertIn("2 of them high risk", page)
-        self.assertIn("Each is counted once per session.", page)
+        self.assertIn("counted once per session", page)
+        self.assertIn('<a class="head" href="#risky">', page)
         self.assertIn('<td class="rb high"><span class="bb" style="width:100.0%"></span><b>2</b></td>', page)
         self.assertIn("10<small>times</small>", page)
         self.assertEqual({k: facts["risky_by_severity"]["high"][k] for k in ("times", "sessions")},
@@ -559,10 +553,10 @@ class Plurals(unittest.TestCase):
         data["executed_other_code"] = {"commands": 1, "of": 1, "by_kind": {"scripts": 1}}
         page, _, _ = report_of(data)
         self.assertIn("Counted by session: 1 session<", page)
-        self.assertIn("in 1 repository<", page)
+        self.assertIn('<tspan class="fl">· 1 written to</tspan>', page)
         self.assertIn('<span class="t">risky action agents ran or tried</span>', page)
         self.assertIn("agent command started other code", page)
-        self.assertNotRegex(page, r">1 (sessions|repositories|commands|changes|risky actions)\b")
+        self.assertNotRegex(page, r">1 (sessions|repositories|commands|write operations|risky actions)\b")
 
 
 class Versions(unittest.TestCase):
