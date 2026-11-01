@@ -734,6 +734,8 @@ class Hardening(unittest.TestCase):
             kept = collect.example(command, "/home/dev")
             self.assertNotRegex(kept, secret, command)
         self.assertEqual(collect.example("cat /home/devops/x /home/dev/y", "/home/dev"), "cat ~other/x ~/y")
+        for text in ("cd /Users/Alice Smith/x", 'cd "/Users/Alice Smith"; ls', "ls /home/Ana Maria de Souza/x"):
+            self.assertNotRegex(collect.example(text, "/home/dev"), "Smith|Maria|Souza")
         self.assertEqual(collect.example("docker login --password-stdin r.io", "/home/dev"),
                          "docker login --password-stdin r.io")
         self.assertEqual(collect.safe_name("ctx with spaces;$(x)/" + "ab." * 60, "/home/dev"),

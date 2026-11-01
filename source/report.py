@@ -640,8 +640,6 @@ WHEN = re.compile(r"<!--if:(\w+)-->\n?(.*?)<!--/if:\1-->\n?", re.S)
 SLOT = re.compile(r"\{\{\{(\w+)\}\}\}|\{\{(\w+)\}\}")
 
 WELL_KNOWN = json.loads(shipped("rules/well_known_hosts.json"))["hosts"]
-RARE = ('<span class="pill warn rare" title="Seen on only one machine and not a well-known service">'
-        'Rare</span>')
 
 
 def site(host):
@@ -966,12 +964,11 @@ def tactic_counts(rep):
                   key=lambda td: (-td[1]["high"], -td[1]["medium"], td[0]))
 
 
-def session_link(f, sessions_by_finding):
-    ids = sessions_by_finding.get(f"{f['source']}:{f['id']}", [])
+def session_link(key, name, ids, system=False):
     if not ids:
         return '<span class="muted">–</span>'
-    return (f'<span class="dwlink" data-dw="sessions" data-arg="{escape(f["source"] + ":" + f["id"])}" '
-            f'data-label="{escape(f["label"])}" tabindex="0" role="button">{len(ids):,} ›</span>')
+    return (f'<span class="dwlink" data-dw="sessions" data-arg="{escape(key)}"{" data-sys" * system} '
+            f'data-label="{escape(name)}" tabindex="0" role="button">{len(ids):,} ›</span>')
 
 
 # Set by html_report: the files have no session records (older collector), unlike --no-sessions.
@@ -1062,13 +1059,15 @@ def all_actions(rep, sessions_by_finding=None):
         rows.append(f'<tr class="sub"><td colspan="{5 if sessions_by_finding else 4}">{title}</td></tr>')
         for f in group:
             n += 1
+            key = f"{f['source']}:{f['id']}"
             on = sorted(f["endpoints"])
             rows.append(f'<tr data-k="{escape(f["label"].lower())}|{rank[f["severity"]]}|{f["count"]}|{len(on)}">'
                         f'<td><b>{escape(f["label"])}</b><div class="tech">ATT&amp;CK: {escape(f["tactic"])}</div>'
                         f'<div class="ex">{"".join(f"<code>{escape(x)}</code>" for x in f["examples"][:3])}</div></td>'
                         f'<td><span class="pill {f["severity"]}"><span class="d"></span>{SEV_WORD[f["severity"]]}</span></td>'
                         f'<td class="num">{f["count"]:,}<div class="muted">{plural(len(on), "machine")}</div></td><td>{chips_of(on, 4)}</td>'
-                        + (f'<td class="ses">{session_link(f, sessions_by_finding)}</td>' if sessions_by_finding else "") + '</tr>')
+                        + (f'<td class="ses">{session_link(key, f["label"], sessions_by_finding.get(key, []))}</td>'
+                           if sessions_by_finding else "") + '</tr>')
     lows = sum(f["count"] for f in rep["findings"] if f["severity"] == "low")
     local = sum(f["count"] for f in rep["local"])
     note = ("The counts above are the high- and medium-risk ones. This table also lists "
@@ -1094,7 +1093,7 @@ def accessed(m):
     return out
 
 
-def systems_panel(rep, by_kind, kinds, cap=300):
+def systems_panel(rep, by_kind, kinds, sessions_by_system, cap=300):
     out = []
     for k in kinds:
         xs = by_kind[k]
@@ -1104,22 +1103,27 @@ def systems_panel(rep, by_kind, kinds, cap=300):
         def name(x):
             talk = x.get("conversation")
             said = f'<div class="muted">{plural(talk, "comment or review", "comments or reviews")}</div>' if talk else ""
-            rare_ = RARE if k == "web" and x["name"] in rep["rare"] else ""
-            return f"{system_name(k, x)}{rare_}{said}"
+            return f"{system_name(k, x)}{said}"
+
+        def writes(x):
+            if not sessions_by_system:
+                return ""
+            key = f"{k}:{x['name']}"
+            shown = UNNAMED_AS[k][1] if unnamed(k, x) else x["name"]
+            return f'<td class="ses">{session_link(key, shown, sessions_by_system.get(key, []), True)}</td>'
         head = f'<span class="sgn">{escape(SYSTEM[k][1])}</span>' if len(kinds) > 1 else ""
         part = [head]
         if chg:
-            what, col = "Written to", "Write operations"
-            part.append(f'<p class="sgh">{what}: {len(chg):,}</p><table><tr><th>System</th><th class="num">{col}</th></tr>'
-                        + "".join(f'<tr><td>{name(x)}</td><td class="num">{x["changes"]:,}</td></tr>' for x in chg[:cap])
-                        + (f'<tr><td colspan="2" class="muted">And {len(chg) - cap:,} more in the facts file.</td></tr>'
+            part.append(f'<p class="sgh">Written to: {len(chg):,}</p><table><tr><th>System</th><th class="num">Write operations</th>'
+                        + ('<th>Sessions</th>' if sessions_by_system else "") + '</tr>'
+                        + "".join(f'<tr><td>{name(x)}</td><td class="num">{x["changes"]:,}</td>{writes(x)}</tr>' for x in chg[:cap])
+                        + (f'<tr><td colspan="{3 if sessions_by_system else 2}" class="muted">And {len(chg) - cap:,} more in the facts file.</td></tr>'
                            if len(chg) > cap else "") + "</table>")
         if rest:
             word = "Commands run, not sorted into reads and writes" if k == "ssh" else "Read only"
             chips = "".join(f'<span class="chip acc">{escape(UNNAMED_AS[k][1] if unnamed(k, x) else x["name"])}'
                             + (f' · {plural(x["conversation"], "comment or review", "comments or reviews")}'
-                               if x.get("conversation") else "") + '</span>'
-                            + (RARE if k == "web" and x["name"] in rep["rare"] else "") for x in rest[:cap])
+                               if x.get("conversation") else "") + '</span>' for x in rest[:cap])
             if len(rest) > cap:
                 chips += f'<span class="chip more">+{len(rest) - cap:,} more in the facts file</span>'
             part.append(f'<p class="sgh">{word}: {len(rest):,}</p><div class="chips">{chips}</div>')
@@ -1129,7 +1133,7 @@ def systems_panel(rep, by_kind, kinds, cap=300):
              if talked else "") + "".join(out))
 
 
-def systems_section(m, rep, panels):
+def systems_section(m, rep, panels, sessions_by_system):
     by_kind = accessed(m)
     if not by_kind:
         return ('<section class="panel" id="systems"><div class="k">02</div><h2>Agents didn’t access your systems.</h2>'
@@ -1185,7 +1189,7 @@ def systems_section(m, rep, panels):
             a += w; b += w
         src += wc
         cmoved = sum(moved[k] for k in mem)
-        attr = panel(panels, f"cat-{ci}", cname, f"{ctot:,} accessed · {cmoved:,} written to", systems_panel(rep, by_kind, mem))
+        attr = panel(panels, f"cat-{ci}", cname, f"{ctot:,} accessed · {cmoved:,} written to", systems_panel(rep, by_kind, mem, sessions_by_system))
         out.append(f'<rect x="{XM}" y="{my - wc / 2 - 3:.1f}" width="5" height="{wc + 6:.1f}" class="ink"/>'
                    f'<g{attr}><text x="{XM + 2}" y="{my - wc / 2 - 10:.1f}" text-anchor="middle" class="fn">{escape(cname)}: '
                    f'<tspan class="fl">{ctot:,}</tspan></text></g>')
@@ -1193,7 +1197,7 @@ def systems_section(m, rep, panels):
     for _, k, ty in leaves:
         sub = f"{moved[k]:,} written to" if moved[k] else "commands run" if k == "ssh" else "none written to"
         attr = panel(panels, f"kind-{k}", SYSTEM[k][1], f"{total[k]:,} accessed · {moved[k]:,} written to",
-                     systems_panel(rep, by_kind, [k]))
+                     systems_panel(rep, by_kind, [k], sessions_by_system))
         out.append(f'<g{attr}><rect x="{TX - 6}" y="{ty - 18:.1f}" width="{W - TX}" height="36" class="hit"/>'
                    + ficon(SYSTEM[k][0], TX, ty - 13)
                    + f'<text x="{TX + 34}" y="{ty + 5:.1f}" class="fn">{escape(SYSTEM[k][1])}: {total[k]:,} '
@@ -1280,20 +1284,28 @@ def share(part, whole):
 def session_data(m, with_sessions):
     """The session records and what the page needs to show them, as a JSON block that is never run."""
     if not with_sessions or not m.get("session_records"):
-        return "", {}
+        return "", {}, {}
     by_finding = {f"{k[0]}:{k[1]}": f.get("sessions", []) for k, f in m["findings"].items() if f.get("sessions")}
+    # Only systems the page lists as written to, so a link's sessions are its row's.
+    by_system = collections.defaultdict(set)
+    for r in m["session_records"]:
+        for c in r["changes"]:
+            x = m["resources"][c["kind"]].get(c["name"])
+            if x and counts_change(c["kind"], x):
+                by_system[f"{c['kind']}:{c['name']}"].add(r["id"])
+    by_system = {k: sorted(v) for k, v in by_system.items()}
     names_ = {f"{k[0]}:{k[1]}": {"label": label(f), "severity": f["severity"], "local_only": f["local_only"]}
               for k, f in m["findings"].items()}
     records = {r["id"]: dict({k: v for k, v in r.items() if k not in ("claude_code_version", "codex_version")},
                              agent=AGENT_NAMES[r.get("agent", "claude-code")])
                for r in m["session_records"]}
-    payload = {"records": records, "by_finding": by_finding, "mixed": len(m["agents"]) > 1,
+    payload = {"records": records, "by_finding": by_finding, "by_system": by_system, "mixed": len(m["agents"]) > 1,
                "names": names_, "unnamed": sorted(UNNAMED),
                "unnamed_as": {k: v[1] for k, v in UNNAMED_AS.items()},
                "kinds": SYSTEM_ONE}
     # Escape every "<": "</script" or "<!--<script" in a logged command would break out of the block.
     text = json.dumps(payload, ensure_ascii=True, sort_keys=True, separators=(",", ":")).replace("<", "\\u003c")
-    return f'<script type="application/json" id="session-data">{text}</script>', by_finding
+    return f'<script type="application/json" id="session-data">{text}</script>', by_finding, by_system
 
 
 def agent_chips(m):
@@ -1323,7 +1335,7 @@ def html_report(m, org, rep, with_sessions=True):
     page = PART.sub("", template)
     script = re.findall(r"<script>(.*?)</script>", page, re.S)[-1]
     panels = {}
-    data, by_finding = session_data(m, with_sessions)
+    data, by_finding, by_system = session_data(m, with_sessions)
     OLD_FILES[0] = with_sessions and not m.get("session_records")
     unread, large = rep["unread"], rep["large"]
     values = {"font_css": font_css(), "logo_svg": logo_svg(), "org": org or "assessment", "org_name": org or "",
@@ -1336,7 +1348,7 @@ def html_report(m, org, rep, with_sessions=True):
               "idle": rep["idle"],
               "read_problems": "".join(f"<li>{escape(t)}</li>" for t in (unread, large) if t),
               "figures": head_and_figures(m, rep), "risky": risky_section(m, rep, panels, by_finding),
-              "systems": systems_section(m, rep, panels),
+              "systems": systems_section(m, rep, panels, by_system),
               "guardrails": guardrails_section(m, rep, panels),
               "panels": "".join(f'<template id="dw-{escape(i)}" data-title="{escape(t)}" data-sub="{escape(s)}">{inner}</template>'
                                 for i, (t, s, inner) in panels.items()),

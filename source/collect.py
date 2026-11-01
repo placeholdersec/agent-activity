@@ -33,7 +33,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "0.1.2"
+VERSION = "0.2.0"
 SCHEMA = "agent-activity-endpoint/1"
 HERE = pathlib.Path(__file__).resolve().parent
 SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
@@ -957,7 +957,7 @@ def masked_path(text):
     return "/".join(p if not p or NAME_LIKE.match(p) else "••••" for p in text.split("/"))
 
 
-OTHER_HOME = re.compile(r"(?<![\w/.-])/(Users|home)/[^/\s'\"]+")
+OTHER_HOME = re.compile(r"(?<![\w/.-])/(Users|home)/[^/\s'\"]+(?:(?: [^/\s'\"]+){1,3}(?=[/'\"]|$))?")
 
 
 def masked(text, home, long_runs=True):

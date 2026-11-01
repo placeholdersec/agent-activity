@@ -4,6 +4,27 @@ All notable changes to this project are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] - 2026-11-01
+
+### Added
+
+- In the report's systems section, each system agents wrote to opens the
+  sessions that wrote to it, like the risky actions do.
+- `AGENTS.md`, so a coding agent asked to create a report with this tool knows
+  the two commands to run and to keep the results on the machine.
+- The README links to a sample report and gives a one-line prompt to create
+  one.
+
+### Changed
+
+- The report no longer tags websites as "Rare".
+
+### Security
+
+- Other users' home folders whose names have spaces are masked whole; before,
+  everything after the first space (such as a surname) could stay in an
+  example.
+
 ## [0.1.2] - 2026-10-31
 
 ### Changed
@@ -59,6 +80,7 @@ All notable changes to this project are listed here. The format follows
 - One file, `agent-activity.py`, built reproducibly from `source/`, with no
   dependencies beyond the Python 3.9+ standard library.
 
+[0.2.0]: https://github.com/placeholdersec/agent-activity/releases/tag/v0.2.0
 [0.1.2]: https://github.com/placeholdersec/agent-activity/releases/tag/v0.1.2
 [0.1.1]: https://github.com/placeholdersec/agent-activity/releases/tag/v0.1.1
 [0.1.0]: https://github.com/placeholdersec/agent-activity/releases/tag/v0.1.0

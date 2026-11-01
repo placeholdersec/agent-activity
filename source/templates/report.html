@@ -170,7 +170,7 @@ table.all .ex code{display:block;margin-top:6px}
 .chip.more{font-family:var(--sans);border:1px dashed var(--line);background:transparent;color:var(--muted)}
 .seslink{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px;padding:12px 16px;border:1px solid var(--line);border-radius:6px;font-size:14px}
 .seslink b{font-size:17px}.seslink .dwlink{margin:0 0 0 auto}
-table.all td.ses{white-space:nowrap}table.all td.ses .dwlink{margin:0}
+td.ses{white-space:nowrap}td.ses .dwlink{margin:0}
 .sbars{display:flex;height:10px;border-radius:2px;overflow:hidden;gap:2px;margin:8px 0}
 .skey{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:13px;color:var(--muted);margin-bottom:12px}
 .skey i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
@@ -219,7 +219,6 @@ ol.tl li{position:relative;padding:0 0 14px 16px;display:flex;flex-wrap:wrap;ali
 ol.tl li::before{content:"";position:absolute;left:-6px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--panel);border:2px solid var(--muted)}
 ol.tl .tt{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
 ol.tl code{flex-basis:100%}
-.pill.warn.rare{margin:0 4px 0 -2px;align-self:center}
 
 .dwi[data-has]{cursor:pointer;margin:0 -12px;padding:12px;border-radius:6px;border-bottom:0}
 .dwi[data-has]:hover{background:var(--gray-soft)}
@@ -397,7 +396,7 @@ const badges = n => el("span", {className: "bdg"}, ...["high", "medium"].filter(
 const PAGE = 100;
 const views = {
   sessions(arg) {
-    const all = (arg.finding === "*" ? Object.keys(S.records) : (S.by_finding[arg.finding] || []).filter(i => S.records[i]))
+    const all = (arg.key === "*" ? Object.keys(S.records) : ((arg.system ? S.by_system : S.by_finding)[arg.key] || []).filter(i => S.records[i]))
       .sort((a, b) => S.records[b].started < S.records[a].started ? -1 : 1);
     const wrap = el("div"), list = el("div", {className: "slist"}), more = el("button", {type: "button", className: "smore"});
     let shown = PAGE, q = "", onlyHigh = false;
@@ -424,8 +423,9 @@ const views = {
     more.addEventListener("click", () => { shown += PAGE; draw(); });
     if (all.length > 8) wrap.append(el("div", {className: "stools"}, box, hi, count));
     wrap.append(list, more); draw();
-    const sub = (arg.finding === "*" ? "With a medium- or high-risk action or a write operation" : "Where agents ran or tried it") + " · latest first";
-    return {title: arg.finding === "*" ? fmtN(all.length) + (all.length === 1 ? " session" : " sessions") : arg.label, sub, nodes: [wrap]};
+    const sub = (arg.key === "*" ? "With a medium- or high-risk action or a write operation"
+      : arg.system ? (S.kinds[arg.key.split(":")[0]] || "System") + " · where agents wrote to it" : "Where agents ran or tried it") + " · latest first";
+    return {title: arg.key === "*" ? fmtN(all.length) + (all.length === 1 ? " session" : " sessions") : arg.label, sub, nodes: [wrap]};
   },
   session(id) {
     const r = S.records[id], c = r.counts, out = [], n = sevCount(r);
@@ -480,7 +480,7 @@ const close = () => {
 };
 const open = t => {
   const id = t.dataset.dw, inside = !!t.closest(".dw");
-  const f = id === "sessions" ? {view: "sessions", arg: {finding: t.dataset.arg, label: t.dataset.label}}
+  const f = id === "sessions" ? {view: "sessions", arg: {key: t.dataset.arg, label: t.dataset.label, system: "sys" in t.dataset}}
           : id === "session" ? {view: "session", arg: t.dataset.arg} : {id};
   if (!f.view && !document.getElementById("dw-" + id)) return;
   if (!inside) { back = t; stack = []; }

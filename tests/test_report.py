@@ -351,7 +351,7 @@ class Page(unittest.TestCase):
         self.assertTrue(all(f"acme/r{i:02}<" in page for i in range(12)))
         self.assertLess(page.index('<code>acme/r11</code></td><td class="num">1<'), page.index('<span class="chip acc">acme/r00<'))
         self.assertEqual(facts["rare_destinations"], 2)
-        self.assertEqual(page.count('class="pill warn rare"'), 2)
+        self.assertNotIn(">Rare<", page)
         # Every row and branch that opens a panel has one.
         opened = set(re.findall(r'data-dw="([^"]+)"', page)) - {"sessions", "session"}
         self.assertEqual(opened - set(re.findall(r'<template id="dw-([^"]+)"', page)), set())
@@ -444,6 +444,78 @@ class SessionBadges(unittest.TestCase):
         block = json.loads(re.search(r'id="session-data">(.*?)</script>', page, re.S).group(1))
         self.assertTrue(block["names"]["own:local-history-discarded"]["local_only"])
         self.assertIn("!nm.local_only", page)
+
+
+class SystemSessions(unittest.TestCase):
+    HOSTILE = 'acme/<img src=x onerror=alert(1)>"'
+
+    def files(self):
+        data = plain_file(collector={"version": "0.15.0", "rules": []})
+        data["resources"].update(
+            repositories=[{"name": "acme/api", "reads": 1, "changes": 3, "users": ["dana"]},
+                          {"name": "acme/web", "reads": 0, "changes": 1, "users": ["dana"]},
+                          {"name": "acme/docs", "reads": 4, "changes": 0, "users": ["dana"]},
+                          {"name": self.HOSTILE, "reads": 0, "changes": 1, "users": ["dana"]}],
+            registries=[{"name": "registry.npmjs.org", "reads": 0, "changes": 1, "users": ["dana"]}],
+            aws=[{"name": "unknown", "reads": 0, "changes": 2, "users": ["dana"], "services": {"s3": 2},
+                  "profiles": []}],
+            web=[{"name": "api.openai.com", "reads": 0, "changes": 4, "users": ["dana"]}])
+        change = lambda kind, name, n=1: {"kind": kind, "name": name, "count": n}
+        data["sessions"] = [record(1, changes=[change("repositories", "acme/api", 2), change("aws", "unknown", 2)]),
+                            record(2, changes=[change("repositories", "acme/api"), change("registries", "registry.npmjs.org"),
+                                               change("repositories", self.HOSTILE)]),
+                            record(3, changes=[change("web", "api.openai.com", 4), change("repositories", "acme/docs")])]
+        return data
+
+    def page(self, data, *flags):
+        with tempfile.TemporaryDirectory() as tmp:
+            (pathlib.Path(tmp) / "a.json").write_text(json.dumps(data), encoding="utf-8")
+            html = pathlib.Path(tmp) / "report.html"
+            support.run(support.REPORT, tmp, "--out", html, *flags)
+            return html.read_text(encoding="utf-8")
+
+    def links(self, page):
+        return {unescape(k): (unescape(label), int(n)) for k, label, n in re.findall(
+            r'<span class="dwlink" data-dw="sessions" data-arg="([^"]*)" data-sys data-label="([^"]*)" '
+            r'tabindex="0" role="button">(\d+) ›</span>', page)}
+
+    def test_written_systems_open_their_sessions(self):
+        page = self.page(self.files())
+        block = json.loads(re.search(r'id="session-data">(.*?)</script>', page, re.S).group(1))
+        ids = [record(i)["id"] for i in (1, 2, 3)]
+        self.assertEqual(block["by_system"], {"repositories:acme/api": ids[:2], "aws:unknown": ids[:1],
+                                              "registries:registry.npmjs.org": ids[1:2],
+                                              "repositories:" + self.HOSTILE: ids[1:2]})
+        links = self.links(page)
+        self.assertEqual(links, {"repositories:acme/api": ("acme/api", 2),
+                                 "aws:unknown": ("Account not identifiable", 1),
+                                 "registries:registry.npmjs.org": ("registry.npmjs.org", 1),
+                                 "repositories:" + self.HOSTILE: (self.HOSTILE, 1)})
+        # Each opens from inside a system panel, kind and group alike, so Back returns to it.
+        code = re.search(r'<template id="dw-(cat-\d+)" data-title="Code"[^>]*>(.*?)</template>', page, re.S).group(2)
+        kind = re.search(r'<template id="dw-kind-repositories"[^>]*>(.*?)</template>', page, re.S).group(1)
+        self.assertEqual(set(self.links(code)), set(links) - {"aws:unknown"})
+        self.assertEqual(set(self.links(kind)), {"repositories:acme/api", "repositories:" + self.HOSTILE})
+        # Written to outside any recorded session: no link. Read only, or an AI API prompt: no row to link.
+        self.assertIn('<code>acme/web</code></td><td class="num">1</td><td class="ses"><span class="muted">–</span></td>', kind)
+        self.assertIn('<span class="chip acc">acme/docs</span>', kind)
+        self.assertIn('<span class="chip acc">api.openai.com</span>', page)
+        self.assertIn("arg.system ? S.by_system : S.by_finding", page)
+        self.assertIn('"sys" in t.dataset', page)
+
+    def test_names_from_the_logs_are_escaped(self):
+        page = self.page(self.files())
+        self.assertNotIn("<img", page)
+        self.assertIn('data-label="acme/&lt;img src=x onerror=alert(1)&gt;&quot;"', page)
+        self.assertEqual(len(re.findall(r"<script>(.*?)</script>", page, re.S)), 1)
+
+    def test_no_links_without_session_records(self):
+        old = self.files()
+        del old["sessions"]
+        for page in (self.page(old), self.page(self.files(), "--no-sessions")):
+            self.assertNotIn("data-sys", page.split("<script>")[0])
+            self.assertNotIn('<td class="ses">', page)
+            self.assertIn('<code>acme/api</code></td><td class="num">3</td></tr>', page)
 
 
 class CommandBranches(unittest.TestCase):

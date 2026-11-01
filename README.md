@@ -12,6 +12,16 @@ self-contained HTML report of the risky commands your agents ran or attempted,
 mapped to MITRE ATT&CK, and the code repositories, cloud accounts and online
 systems they wrote to.
 
+## [→ See a sample report](https://www.placeholdersec.com/sample-report)
+
+### Super quick start
+
+Paste this into Claude Code or Codex:
+
+```text
+Clone https://github.com/placeholdersec/agent-activity.git and create an agent activity report using this tool
+```
+
 ![A flow from coding agents to the systems they accessed: websites and APIs, SaaS tools via MCP, code repositories, Kubernetes, SSH hosts and cloud providers](docs/images/report-systems.png)
 
 - **No dependencies.** Agent Activity is one Python file that uses only the
