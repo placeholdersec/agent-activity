@@ -64,18 +64,22 @@ collected files (report.py). See README.md.
 """
 
 import argparse
+import base64
 import collections
 import configparser
 import contextlib
 import datetime
 import difflib
+import errno
 import functools
 import hashlib
 import ipaddress
 import json
 import os
 import pathlib
+import ntpath
 import platform
+import posixpath
 import re
 import shlex
 import socket
@@ -87,7 +91,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 SCHEMA = "agent-activity-endpoint/1"
 HERE = pathlib.Path(__file__).resolve().parent
 SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
@@ -199,11 +203,17 @@ OWN = [
      "pattern": re.compile(r"^supabase\s+functions\s+deploy\b")},
     {"source": "own", "id": "platform-secret-set", "tactic": "Persistence", "severity": "medium",
      "pattern": re.compile(r"^supabase\s+secrets\s+set\b")},
+    {"source": "own", "id": "credential-names-listed", "tactic": "Discovery", "severity": "medium", "local": True,
+     "pattern": re.compile(r"(?i)^cmdkey\s+/list\b|^vaultcmd\s+/listcreds\b")},
     # -w prints the password, dump-keychain -d the secrets (often an agent's own
     # OAuth token); not when discarded.
     {"source": "own", "id": "keychain-read", "tactic": "Credential Access", "severity": "high",
      "pattern": re.compile(r"^security\s+(find-(generic|internet)-password\b(?!.*\s[1&]?>\s*/dev/null)"
-                           r".*\s-w\b|dump-keychain\b.*\s-d\b)|^secret-tool\s+(lookup|search)\b")},
+                           r".*\s-w\b|dump-keychain\b.*\s-d\b)|^secret-tool\s+(lookup|search)\b"
+                           r"|(?i:^get-storedcredential\b"
+                           r"|^\[(System\.)?Security\.Cryptography\.ProtectedData\]::Unprotect\b"
+                           r"|^add-type\b.*\bCred(Read|Enumerate)W?\b)"
+                           r"|" + GIT + r"credential(\s+fill|-[\w-]+\s+get)\b|^git-credential-[\w-]+\s+get\b")},
     # A secret's value; `--query` naming other fields reads metadata.
     {"source": "own", "id": "secret-value-read", "tactic": "Credential Access", "severity": "high",
      "pattern": re.compile(r"^(kubectl|oc)\s+(\S+\s+){0,8}get\s+secrets?\b.*\s(-o|--output)[ =]?"
@@ -236,7 +246,12 @@ OWN = [
      "pattern": re.compile(GIT + r"(commit|push|merge|rebase)\b.*\s--no-verify\b")},
     {"source": "own", "id": "scheduled-job", "tactic": "Persistence", "severity": "medium", "local": True,
      "pattern": re.compile(r"^systemctl\s+(--user\s+)?enable\b|^launchctl\s+(load|bootstrap)\b"
-                           r"|^crontab\b(?!.*\s-l\b)\s+\S|^cloudflared\s+(.*\s)?service\s+install\b")},
+                           r"|^crontab\b(?!.*\s-l\b)\s+\S|^cloudflared\s+(.*\s)?service\s+install\b"
+                           r"|(?i:^schtasks\s+(.*\s)?/create\b|^(register|set)-scheduledtask\b|^new-service\b"
+                           r"|^sc\s+(\\\\\S+\s+)?(create\s|config\s.*\sbinpath=)"
+                           r"|^(reg\s+add|new-itemproperty|set-itemproperty|sp)\s.*CurrentVersion[\\/]*Run(Once)?(\s|$)"
+                           r"|^(?:[^\n>]*>|(tee|touch)\s|(cp|mv|install|ln)\s\S*\s).*[\\/]Start Menu[\\/]+"
+                           r"Programs[\\/]+Startup([\\/]|\s|$))")},
     # A key that signs in to this account, here or on a host reached by ssh.
     {"source": "own", "id": "ssh-key-authorized", "tactic": "Persistence", "severity": "medium",
      "local": True,
@@ -263,14 +278,17 @@ OWN = [
     # Runs in every new shell of the user, or of all users.
     {"source": "own", "id": "shell-startup-changed", "tactic": "Persistence", "severity": "medium",
      "local": True,
-     "pattern": re.compile(r"^(?:.*>>?\s*|tee\s+(-\S+\s+)*|sed\s+(\S+\s+)*-i\S*\s+(\S+\s+)*)"
-                           r"((~|/\S+)/\.(bash(rc|_profile|_login|_logout)|zshrc|zprofile|zshenv|zlogin"
-                           r"|profile|shrc)|/etc/(profile(\.d/\S*)?|bash\.bashrc|zshrc))(\s|$)")},
+     "pattern": re.compile(r"^(?:[^\n]*>>?\s*|tee\s+(-\S+\s+)*|sed\s+((?!-i)\S+\s+)*-i\S*\s+(\S+\s+)*)"
+                           r"((~|/[^\s>]+)/\.(bash(rc|_profile|_login|_logout)|zshrc|zprofile|zshenv|zlogin"
+                           r"|profile|shrc)|/etc/(profile(\.d/[^\s>]*)?|bash\.bashrc|zshrc))(\s|$)"
+                           r"|(?i:^(?:[^\n]*>>?\s*|tee\s+(-\S+\s+)*|(cp|mv|install|ln)\s.*\s)\$profile(\.\w+)?(\s|$)"
+                           r"|^(?:[^\n>]*>|tee\s|(cp|mv|install|ln)\s\S*\s).*[\\/]"
+                           r"(Microsoft\.\w+_profile|(Windows)?PowerShell[\\/]+profile)\.ps1(\s|$))")},
     # Who may sign in or become root, and what every program loads first.
     {"source": "own", "id": "login-or-sudo-config-changed", "tactic": "Privilege Escalation",
      "severity": "high", "local": True,
-     "pattern": re.compile(r"^(?:.*>>?\s*|tee\s+(-\S+\s+)*|sed\s+(\S+\s+)*-i\S*\s+(\S+\s+)*"
-                           r"|(cp|mv|install|ln)\s.*\s)/etc/(pam\.d/\S*|sudoers(\.d/\S*)?|ld\.so\.preload)"
+     "pattern": re.compile(r"^(?:[^\n]*>>?\s*|tee\s+(-\S+\s+)*|sed\s+((?!-i)\S+\s+)*-i\S*\s+(\S+\s+)*"
+                           r"|(cp|mv|install|ln)\s.*\s)/etc/(pam\.d/[^\s>]*|sudoers(\.d/[^\s>]*)?|ld\.so\.preload)"
                            r"(\s|$)")},
     {"source": "own", "id": "kernel-module-loaded", "tactic": "Persistence", "severity": "high",
      "local": True,
@@ -284,13 +302,16 @@ OWN = [
      "pattern": re.compile(r"^(update-ca-certificates|update-ca-trust|certctl\s+rehash)\b|^trust\s+anchor\s"
                            r"|^security\s+add-trusted-cert\s|^mkcert\s+(-\S+\s+)*-install\b"
                            r"|^(cp|mv|install|ln)\s.*\s(/usr/local/share/ca-certificates"
-                           r"|/etc/pki/ca-trust/source/anchors|/usr/local/share/certs)/?\S*$")},
-    # macOS asks before opening a download; this skips the question.
+                           r"|/etc/pki/ca-trust/source/anchors|/usr/local/share/certs)/?\S*$"
+                           r"|(?i:^certutil\s+(-\S+\s+)*-addstore\s+(-\S+\s+)*(auth)?root(\s|$)"
+                           r"|^import-(pfx)?certificate\b.*\scert:[\\/]+(LocalMachine|CurrentUser)[\\/]+"
+                           r"(Auth)?Root\b)")},
     {"source": "own", "id": "gatekeeper-bypassed", "tactic": "Defense Evasion", "severity": "medium",
      "local": True,
      "pattern": re.compile(r"^xattr\s+(-\S+\s+)*-\w*[dc]\w*\s+(\S+\s+)*com\.apple\.quarantine\b"
                            r"|^xattr\s+(-\S+\s+)*-\w*c"
-                           r"|^spctl\s+(.*\s)?--(master-disable|global-disable|add)\b")},
+                           r"|^spctl\s+(.*\s)?--(master-disable|global-disable|add)\b"
+                           r"|(?i:^unblock-file\b|^rm\s.*:Zone\.Identifier(\s|$))")},
     # A port on this machine reachable from the internet.
     {"source": "own", "id": "tunnel-opened", "tactic": "Command and Control", "severity": "medium",
      "pattern": re.compile(r"^ngrok\s+(http|tcp|tls|start)\b|^devtunnel\s+host\b"
@@ -311,10 +332,31 @@ OWN = [
     # Runs in every Python process started from that environment.
     {"source": "own", "id": "python-startup-hook", "tactic": "Persistence", "severity": "medium",
      "local": True,
-     "pattern": re.compile(r"^(?:.*>>?\s*|tee\s+(-\S+\s+)*)\S*(\.pth|/(user|site)customize\.py)(\s|$)")},
+     "pattern": re.compile(r"^(?:[^\n]*>>?\s*|tee\s+(-\S+\s+)*)[^\s>]*(\.pth|/(user|site)customize\.py)(\s|$)")},
     {"source": "own", "id": "remote-desktop-enabled", "tactic": "Lateral Movement", "severity": "medium",
      "local": True,
-     "pattern": re.compile(r"^systemsetup\s+(.*\s)?-setremotelogin\s+on\b")},
+     "pattern": re.compile(r"^systemsetup\s+(.*\s)?-setremotelogin\s+on\b"
+                           r"|(?i:^(set-itemproperty|new-itemproperty|sp)\s.*\bfDenyTSConnections\b.*\s-Value\s+0\b"
+                           r"|^reg\s+add\s.*\bfDenyTSConnections\b.*\s/d\s+0\b|^enable-psremoting\b"
+                           r"|^(set-item|si)\s+(-Path\s+)?WSMan:[\\/]+localhost[\\/]+Client[\\/]+TrustedHosts\b)")},
+    {"source": "own", "id": "defender-weakened", "tactic": "Defense Evasion", "severity": "high", "local": True,
+     "pattern": re.compile(r"(?i)^add-mppreference\s+(.*\s)?-Exclusion\w*"
+                           r"|^set-mppreference\s+(.*\s)?-Disable\w*(:?\s*(\$true|1)\b|\s*$|\s+-)")},
+    {"source": "own", "id": "firewall-turned-off", "tactic": "Defense Evasion", "severity": "medium",
+     "local": True,
+     "pattern": re.compile(r"(?i)^netsh\s+(advfirewall\s+set\s+\S+\s+state\s+off|firewall\s+set\s+opmode\s+"
+                           r"(mode=)?disable)\b|^set-netfirewallprofile\b.*\s-Enabled\s+(\$?false|0)\b")},
+    # Process scope lasts one session, as `powershell -ExecutionPolicy Bypass` does.
+    {"source": "own", "id": "execution-policy-loosened", "tactic": "Defense Evasion", "severity": "medium",
+     "local": True,
+     "pattern": re.compile(r"(?i)^set-executionpolicy\b(?!.*\s-Scope\s+Process\b).*\s(-ExecutionPolicy\s+)?"
+                           r"(Bypass|Unrestricted)\b")},
+    {"source": "own", "id": "local-account-created", "tactic": "Persistence", "severity": "high", "local": True,
+     "pattern": re.compile(r"(?i)^net1?\s+user\s+\S+(\s+\S+)*\s+/add\b|^new-localuser\b")},
+    {"source": "own", "id": "administrator-added", "tactic": "Privilege Escalation", "severity": "high",
+     "local": True,
+     "pattern": re.compile(r"(?i)^net1?\s+localgroup\s+administrators\s+(\S+\s+)*/add\b"
+                           r"|^add-localgroupmember\b.*\s(-(Group|Name|SID)\s+)?(Administrators|S-1-5-32-544)\b")},
 ]
 
 # Matched on a whole segment, pipes included.
@@ -336,8 +378,8 @@ OWN_SEGMENT = [
                                          r"(?!\s+(-\S+\s+)*-\w*c\b)[^|;&\n]*?)*(\s+2>\S+)*\s*$")),
     # The password in the command, and so in the logs.
     {"source": "own", "id": "sudo-password-in-command", "tactic": "Credential Access", "severity": "medium",
-     "pattern": re.compile(r"\b(echo|printf)\b[^|;&\n]{0,500}\|\s*sudo\s+(-\w+\s+(['\"][^'\"]*['\"]\s+)?)*"
-                           r"-\w*S\b|\bsudo\s+(-\w+\s+(['\"][^'\"]*['\"]\s+)?)*-\w*S\b[^|;&\n]*<<<")},
+     "pattern": re.compile(r"\b(echo|printf)\b[^|;&\n]{0,500}\|\s*sudo\s+(-\w+\s+(['\"][^'\"]{0,256}['\"]\s+)?){0,8}"
+                           r"-\w*S\b|\bsudo\s+(-\w+\s+(['\"][^'\"]{0,256}['\"]\s+)?){0,8}-\w*S\b[^|;&\n<]{0,256}<<<")},
 ]
 
 WIPED = {"high": {"source": "own", "id": "home-or-root-deleted", "tactic": "Impact", "severity": "high",
@@ -407,15 +449,17 @@ WRAPPERS = {"sudo": {"-u", "-g", "-C", "-D", "-h", "-p", "-r", "-t", "-U", "--us
             "xargs": {"-I", "-n", "-P", "-L", "-d", "-E", "-s", "-a", "--max-args", "--max-procs",
                       "--delimiter", "--arg-file", "--replace"}}
 SHELLS = {"bash", "sh", "zsh"}
+WSL_OPTIONS = {"-d": 1, "--distribution": 1, "-u": 1, "--user": 1, "--cd": 1, "--shell-type": 1,
+               "--distribution-id": 1, "--system": 0}
 SHELL_SCRIPT_FLAG = re.compile(r"^-[a-zA-Z]*c$")
 KEYWORDS = {"if", "then", "else", "elif", "while", "until", "do", "!", "{"}
 RUNNERS = {"uv": {"--with", "-w", "--python", "-p", "--project", "--directory", "--package", "--extra",
                   "--group", "--env-file", "--index", "--with-requirements", "--with-editable"},
            "poetry": set(), "pipenv": set()}
-FUNCTION = re.compile(r"(?:^|(?<=[\s;&|(){]))(?:function\s+)?([A-Za-z_][\w-]{0,63})\s*\(\)\s*\{(.{0,4000}?)"
-                      r"[;\n]\s*\}", re.S)
+FUNCTION = re.compile(r"(?:^|(?<=[\s;&|(){]))(?:function\s+)?([A-Za-z_][\w-]{0,63})\s*\(\)\s*\{")
+FUNCTION_END = re.compile(r"[;\n][^\S\n]*\}")
 # A function body that runs its arguments.
-RUNS_ARGS = re.compile(r"(^|\s)(eval|exec|(ba|z)?sh\s+-c)\s|(^|[;&|{(\n])\s*\"?\$[@*1-9]")
+RUNS_ARGS = re.compile(r"(^|\s)(eval|exec|(ba|z)?sh\s+-c)\s|(^|[;&|{(\n])[^\S\n]*\"?\$[@*1-9]")
 
 
 def shell_split(text, comments=False):
@@ -550,7 +594,7 @@ def program_at(values):
 def inner_at(values, k):
     """The index of the command the program at `k` hands over to (`uv run x`,
     `… -- bash -c`, `docker exec c sh`), or None."""
-    program = os.path.basename(values[k])
+    program = posixpath.basename(values[k])
     if program in RUNNERS and values[k + 1:k + 2] == ["run"]:
         j = k + 2
         while j < len(values) and values[j].startswith("-"):
@@ -561,10 +605,10 @@ def inner_at(values, k):
         return j if j < len(values) else None
     if program != "git" and "--" in values[k + 1:]:
         j = values.index("--", k + 1) + 1
-        if j < len(values) and os.path.basename(values[j]) in SHELLS:
+        if j < len(values) and posixpath.basename(values[j]) in SHELLS:
             return j
     if program in ("docker", "podman", "kubectl", "oc") and values[k + 1:k + 2] in (["exec"], ["run"]):
-        return next((j for j in range(k + 2, len(values)) if os.path.basename(values[j]) in SHELLS), None)
+        return next((j for j in range(k + 2, len(values)) if posixpath.basename(values[j]) in SHELLS), None)
     return None
 
 
@@ -601,11 +645,11 @@ def data_words(values, functions):
     k = run_at(values)
     if k is None:
         return []
-    program = os.path.basename(values[k])
+    program = posixpath.basename(values[k])
     if values[k] in ("for", "select") and values[k + 2:k + 3] == ["in"]:
         return list(range(k + 3, len(values)))
     if values[k] in functions or (re.match(r"^\.{0,2}/|^~/", values[k])
-                                  and os.path.dirname(values[k]) not in SYSTEM_BIN):
+                                  and posixpath.dirname(values[k]) not in SYSTEM_BIN):
         return list(range(k + 1, len(values)))
     if INTERPRETER_NAME.match(program) or program in SHELLS:
         inline = SHELL_SCRIPT_FLAG if program in SHELLS else r"^(-[a-z]*[ep]|--eval|--print)$" \
@@ -643,11 +687,26 @@ def data_words(values, functions):
     return out
 
 
+def functions_in(command):
+    out, last, end = [], 0, None
+    for head in FUNCTION.finditer(command):
+        if head.start() < last:
+            continue
+        if end is None or end.start() < head.end():
+            end = FUNCTION_END.search(command, head.end())
+        if not end:
+            break
+        if end.start() - head.end() <= 4000:
+            out.append((head.group(1), command[head.end():end.start()]))
+            last = end.end()
+    return out
+
+
 def blank_data(command):
     """The command with the words its programs take as data replaced by `'…'`,
     recursing into a shell's `-c` script. Words with a substitution are kept."""
     spans = []
-    functions = {m.group(1) for m in FUNCTION.finditer(command) if not RUNS_ARGS.search(m.group(2))} \
+    functions = {name for name, body in functions_in(command) if not RUNS_ARGS.search(body)} \
         if "()" in command else set()
     for simple in simple_commands(command):
         values = []
@@ -662,7 +721,7 @@ def blank_data(command):
                     and not (j and REDIRECT_ALONE.match(values[j - 1])):
                 spans.append((simple[j][0], simple[j][1], "'…'"))
         k = run_at(values)
-        program = os.path.basename(values[k]) if k is not None else ""
+        program = posixpath.basename(values[k]) if k is not None else ""
         at = next((j + 1 for j in range(k + 1, len(values) - 1) if SHELL_SCRIPT_FLAG.match(values[j])),
                   None) if program in SHELLS else None
         if program == "ssh":
@@ -709,7 +768,7 @@ def feeds_shell(line):
     (`bash <<EOF`, `sudo sh -s`, `ssh host <<EOF`), not data."""
     values = re.split(r"[|;&(]", line)[-1].split()
     k = program_at(values)
-    while k is not None and os.path.basename(values[k]) not in SHELLS | {"ssh"}:
+    while k is not None and posixpath.basename(values[k]) not in SHELLS | {"ssh"}:
         k = inner_at(values, k)
     if k is None:
         return False
@@ -849,7 +908,7 @@ def words(part, env, argv=None):
     profile = next((m.group(2) for m in map(ASSIGNMENT.match, reversed(argv[:k]))
                     if m and m.group(1) == "AWS_PROFILE"), None) or env.get("AWS_PROFILE")
     argv = [] if k is None else argv[k:]
-    if argv and os.path.basename(argv[0]) == "aws" and profile and "--profile" not in argv:
+    if argv and posixpath.basename(argv[0]) == "aws" and profile and "--profile" not in argv:
         argv = argv + ["--profile", profile]
     return argv
 
@@ -858,7 +917,16 @@ def expand(path, env):
     """A path with a leading `~` as the home in `env`, which is the logs'
     user's, never the collector's own."""
     home = env.get("HOME")
-    return home + path[1:] if home and (path == "~" or path.startswith("~/")) else path
+    return home + path[1:] if home and (path == "~" or path.startswith(("~/", "~\\"))) else path
+
+
+def drive_path(path):
+    return re.sub(r"^(?:/mnt)?/([A-Za-z])(?=/|$)", r"\1:", path) if sys.platform == "win32" else path
+
+
+def resolve(folder, path):
+    rules = ntpath if any(re.match(r"^([A-Za-z]:|\\\\)", p) for p in (folder, path)) else posixpath
+    return rules.normpath(rules.join(folder, path))
 
 
 def command_parts(command, cwd, env, scripts):
@@ -889,7 +957,7 @@ def command_parts(command, cwd, env, scripts):
             continue
         if argv[0] == "cd" and len(argv) > 1:
             # PATH_MAX on macOS.
-            there = os.path.abspath(os.path.join(here, expand(argv[1], env)[:1024]))
+            there = resolve(here, drive_path(expand(argv[1], env)[:1024]))
             here = there if len(there) <= 1024 else here
             continue
         add_part(out, argv, here, scripts)
@@ -898,12 +966,28 @@ def command_parts(command, cwd, env, scripts):
 
 def add_part(out, argv, here, scripts):
     """A part, and the command it runs when it is a runner (`uv run …`)."""
-    program = os.path.basename(argv[0])
+    program = program_name(argv[0])
     flag = next((i for i, a in enumerate(argv[1:-1], 1) if SHELL_SCRIPT_FLAG.match(a)), None)
     if program in SHELLS and flag:
         out.append((program + " -c ''", [program, "-c", ""], here, argv[0]))
         scripts.append((argv[flag + 1], here))
         return
+    wrapped = wrapped_script(argv)
+    if wrapped and wrapped[1] != "-":
+        scripts.append((wrapped[1], here, wrapped[0]))
+        return
+    if program == "wsl":
+        i = 1
+        while i < len(argv) and argv[i].partition("=")[0] in WSL_OPTIONS:
+            i += 1 + WSL_OPTIONS[argv[i]] if argv[i] in WSL_OPTIONS else 1
+        if i < len(argv) and argv[i] in ("-e", "--exec"):
+            if i + 1 < len(argv):
+                add_part(out, argv[i + 1:], here, scripts)
+            return
+        rest = argv[i + (argv[i:i + 1] == ["--"]):]
+        if rest and not rest[0].startswith("-"):
+            scripts.append((shlex.join(rest), here))
+            return
     # `eval` runs its words as a script, `su -c` its command as another user.
     script = " ".join(argv[1:]) if program == "eval" else \
         option(argv, "-c", "--command") if program == "su" else None
@@ -945,10 +1029,610 @@ def positional(argv, valued=()):
     return out
 
 
+class Unquoted(str):
+    pass
+
+
+PS_PLAIN = re.compile(r"[^\s;|&(){}'\"`$,>@]+")
+PS_REDIRECT = re.compile(r"[1-6*]?>>?(&[12])?")
+PS_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "0": "\0", "a": "\a", "b": "\b", "f": "\f", "v": "\v"}
+PS_KEYWORDS = {"if", "elseif", "else", "foreach", "for", "while", "do", "until", "switch", "try", "catch",
+               "finally", "trap", "function", "filter", "param", "begin", "process", "end", "return", "throw",
+               "exit", "break", "continue", "data", "class", "enum", "using"}
+PS_VARIABLE = re.compile(r"\$(?:\{([^}]{1,64})\}|((?:env:)?[A-Za-z_]\w{0,63}))")
+PS_HOME_VARIABLES = {"home": "~", "env:home": "~", "env:userprofile": "~", "env:appdata": "~/AppData/Roaming",
+                     "env:localappdata": "~/AppData/Local", "env:temp": "~/AppData/Local/Temp",
+                     "env:tmp": "~/AppData/Local/Temp"}
+CMD_HOME_VARIABLES = {"userprofile": "~", "appdata": "~/AppData/Roaming", "localappdata": "~/AppData/Local",
+                      "temp": "~/AppData/Local/Temp", "tmp": "~/AppData/Local/Temp"}
+PS_VALUED = {"path", "literalpath", "filter", "include", "exclude", "destination", "value", "pattern", "uri",
+             "method", "body", "infile", "outfile", "filepath", "argumentlist", "itemtype", "name", "encoding",
+             "tail", "totalcount", "first", "last", "head", "skip", "depth", "type", "target", "headers"}
+PS_SWITCHES = {"recurse", "force", "raw", "wait", "whatif", "confirm", "passthru", "usebasicparsing", "nonewline",
+               "append", "simplematch", "casesensitive", "quiet", "list", "notmatch", "allmatches", "file",
+               "directory", "hidden", "asbytestream", "nowait", "skipcertificatecheck", "disablekeepalive",
+               "noclobber", "container", "leaf", "parent", "resolve", "relative", "isabsolute", "followsymlink"}
+PS_ALIASES = {**dict.fromkeys(("get-content", "gc", "type", "cat"), "cat"),
+              **dict.fromkeys(("remove-item", "ri", "rm", "del", "erase", "rd", "rmdir"), "rm"),
+              **dict.fromkeys(("copy-item", "cpi", "cp", "copy"), "cp"),
+              **dict.fromkeys(("move-item", "mi", "mv", "move"), "mv"),
+              **dict.fromkeys(("set-content", "sc", "out-file", "tee-object", "tee"), "tee"),
+              **dict.fromkeys(("add-content", "ac"), "append"),
+              **dict.fromkeys(("new-item", "ni"), "new-item"), **dict.fromkeys(("mkdir", "md"), "mkdir"),
+              **dict.fromkeys(("invoke-webrequest", "iwr", "invoke-restmethod", "irm"), "fetch"),
+              **dict.fromkeys(("invoke-expression", "iex"), "iex"),
+              **dict.fromkeys(("start-process", "saps", "start"), "start"),
+              **dict.fromkeys(("set-location", "sl", "cd", "chdir", "push-location", "pushd"), "cd"),
+              **dict.fromkeys(("select-string", "sls"), "grep"),
+              **dict.fromkeys(("get-childitem", "gci", "ls", "dir", "get-item", "gi"), "ls"),
+              **dict.fromkeys(("write-output", "write", "echo", "write-host"), "echo")}
+PS_FETCH_PARAMETERS = {"uri", "method", "outfile", "usebasicparsing", "headers", "body", "infile", "useragent",
+                       "contenttype", "timeoutsec", "websession", "sessionvariable", "maximumredirection",
+                       "usedefaultcredentials"}
+PS_READ_ONLY = {alias: names[0] for names in (
+    ("test-path",), ("resolve-path", "rvpa"), ("get-location", "gl", "pwd"), ("measure-object", "measure"),
+    ("select-object", "select"), ("where-object", "where", "?"), ("foreach-object", "%"),
+    ("sort-object", "sort"), ("out-string",), ("out-null",), ("out-host", "oh"), ("out-default",),
+    ("get-command", "gcm"), ("get-process", "gps", "ps"), ("convertfrom-json",), ("convertto-json",),
+    ("get-date",), ("join-path",), ("split-path",), ("group-object", "group"), ("get-member", "gm"),
+    ("start-sleep", "sleep"), ("write-error",), ("write-warning",), ("write-verbose",), ("write-debug",),
+    ("write-information",), ("get-help", "help"), ("get-filehash",), ("compare-object", "compare"),
+    ("get-unique", "gu"), ("convertfrom-csv",), ("convertto-csv",), ("get-host",), ("get-culture",),
+    ("get-random",), ("get-alias", "gal"), ("get-psdrive", "gdr"), ("get-itemproperty", "gp"),
+    ("get-uptime",), ("format-list", "fl"), ("format-table", "ft"), ("format-wide", "fw"),
+    ("format-custom", "fc"), ("get-variable", "gv"), ("get-service", "gsv"), ("get-computerinfo",),
+    ("get-netipaddress",), ("get-netconnectionprofile",), ("get-itempropertyvalue", "gpv"),
+    ("get-psreadlineoption",), ("get-executionpolicy",)) for alias in names}
+PS_READ_ONLY_CMDLETS = set(PS_READ_ONLY.values())
+PS_DOWNLOAD = re.compile(r"(?i)\.Download(?:String|Data|File)(?:Async)?\(\s*['\"]([^'\"]{1,4096})['\"]")
+PS_UNPROTECT = re.compile(r"(?i)\[(?:System\.)?Security\.Cryptography\.ProtectedData\]::Unprotect\b")
+PS_READ_ALL = re.compile(r"(?i)\[(?:System\.)?IO\.File\]::(?:ReadAll(?:Text|Lines|Bytes)|OpenRead|Copy)"
+                         r"\(\s*['\"]([^'\"]{1,4096})['\"]")
+PS_CAST = re.compile(r"^[\w.\[\], ]{1,64}$")
+PS_ASSIGNMENT = re.compile(r"\$([\w:]{1,64})\s*[-+*/]?=(.*)$", re.S)
+PS_ASSIGNED = re.compile(r"\$([\w:]{1,64})$")
+PS_WRAPPER_SWITCHES = {"-noprofile", "-nop", "-noninteractive", "-noni", "-nologo", "-noexit", "-sta", "-mta",
+                       "-login", "-l", "-mergeerrors"}
+
+
+def program_name(word):
+    name = re.split(r"[\\/]", word)[-1]
+    bare = re.sub(r"(?i)\.(exe|cmd|bat|com|ps1)$", "", name)
+    return bare.lower() if bare != name or "\\" in word else name
+
+
+def wrapped_script(argv):
+    program = program_name(argv[0]) if argv else ""
+    if program == "cmd":
+        at = next((i for i, a in enumerate(argv[1:], 1) if re.match(r"(?i)^//?[ckr]$", a)), None)
+        if at is None:
+            return None
+        script = " ".join(argv[at + 1:])
+        if len(script) > 1 and script[0] == script[-1] == '"':
+            script = script[1:-1]
+        return "cmd", script
+    if program not in ("powershell", "pwsh"):
+        return None
+    i = 1
+    while i < len(argv):
+        word, low = argv[i], argv[i].lower()
+        if low in ("-", "-command", "-c", "-co", "-com", "-comm", "-comma", "-comman") and \
+                (low != "-" or i == len(argv) - 1):
+            rest = argv[i + 1:] if low != "-" else ["-"]
+            return "powershell", " ".join(rest) or "-"
+        if re.match(r"^-(e|ec|en|enc|enco|encod|encode|encoded|encodedc\w*)$", low):
+            try:
+                script = base64.b64decode(argv[i + 1][:COMMAND_MAX * 2], validate=True).decode("utf-16-le")
+            except (IndexError, ValueError):
+                return None
+            return "powershell", script
+        if low in ("-file", "-f"):
+            return None
+        if low in PS_WRAPPER_SWITCHES or re.match(r"^-\w+:", low):
+            i += 1
+        elif word.startswith("-"):
+            i += 2
+        else:
+            return "powershell", " ".join(argv[i:])
+    return None
+
+
+def ps_skip(text, i, close):
+    opening, depth = {")": "(", "}": "{"}[close], 1
+    while i < len(text) and depth:
+        depth += (text[i] == opening) - (text[i] == close)
+        i += 1
+    return i
+
+
+def ps_word(text, i, units, depth):
+    redirect = PS_REDIRECT.match(text, i)
+    if redirect:
+        op = redirect.group().replace("*>", "&>")
+        return {"value": op, "items": [op], "quoted": False, "kind": "redirect", "raw": op, "units": []}, \
+            redirect.end()
+    start, items, current, quoted, kind, inner = i, [], [], False, "word", []
+
+    def nested(at, close):
+        if depth >= 16:
+            return ps_skip(text, at, close)
+        found = []
+        end = ps_block(text, at, close, found, depth + 1)
+        inner.extend(found)
+        units.extend(found)
+        return end
+
+    while i < len(text):
+        c, ahead = text[i], text[i + 1:i + 2]
+        if c in " \t\r\n;|&)}>" or text.startswith(("`\n", "`\r\n"), i):
+            break
+        if c == "'":
+            end = i + 1
+            while True:
+                end = text.find("'", end)
+                if end < 0 or text[end + 1:end + 2] != "'":
+                    break
+                end += 2
+            end = len(text) if end < 0 else end
+            current.append(text[i + 1:end].replace("''", "'"))
+            quoted, i = True, end + 1
+        elif c == '"':
+            i, quoted = i + 1, True
+            while i < len(text) and (text[i] != '"' or text[i:i + 2] == '""'):
+                if text[i] == '"':
+                    current.append('"')
+                    i += 2
+                elif text[i] == "`" and i + 1 < len(text):
+                    current.append(PS_ESCAPES.get(text[i + 1], text[i + 1]))
+                    i += 2
+                elif text.startswith("$(", i):
+                    current.append(SUBSTITUTION)
+                    i = nested(i + 2, ")")
+                else:
+                    current.append(text[i])
+                    i += 1
+            i += 1
+        elif c == "@" and ahead in ("'", '"') and re.match(r"[ \t]*\r?\n", text[i + 2:i + 40]):
+            close = "\n" + ahead + "@"
+            end = text.find(close, i + 2)
+            end = len(text) if end < 0 else end
+            current.append(text[text.find("\n", i) + 1:end])
+            quoted, i = True, end + len(close)
+        elif c == "(" or c in "@$" and ahead == "(":
+            kind = "group" if i == start else kind
+            current.append(SUBSTITUTION if c == "$" else "(…)")
+            i = nested(i + (1 if c == "(" else 2), ")")
+        elif c == "{" or c == "@" and ahead == "{":
+            kind = "block" if i == start else kind
+            current.append("{…}")
+            i = nested(i + (1 if c == "{" else 2), "}")
+        elif c == "$" and ahead == "{":
+            end = text.find("}", i)
+            end = len(text) if end < 0 else end + 1
+            current.append(text[i:end])
+            i = end
+        elif c == "`":
+            current.append(ahead)
+            i += 2
+        elif c == ",":
+            items.append("".join(current))
+            current = []
+            i += 1
+        else:
+            plain = PS_PLAIN.match(text, i)
+            current.append(plain.group() if plain else c)
+            i = plain.end() if plain else i + 1
+    items.append("".join(current))
+    return {"value": ",".join(items), "items": items, "quoted": quoted, "kind": kind, "raw": text[start:i],
+            "units": inner}, i
+
+
+def ps_block(text, i, close, units, depth=0):
+    start, pipeline, element, call = i, [], [], False
+
+    def finish(at, after):
+        nonlocal start, pipeline, element
+        if element:
+            pipeline.append(element)
+        if pipeline and len(units) < 1000:
+            units.append((text[start:at].strip(), pipeline))
+        start, pipeline, element = after, [], []
+
+    while i < len(text):
+        c = text[i]
+        if c in " \t\r":
+            i += 1
+        elif text.startswith(("`\n", "`\r\n"), i):
+            i += 2 + (text[i + 1] == "\r")
+        elif c == "#" or text.startswith("<#", i):
+            end = text.find("#>" if c == "<" else "\n", i + 1)
+            i = len(text) if end < 0 else end + (2 if c == "<" else 0)
+        elif close and c == close:
+            finish(i, i + 1)
+            return i + 1
+        elif c in ")}":
+            finish(i, i + 1)
+            if close:
+                return i + 1
+            i += 1
+        elif c in "\n;" or text.startswith(("&&", "||"), i):
+            step = 2 if c in "&|" else 1
+            finish(i, i + step)
+            i += step
+        elif c == "|":
+            if element:
+                pipeline.append(element)
+            element = []
+            i += 1
+        elif c == "&":
+            rest = text[i + 1:i + 200].lstrip(" \t")
+            if not rest or rest[0] in "\n;":
+                finish(i, i + 1)
+            call = bool(rest)
+            i += 1
+        else:
+            word, i = ps_word(text, i, units, depth)
+            word["call"], call = call, False
+            element.append(word)
+    finish(len(text), len(text))
+    return len(text)
+
+
+def ps_expand(value, env):
+    def variable(match):
+        name = (match.group(1) or match.group(2)).lower()
+        known = PS_HOME_VARIABLES.get(name)
+        return known if known is not None else env.get("ps:" + name, match.group(0))
+    return PS_VARIABLE.sub(variable, value) if "$" in value else value
+
+
+def ps_path(value):
+    value = re.sub(r"(?i)^(Microsoft\.PowerShell\.Core\\)?FileSystem::", "", value).replace("\\", "/")
+    value = re.sub(r"(?i)^//wsl(?:\.localhost|\$)/[^/]+(?=/)", "", value)
+    return re.sub(r"^[A-Za-z]:(?=/|$)", "", value) or "/"
+
+
+def ps_arguments(words):
+    named, rest, i = {}, [], 0
+    while i < len(words):
+        word = words[i]
+        param = re.match(r"^-([A-Za-z][\w-]*)(:)?(.*)$", word["value"], re.S) if not word["quoted"] else None
+        if not param:
+            rest += word["items"]
+            i += 1
+            continue
+        name, after = param.group(1).lower(), words[i + 1] if i + 1 < len(words) else None
+        if param.group(2):
+            named[name] = [param.group(3)] if param.group(3) else after["items"] if after else []
+            i += 1 if param.group(3) else 2
+        elif after is None or (name not in PS_VALUED and any(s.startswith(name) for s in PS_SWITCHES)) or (
+                not after["quoted"] and re.match(r"^-[A-Za-z]", after["value"])):
+            named[name] = []
+            i += 1
+        else:
+            named[name] = after["items"]
+            i += 2
+    return named, rest
+
+
+def ps_flag(named, *names):
+    return any(n.startswith(given) for given in named for n in names)
+
+
+def ps_value(named, *names):
+    return next((named[n] for n in names if named.get(n)), [])
+
+
+def ps_paths(named, rest, *names):
+    return [ps_path(p) for p in ps_value(named, *(names or ("path", "literalpath", "lp"))) + rest if p]
+
+
+def ps_redirects(words, env):
+    kept, out, i = [], [], 0
+    while i < len(words):
+        if words[i]["kind"] != "redirect":
+            kept.append(words[i])
+            i += 1
+            continue
+        out.append(Unquoted(words[i]["value"]))
+        if not words[i]["value"].endswith(("&1", "&2")) and i + 1 < len(words):
+            target = ps_expand(words[i + 1]["value"], env)
+            out.append("/dev/null" if target.lower() == "$null" else ps_path(target))
+            i += 1
+        i += 1
+    return kept, out
+
+
+def ps_cast_end(value):
+    i = 0
+    while value.startswith("[", i):
+        depth, j = 0, i
+        while j < min(len(value), i + 66):
+            depth += (value[j] == "[") - (value[j] == "]")
+            j += 1
+            if not depth:
+                break
+        if depth or not PS_CAST.match(value[i + 1:j - 1]):
+            return None
+        i = j
+    return i
+
+
+def ps_assigned(words, env):
+    first = words[0]
+    if first["kind"] != "word" or not first["raw"].startswith(("$", "[")):
+        return words
+    at = ps_cast_end(first["value"])
+    joined, named = (PS_ASSIGNMENT.match(first["value"], at), PS_ASSIGNED.match(first["value"], at)) \
+        if at is not None else (None, None)
+    if joined:
+        raw = first["raw"].partition("=")[2]
+        rest = ([dict(first, value=joined.group(2), items=[joined.group(2)], raw=raw,
+                      quoted=raw[:1] in "'\"@")] if joined.group(2) else []) + words[1:]
+    elif named and len(words) > 1 and not words[1]["quoted"] and re.match(r"^[-+*/]?=$", words[1]["value"]):
+        joined, rest = named, words[2:]
+    else:
+        return words
+    if len(rest) == 1 and rest[0]["kind"] == "word" and SUBSTITUTION not in rest[0]["value"] and (
+            rest[0]["quoted"] or re.match(r"^[$\d@-]", rest[0]["value"])):
+        env["ps:" + joined.group(1).lower()] = ps_expand(rest[0]["value"], env)
+        return []
+    return rest
+
+
+def ps_command(words, env, units, depth):
+    words = ps_assigned(words, env) if words else words
+    words, redirects = ps_redirects(words, env)
+    downloads = [["curl", m.group(1)] for w in words for m in PS_DOWNLOAD.finditer(w["raw"])]
+    downloads += [["cat", ps_path(ps_expand(m.group(1), env))] for w in words
+                  for m in PS_READ_ALL.finditer(w["raw"])]
+    downloads += [[m.group(0)] for w in words for m in PS_UNPROTECT.finditer(w["raw"])]
+    if not words:
+        return []
+    first = words[0]
+    program = ps_expand(first["value"], env)
+    if first["kind"] != "word" or not program or program[0] in "$[@-0123456789({" \
+            or program.lower() in PS_KEYWORDS or (first["quoted"] and not first["call"]
+                                                  and not re.search(r"(?i)^[^:]*\.(exe|cmd|bat|com)$", program)):
+        return downloads[0] if downloads else []
+    name = program_name(program).lower()
+    alias = None if re.search(r"(?i)\.exe$", program) else PS_ALIASES.get(name)
+    args = words[1:]
+    named, rest = ps_arguments(args)
+    if alias == "fetch" or name in ("curl", "wget") and not program.lower().endswith(".exe") \
+            and any(n in PS_FETCH_PARAMETERS for n in named):
+        url = ps_value(named, "uri") or rest or [""]
+        method = ps_value(named, "method")
+        sent = ps_value(named, "infile")
+        saved = ps_value(named, "outfile")
+        return ["curl"] + (["-X", method[0]] if method else []) + ["-d", "…"] * bool(named.get("body")) \
+            + (["-T", ps_path(ps_expand(sent[0], env))] if sent else []) \
+            + (["-o", ps_path(ps_expand(saved[0], env))] if saved else []) + [ps_expand(url[0], env)] + redirects
+    expanded = {k: [ps_expand(v, env) for v in vs] for k, vs in named.items()}
+    rest = [ps_expand(v, env) for v in rest]
+    argv = None
+    if name in ("curl", "wget"):
+        alias = None
+    if alias == "cat":
+        argv = ["cat"] + ps_paths(expanded, rest)
+    elif alias == "rm":
+        argv = ["rm"] + ["-r"] * ps_flag(named, "recurse") + ["-f"] * ps_flag(named, "force") \
+            + ["-WhatIf"] * ps_flag(named, "whatif") \
+            + [p + ":" + s for p in ps_paths(expanded, rest) for s in ps_value(expanded, "stream")[:1]] \
+            + ps_paths(expanded, rest) * (not ps_value(expanded, "stream"))
+    elif alias in ("cp", "mv"):
+        argv = [alias] + ["-r"] * (alias == "cp" and ps_flag(named, "recurse")) + ps_paths(expanded, rest) \
+            + [ps_path(p) for p in ps_value(expanded, "destination")[:1]]
+    elif alias in ("tee", "append"):
+        paths = [] if named.get("variable") else ps_paths(expanded, rest, "path", "literalpath", "filepath")
+        argv = ["tee"] + ["-a"] * (alias == "append" or ps_flag(named, "append")) + paths[:1]
+    elif alias == "new-item":
+        target = "/".join(ps_paths(expanded, rest)[:1] + ps_value(expanded, "name")) or "."
+        kind = (ps_value(expanded, "itemtype", "type") or ["file"])[0].lower()
+        argv = ["mkdir", "-p", target] if kind == "directory" else \
+            ["ln", "-s"] + [ps_path(p) for p in ps_value(expanded, "value", "target")[:1]] + [target] \
+            if kind in ("symboliclink", "hardlink", "junction") else \
+            ["tee", target] if named.get("value") else ["touch", target]
+    elif alias == "mkdir":
+        argv = ["mkdir", "-p"] + ps_paths(expanded, rest)
+    elif alias == "iex":
+        inner = [u for w in args if w["kind"] == "group" for u in w["units"]][-1:]
+        fetched = [line for _, p in inner for line in [ps_pipeline(p, dict(env), [], depth)]
+                   if line.startswith("curl ")] or [shlex.join(d) for d in downloads if d[0] == "curl"]
+        if fetched:
+            return Unquoted(fetched[0] + " | iex")
+        for w in args:
+            if w["kind"] == "word" and w["quoted"] and depth < 8:
+                units += ps_units(w["value"], env, depth + 1)
+        argv = [] if args else ["iex"]
+    elif alias == "start":
+        target = ps_value(expanded, "filepath") or rest[:1]
+        if not target or re.match(r"^\w+://", target[0]):
+            return []
+        more = ps_value(expanded, "argumentlist", "args") or rest[1:]
+        return ps_command([dict(first, value=target[0], items=target[:1], quoted=False, call=True)]
+                          + [{"value": a, "items": [a], "quoted": True, "kind": "word", "raw": a, "units": [],
+                              "call": False} for a in more], env, units, depth)
+    elif alias == "cd":
+        target = ps_value(expanded, "path", "literalpath") or rest[:1]
+        argv = ["cd", target[0]] if target else []
+    elif alias == "grep":
+        pattern = ps_value(expanded, "pattern")
+        paths = rest if pattern else rest[1:]
+        argv = ["grep"] + ["-q"] * ps_flag(named, "quiet") + ((pattern or rest)[:1] or ["…"]) \
+            + ps_paths(expanded, paths)
+    elif alias == "ls":
+        listed = ps_value(expanded, "path", "literalpath") + rest
+        argv = ["env"] if any(re.match(r"(?i)^env:[\\/]?\*?$", p) for p in listed) else ["ls"]
+    elif alias == "echo":
+        argv = ["echo"] + rest
+    if argv is not None:
+        return argv + redirects if argv else []
+    values = [program] + [ps_expand(w["value"], env) for w in args]
+    wrapped = wrapped_script(values)
+    if wrapped and depth < 8:
+        shell, script = wrapped
+        if script == "-":
+            return ["sh", "-s"]
+        units += (ps_units if shell == "powershell" else cmd_units)(script, env, depth + 1)
+        return []
+    if name in ("powershell", "pwsh"):
+        script = next((v for i, v in enumerate(values[:-1]) if v.lower() in ("-file", "-f")), None)
+        return ["sh", values[values.index(script) + 1].replace("\\", "/")] if script else []
+    if name in PS_READ_ONLY:
+        return [PS_READ_ONLY[name]] + redirects
+    program = program.replace("\\", "/") if re.match(r"^\.{0,2}[\\/]", program) else name
+    return [program] + values[1:] + redirects
+
+
+def ps_pipeline(pipeline, env, units, depth):
+    parts = []
+    for element in pipeline:
+        argv = ps_command(element, env, units, depth)
+        if isinstance(argv, Unquoted):
+            parts.append(argv)
+        elif argv:
+            parts.append(" ".join(a if isinstance(a, Unquoted) else shlex.quote(a) for a in argv))
+    return " | ".join(parts)
+
+
+def ps_units(script, env, depth=0):
+    found, out = [], []
+    ps_block(script[:COMMAND_MAX], 0, None, found, depth)
+    for text, pipeline in found:
+        more = []
+        line = ps_pipeline(pipeline, env, more, depth)
+        out += more
+        if line:
+            out.append((re.sub(r"@(['\"])[ \t]*\r?\n.*?\n\1@", r"@\1…\1@", text, flags=re.S), line))
+    return out[:400]
+
+
+CMD_SEPARATOR = re.compile(r"&&|\|\||[&|\n()]")
+CMD_BUILTINS = {"type": "cat", "del": "rm", "erase": "rm", "rd": "rm", "rmdir": "rm", "copy": "cp",
+                "xcopy": "cp", "move": "mv", "ren": "mv", "rename": "mv", "dir": "ls", "md": "mkdir",
+                "mkdir": "mkdir", "cd": "cd", "chdir": "cd", "pushd": "cd", "findstr": "grep", "echo": "echo"}
+CMD_SWITCH = re.compile(r"^/[A-Za-z?](:\S*)?$")
+CMD_REDIRECT = re.compile(r"(>>?|<)(&\d)?")
+
+
+def cmd_statements(script):
+    out, words, word, quote, start, i = [], [], None, False, 0, 0
+
+    def finish(at):
+        nonlocal words, word
+        if word is not None:
+            words.append(word)
+        if words:
+            out.append((script[start:at].strip(), words))
+        words, word = [], None
+
+    while i < len(script) and len(out) < 400:
+        c = script[i]
+        separator = None if quote else CMD_SEPARATOR.match(script, i)
+        if c == '"':
+            quote, word = not quote, word or ""
+        elif quote:
+            word += c
+        elif c == "^" and i + 1 < len(script):
+            word = (word or "") + script[i + 1]
+            i += 1
+        elif separator and (c != "(" or word is None):
+            finish(i)
+            i = start = separator.end()
+            continue
+        elif c in " \t\r":
+            if word is not None:
+                words.append(word)
+            word = None
+        elif c in "<>":
+            prefix = word if word is not None and re.match(r"^\d$", word) else ""
+            if word is not None and not prefix:
+                words.append(word)
+            redirect = CMD_REDIRECT.match(script, i)
+            words.append(Unquoted(prefix + redirect.group()))
+            word, i = None, i + len(redirect.group())
+            continue
+        else:
+            word = (word or "") + c
+        i += 1
+    finish(len(script))
+    return out
+
+
+def cmd_units(script, env, depth=0):
+    out, listed = [], False
+    for text, words in cmd_statements(script[:COMMAND_MAX]):
+        words = [w if isinstance(w, Unquoted) else re.sub(r"%(\w{1,64})%", lambda m: CMD_HOME_VARIABLES.get(
+            m.group(1).lower(), env.get("cmd:" + m.group(1).lower(), m.group(0))), w) for w in words]
+        if listed or isinstance(words[0], Unquoted):
+            listed = False
+            continue
+        words[0] = words[0].lstrip("@")
+        low = [w.lower() for w in words]
+        if low[0] == "if":
+            k = 1 + (low[1:2] == ["/i"])
+            k += low[k:k + 1] == ["not"]
+            k += 2 if low[k:k + 1] in (["exist"], ["defined"], ["errorlevel"]) else 3 if low[k + 1:k + 2] in (
+                ["=="], ["equ"], ["neq"], ["lss"], ["leq"], ["gtr"], ["geq"]) else 1
+            words, low = words[k:], low[k:]
+        elif low[0] == "for":
+            listed = "do" not in low
+            k = low.index("do") + 1 if "do" in low else len(low)
+            words, low = words[k:], low[k:]
+        while low and low[0] in ("call", "else", "do"):
+            words, low = words[1:], low[1:]
+        if not words or isinstance(words[0], Unquoted) or low[0] in (
+                "rem", "::", "goto", "exit", "setlocal", "endlocal", "cls", "title", "set"):
+            if low and low[0] == "set" and len(words) > 1 and "=" in words[1]:
+                name, _, value = words[1].partition("=")
+                env["cmd:" + name.lower()] = value
+            continue
+        if low[0] == "start":
+            words = [w for i, w in enumerate(words[1:]) if not CMD_SWITCH.match(w) and (i or w)]
+            if not words:
+                continue
+            low = [w.lower() for w in words]
+        builtin = CMD_BUILTINS.get(low[0])
+        switches = {w.lower() for w in words[1:] if CMD_SWITCH.match(w)}
+        redirects, args = [], []
+        for i, w in enumerate(words[1:], 1):
+            if isinstance(w, Unquoted):
+                redirects.append(w)
+            elif isinstance(words[i - 1], Unquoted) and not words[i - 1].endswith(("&1", "&2")):
+                redirects.append("/dev/null" if w.lower() == "nul" else ps_path(w))
+            elif not (builtin and CMD_SWITCH.match(w)):
+                args.append(w)
+        if builtin == "rm":
+            argv = ["rm"] + ["-r"] * ("/s" in switches) + ["-f"] * bool({"/q", "/f"} & switches) \
+                + [ps_path(a) for a in args]
+        elif builtin in ("cat", "cp", "mv", "mkdir"):
+            argv = [builtin] + ["-r"] * (builtin == "cp" and bool({"/s", "/e"} & switches)) \
+                + [ps_path(a) for a in args]
+        elif builtin == "cd":
+            argv = ["cd"] + args[:1]
+        elif builtin == "grep":
+            argv = ["grep", (args or ["…"])[0]] + [ps_path(a) for a in args[1:]]
+        elif builtin in ("ls", "echo"):
+            argv = [builtin] + args * (builtin == "echo")
+        else:
+            wrapped = wrapped_script(words)
+            if wrapped and depth < 8:
+                out += (ps_units if wrapped[0] == "powershell" else cmd_units)(wrapped[1], env, depth + 1)
+                continue
+            argv = [program_name(words[0]).lower()] + args
+        out.append((text, " ".join(a if isinstance(a, Unquoted) else shlex.quote(a) for a in argv + redirects)))
+    return out
+
+
 # --- Masking ---
 
 # A variable, option, header or JSON/YAML key name whose value is secret.
-SECRET_WORD = re.compile(r"(?i)pass|pwd|auth|cred|key|token|secret|cookie|session")
+SECRET_NAME = r"(?:pass|pwd|auth|cred|key|token|secret|cookie|session|(?<![a-z])pat(?![a-z]))"
+SECRET_WORD = re.compile(r"(?i)" + SECRET_NAME)
+
+PIPED_SECRET = (r"(?=\s*(?:&\s*echo\s+[^&|)\n]{1,256})?\)?\s*\|\s*(?:sudo\b[^|;&\n]*\s-S\b"
+                r"|net1?(?:\.exe)?\s+(?:user|use)\b|ConvertTo-SecureString\b))")
 
 # Every repetition is bounded or can't overlap itself, so masking is linear.
 # The last entry must stay last: `masked(long_runs=False)` drops it.
@@ -980,7 +1664,7 @@ MASKS = [
     (re.compile(r"(://)[^/\s:@]{16,256}@"), r"\1••••@"),
     # Passwords given as a client's option.
     (re.compile(r"(\b(?:redis-cli\b[^|;&\n]{0,300}?\s-a|mongo(?:sh)?\b[^|;&\n]{0,300}?\s-p"
-                r"|sqlcmd\b[^|;&\n]{0,300}?\s-P|zip\b[^|;&\n]{0,300}?\s-P"
+                r"|sqlcmd\b[^|;&\n]{0,300}?\s-P|zip\b[^|;&\n]{0,300}?\s-P|psexec(?:64)?\b[^|;&\n]{0,300}?\s-p"
                 r"|(?:docker|podman)\s+login\b[^|;&\n]{0,300}?\s-p)\s+)(?!-)(?:\"[^\"\n]*\"|'[^'\n]*'|\S+)"),
      r"\1••••"),
     (re.compile(r"(\b(?:gh\s+secret\s+set\b[^|;&\n]{0,300}?\s(?:--body|-b)|aws\s+ssm\s+put-parameter\b"
@@ -988,18 +1672,46 @@ MASKS = [
     # Signatures and one-time codes in a URL's query (Azure SAS, presigned URLs, OAuth).
     (re.compile(r"(?i)([?&](?:sig|signature|x-amz-signature|x-goog-signature|code|access_token|refresh_token"
                 r"|id_token|client_secret)=)[^&#\s\"']{1,4096}"), r"\1••••"),
-    # A password piped or fed to `sudo -S`.
-    (re.compile(r"(\b(?:echo|printf)\s+(?:-\w+\s+)?(?:'%s\\n'\s+)?)(?:\"[^\"\n]*\"|'[^'\n]*'|\S+)(?=\s*\|\s*sudo\b[^|;&\n]*\s-S\b)"),
-     r"\1••••"),
-    (re.compile(r"(\bsudo\b[^|;&\n]*\s-S\b[^|;&\n]*<<<\s*)(?:\"[^\"\n]*\"|'[^'\n]*'|\S+)"), r"\1••••"),
+    (re.compile(r"(?i)(\b(?:echo|printf|write-output|write-host)(?:\s+-\w+)*\s+(?:'%s\\n'\s+)?)"
+                r"(?:\"[^\"\n]*\"|'[^'\n]*'|(?=([^\s|&)\"']+))\2)" + PIPED_SECRET), r"\1••••"),
+    (re.compile(r"(?i)(?<![\w$])(?:\"[^\"\n]*\"|'[^'\n]*'|@([\"'])[ \t]*\r?\n(?:(?!\1@)[^\n]{0,1024}\n){1,8}\1@)"
+                + PIPED_SECRET), "••••"),
+    (re.compile(r"(\bsudo\b(?=[^|;&\n]{0,256}?\s-S\b)[^|;&\n<]{0,256}<<<\s*)(?:\"[^\"\n]*\"|'[^'\n]*'|\S+)"), r"\1••••"),
+    (re.compile(r"(?i)(\bwsl(?:\.exe)?\b[^|;&\n]{0,200}?\s(?:-u|--user)(?:\s+|=))(?!root\b)[^\s'\"]{1,64}"), r"\1user"),
     (re.compile(r"(\baws\s+configure\s+set\s+[\w.-]{0,64}(secret|token|key)[\w.-]{0,64}\s+)\S+"), r"\1••••"),
     (re.compile(r"(?i)(--[\w-]{0,40}(pass|pwd|token|secret|key|auth|cred)[\w-]{0,40}(?<!-stdin)(?<!-file)[ =])(\S+)"), r"\1••••"),
+    (re.compile(r"(?i)(\bnet1?(?:\.exe)?\s+)(user|use)\b([^|;&\n]{0,2000})"), lambda m: masked_net(m)),
+    (re.compile(r"(?i)(\bConvertTo-SecureString(?:\s+-(?!String\b)\w+)*\s+(?:-String[:\s]\s*)?)(?![-$(@])"
+                r"(?:\"[^\"\n]*\"|'[^'\n]*'|[^\s)|;]+)"), r"\1••••"),
+    (re.compile(r"(?i)(\bschtasks(?:\.exe)?\b[^|;&\n]{0,1000}?\s/r?p\s+)(?!/)(?:\"[^\"\n]*\"|\S+)"), r"\1••••"),
+    (re.compile(r"(?i)((?<![\w-])-\w{0,40}(?:password|passwd|passin|passout|pwd|secret|token|credential"
+                r"|(?:api|access|secret)key)\w{0,40}(?::|\s+))(?![-$(@])(?:\"[^\"\n]*\"|'[^'\n]*'|[^\s)|;,]+)"),
+     r"\1••••"),
+    (re.compile(r"(?i)(\$env:\w{0,64}" + SECRET_NAME + r"\w{0,64}\s*\+?=\s*"
+                r"|\b(?:set-item|si|new-item|ni)\s+(?:-path\s+)?env:\w{0,64}" + SECRET_NAME + r"\w{0,64}\s+(?:-value\s+)?"
+                r"|\bSetEnvironmentVariable\(\s*['\"]\w{0,64}" + SECRET_NAME + r"\w{0,64}['\"]\s*,\s*)"
+                r"(?:\"[^\"\n]*\"|'[^'\n]*'|[^\s;|)]+)"), r"\1••••"),
     # A variable, a `-var`, or a JSON/YAML key (`"password": "…"`).
     (re.compile(r"((?<![\w-])([\"']?)(?!(?i:(?:proxy-)?authorization)\W)([A-Za-z_][\w-]{0,63})\2\s*[:=]\s*)"
                 r"(?!\$\(|••••|//)(\"[^\"\n]{0,4096}\"|'[^'\n]{0,4096}'|[^\s\"',;}&?#]{1,4096})"),
      lambda m: m.group(1) + "••••" if SECRET_WORD.search(m.group(3)) else m.group(0)),
     (re.compile(r"\b[A-Za-z0-9+/_-]{40,}={0,2}"), lambda m: masked_path(m.group(0))),
 ]
+NET_WORD = re.compile(r"\s+|\"[^\"\n]*\"?|[^\s\"]+")
+
+
+def masked_net(match):
+    out, given, share = [], 0, False
+    for word in NET_WORD.findall(match.group(3)):
+        if not word.isspace() and not word.startswith("/") and word != "*":
+            given += 1
+            if given >= 2 and (match.group(2).lower() == "user" or share):
+                word = "••••"
+            share = share or word.startswith("\\\\")
+        out.append(word)
+    return match.group(1) + match.group(2) + "".join(out)
+
+
 # A path segment that reads as a name; a token's random text rarely does.
 NAME_LIKE = re.compile(r"^[A-Z]?[a-z0-9._-]{0,31}$")
 
@@ -1011,7 +1723,49 @@ def masked_path(text):
     return "/".join(p if not p or NAME_LIKE.match(p) else "••••" for p in text.split("/"))
 
 
-OTHER_HOME = re.compile(r"(?<![\w/.-])/(Users|home)/[^/\s'\"]+(?:(?: [^/\s'\"]+){1,3}(?=[/'\"]|$))?")
+NAME_END = r"\[\]:;|&=,+*?<>"
+OTHER_HOME = re.compile(r"(?<![\w/.-])/(Users|home)/(?:[^/\s'\"" + NAME_END + r"()]+(?:[ \t]{1,4}(?!-)[^/\s'\""
+                        + NAME_END + r"()]+){0,9}(?=[/'\"\n()" + NAME_END + r"]|$)|[^/\s'\"]+)")
+ENCODED = r"%(?:25){0,3}"
+PATH_SEP = r"(?:[\\/]|" + ENCODED + r"(?:5[cC]|2[fF]))"
+DRIVE_COLON = r"(?::|" + ENCODED + r"3a|\$)"
+NAME_PART = r"(?:(?!" + ENCODED + r"(?:5[cC]|2[fF]|3[aA]))[^\\/\s'\"" + NAME_END + r"])+"
+UNC = r"(?:(?<![\w:\\/])[\\/]{2,8}(?:\?[\\/]{1,4}UNC[\\/]{1,4})?|\b(?:file|smb):/{2}(?:/{2})?(?!/))"
+WINDOWS_HOME = re.compile(r"(?i)(?<![\w.])(?:(?:[a-z]" + DRIVE_COLON + r"|/mnt/[a-z]|/[a-z]"
+                          r"|" + UNC + r"[^\\/\s'\"]{1,253}[\\/]{1,4}[^\\/\s'\"]{1,80}|(?<![\\/])(?=\\))"
+                          + PATH_SEP + r"+(?:Users|Documents and Settings|DOCUME~\d{1,3})"
+                          r"|" + UNC + r"[^\\/\s'\"]{1,253}[\\/]{1,4}[^\\/\s'\"]{0,40}(?:home|user|profile)[^\\/\s'\"]{0,40})"
+                          + PATH_SEP + r"+(" + NAME_PART + r"(?:[ \t]{1,4}(?!-)" + NAME_PART + r"){0,9}(?=" + PATH_SEP
+                          + r"|['\"\n" + NAME_END + r"]|$)|" + NAME_PART + ")")
+UNC_HOST = re.compile(r"(?i)(" + UNC + r")(?!wsl(?:\.localhost|\$)[\\/]|localhost[\\/]|127\.0\.0\.1[\\/]|[?.~][\\/])"
+                      r"[^\\/\s'\"]{1,253}(?=[\\/])")
+WINDOWS_PATH = re.compile(r"^[A-Za-z]:[\\/]")
+PROFILE_HOMES = []
+WSL_HOME = re.compile(r"(?i)(?:\\{1,8}|(?<![\w.])/{2,3})wsl(?:\.localhost|\$)[\\/]+[^\\/\s'\"]+[\\/]+home[\\/]+"
+                      r"([^\\/\s'\"]+)")
+BARE_WINDOWS_HOME = re.compile(r"(?i)(?<![\w.])[a-z]:Users([^\s'\"]+)")
+
+
+@functools.lru_cache(maxsize=64)
+def home_pattern(home):
+    drive, rest = ntpath.splitdrive(home)
+    parts = [p for p in re.split(r"[\\/]+", rest) if p]
+    if not re.match(r"^[A-Za-z]:$", drive) or not parts:
+        return None
+    letter = drive[0]
+    return re.compile(r"(?i)(?<![\w.])(?:" + letter + DRIVE_COLON + "|/mnt/" + letter + "|/" + letter + ")" + PATH_SEP
+                      + "+" + (PATH_SEP + "+").join(
+                          "(?:" + ("(?: |" + ENCODED + "20)").join(map(re.escape, p.split(" "))) + "|"
+                          + re.escape(re.sub(r"[\s.]", "", p)[:6]) + r"~\d{1,3})" for p in parts)
+                      + r"(?![^\\/\s'\"%" + NAME_END + r"])")
+
+
+def own_name(name, own):
+    for _ in range(4):
+        name = urllib.parse.unquote(name)
+    name = name.lower()
+    short = re.match(r"^(\w{1,6})~\d{1,3}$", name)
+    return name == own or bool(own and short and re.sub(r"[\s.]", "", own)[:6] == short.group(1))
 
 
 def masked(text, home, long_runs=True):
@@ -1019,8 +1773,18 @@ def masked(text, home, long_runs=True):
     `~other`. Without `long_runs`, long runs of letters and digits are kept,
     since a resource name can be one."""
     text = text[:TEXT_MAX]
-    if home:
-        text = re.sub(re.escape(home.rstrip("/")) + r"(?![^/\s'\"])", "~", text)
+    if home and WINDOWS_PATH.match(home):
+        text = home_pattern(home).sub("~", text)
+    elif home:
+        text = re.sub(re.escape(home.rstrip("/")) + r"(?![^/\s'\"()" + NAME_END + "])", "~", text)
+    for other in PROFILE_HOMES:
+        pattern = home_pattern(other)
+        text = pattern.sub("~other", text) if pattern else text
+    own = re.split(r"[\\/]", home.rstrip("\\/"))[-1].lower() if home else None
+    text = WINDOWS_HOME.sub(lambda m: "~" if own_name(m.group(1), own) else "~other", text)
+    text = WSL_HOME.sub(lambda m: "~" if m.group(1).lower() == own else "~other", text)
+    text = UNC_HOST.sub(r"\1••••", text)
+    text = BARE_WINDOWS_HOME.sub(lambda m: "~" if own and m.group(1).lower().startswith(own) else "~other", text)
     text = OTHER_HOME.sub("~other", text)
     for pattern, replacement in MASKS if long_runs else MASKS[:-1]:
         text = pattern.sub(replacement, text)
@@ -1064,27 +1828,122 @@ def safe_name(text, home):
 OWNER = {"given": "", "home": "/", "uid": -1}
 
 
-def inside(path):
-    """Whether a path, links followed, is in the home being read."""
+def inside(path, home=None):
+    """Whether a path, links followed, is in the home being read. On Windows a
+    link or share is refused unread: Windows would sign in to its host."""
+    if "\0" in path:
+        return False
+    if sys.platform == "win32":
+        return any(inside_unlinked(path, h) for h in ([home] if home else [OWNER["home"], OWNER["given"]]) if h)
+    home = OWNER["home"] if home is None else home
     try:
-        home, real = OWNER["home"], os.path.realpath(path)
+        home, real = os.path.normcase(home), os.path.normcase(os.path.realpath(path))
     except (OSError, ValueError):
         return False
-    return real == home or real.startswith(home.rstrip("/") + "/")
+    return real == home or real.startswith(home.rstrip(os.sep) + os.sep)
+
+
+def inside_unlinked(path, home):
+    try:
+        home, full = os.path.normcase(os.path.abspath(home)), os.path.normcase(os.path.abspath(path))
+    except (OSError, ValueError):
+        return False
+    if re.match(r"[\\/]{2}", path) or full.startswith("\\\\") or \
+            full != home and not full.startswith(home.rstrip(os.sep) + os.sep):
+        return False
+    at = home
+    for part in full[len(home):].split(os.sep):
+        if part:
+            at = os.path.join(at, part)
+            try:
+                if is_link(os.lstat(at)):
+                    return False
+            except FileNotFoundError:
+                return True
+            except (OSError, ValueError):
+                return False
+    return True
+
+
+def is_folder(path, home=None):
+    return inside(path, home) and os.path.isdir(path) if sys.platform == "win32" else os.path.isdir(path)
+
+
+def is_file(path):
+    return inside(path) and os.path.isfile(path) if sys.platform == "win32" else os.path.isfile(path)
+
+
+def files_under(root, wanted):
+    if sys.platform != "win32":
+        return [os.path.join(folder, n) for folder, _, names in os.walk(root, followlinks=False)
+                for n in names if wanted(n)]
+    found, folders = [], [root]
+    while folders:
+        try:
+            entries = list(os.scandir(folders.pop()))
+        except OSError:
+            continue
+        for entry in entries:
+            try:
+                info = entry.stat(follow_symlinks=False)
+            except OSError:
+                continue
+            if stat.S_ISDIR(info.st_mode) and not is_link(info):
+                folders.append(entry.path)
+            elif wanted(entry.name):
+                found.append(entry.path)
+    return found
+
+
+def is_link(info):
+    return stat.S_ISLNK(info.st_mode) or bool(getattr(info, "st_file_attributes", 0)
+                                              & stat.FILE_ATTRIBUTE_REPARSE_POINT)
+
+
+def open_unlinked(path):
+    """Windows has no O_NOFOLLOW: no link, no junction on the way, and not swapped while opened."""
+    if not inside(path):
+        raise OSError(errno.ELOOP, "a link", path)
+    before = os.lstat(path)
+    if is_link(before):
+        raise OSError(errno.ELOOP, "a link", path)
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_BINARY", 0))
+    after = os.fstat(fd)
+    opened = final_path(fd)
+    if (after.st_ino, after.st_dev) != (before.st_ino, before.st_dev) or not opened or not any(
+            opened == h or opened.startswith(h.rstrip(os.sep) + os.sep)
+            for h in {os.path.normcase(OWNER["home"]), os.path.normcase(OWNER["given"])} if h):
+        os.close(fd)
+        raise OSError(errno.ELOOP, "replaced while opened", path)
+    return fd
+
+
+def final_path(fd):
+    import ctypes
+    import msvcrt
+
+    kernel = ctypes.WinDLL("kernel32")
+    buffer = ctypes.create_unicode_buffer(32768)
+    size = kernel.GetFinalPathNameByHandleW(ctypes.c_void_p(msvcrt.get_osfhandle(fd)), buffer, 32768, 0)
+    path = buffer.value if 0 < size < 32768 else ""
+    if not path.startswith("\\\\?\\") or path.startswith("\\\\?\\UNC\\"):
+        return None
+    return os.path.normcase(path[4:])
 
 
 def open_owned(path, limit):
     """(text file, stat) for a file of the user's, or None. A file there but
     not theirs, or too big, is counted."""
+    windows = sys.platform == "win32"
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        fd = open_unlinked(path) if windows else os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     except (FileNotFoundError, NotADirectoryError, ValueError):
         return None
     except OSError:
         ERRORS["files_skipped"] += 1
         return None
     info = os.fstat(fd)
-    if not stat.S_ISREG(info.st_mode) or info.st_uid != OWNER["uid"] or info.st_size > limit:
+    if not stat.S_ISREG(info.st_mode) or (not windows and info.st_uid != OWNER["uid"]) or info.st_size > limit:
         os.close(fd)
         ERRORS["files_skipped"] += 1
         return None
@@ -1117,10 +1976,20 @@ def lines_of(handle, calls=AGENT_TURN):
         yield line
 
 
+def privileged():
+    if sys.platform == "win32":
+        import ctypes
+        try:
+            return bool(ctypes.windll.shell32.IsUserAnAdmin())
+        except (AttributeError, OSError):
+            return False
+    return os.geteuid() == 0
+
+
 @contextlib.contextmanager
 def as_user(uid, gid):
     """Run as this user while reading their files, when running as root."""
-    if os.geteuid() != 0 or uid == 0:
+    if sys.platform == "win32" or os.geteuid() != 0 or uid == 0:
         yield
         return
     groups, egid = os.getgroups(), os.getegid()
@@ -1254,7 +2123,7 @@ def aws_profiles(home):
 
 # --- Code repositories ---
 
-REPO_URL = re.compile(r"(?:https?://|ssh://)?(?:[\w.-]+@)?([\w.-]+\.[a-z]{2,})[:/]([\w.-]+)/([\w.-]+?)"
+REPO_URL = re.compile(r"(?<![\w.-])(?:https?://|ssh://)?(?:[\w.-]{1,256}@)?([\w.-]{1,253}\.[a-z]{2,63})[:/]([\w.-]{1,256})/([\w.-]+?)"
                       r"(?:\.git)?/?$")
 GH_WRITE_VERBS = {"create", "merge", "close", "edit", "comment", "review", "ready", "reopen", "delete",
                   "transfer", "lock", "unlock", "upload", "rename", "archive", "unarchive", "set", "remove",
@@ -1285,15 +2154,15 @@ def git_dirs(folder):
     here = os.path.realpath(folder)
     while inside(here):
         dot = os.path.join(here, ".git")
-        if os.path.isdir(dot) and not os.path.islink(dot):
+        if is_folder(dot) and not os.path.islink(dot):
             return dot, dot
-        if os.path.isfile(dot):
+        if is_file(dot):
             pointer = (read_small(dot) or "").split("gitdir:", 1)
             gitdir = os.path.normpath(os.path.join(here, pointer[1].strip())) if len(pointer) > 1 else None
             if not gitdir or not inside(gitdir):
                 return None
             named = os.path.join(gitdir, "commondir")
-            common = os.path.isfile(named) and read_small(named)
+            common = is_file(named) and read_small(named)
             common = os.path.normpath(os.path.join(gitdir, common.strip())) if common else gitdir
             return (gitdir, common) if inside(common) else None
         parent = os.path.dirname(here)
@@ -1337,7 +2206,7 @@ def git_verb(argv, folder):
     while i < len(argv) and argv[i].startswith("-"):
         if argv[i] in ("-C", "-c") and i + 1 < len(argv):
             if argv[i] == "-C":
-                here = os.path.abspath(os.path.join(here, expand(argv[i + 1], {"HOME": OWNER["given"]})))
+                here = resolve(here, drive_path(expand(argv[i + 1], {"HOME": OWNER["given"]})))
             i += 2
             continue
         i += 1
@@ -1415,7 +2284,7 @@ def remote_deletion(argv, folder):
     return REMOTE_DELETED["protected" if protected else "branch"]
 
 
-def git_touch(argv, folder):
+def git_touch(argv, folder, recorded=""):
     """(repo, "read" | "write") for a git command that reaches a remote."""
     i, here = git_verb(argv, folder)
     if i >= len(argv):
@@ -1428,6 +2297,8 @@ def git_touch(argv, folder):
         repo = next((repo_name(a) for a in rest if repo_name(a)), None)
     else:
         remotes = remotes_of(here)
+        if not remotes and recorded and not inside(here) and repo_name(recorded):
+            remotes = {"origin": repo_name(recorded)}
         repo = remotes.get(rest[0]) if rest and rest[0] in remotes else remotes.get("origin")
         if not repo and rest:
             repo = repo_name(rest[0])
@@ -1594,7 +2465,7 @@ def fetch_url(argv):
     """The URL a fetch reads, "" when it is built at run time, None for a
     `wget` that writes to a file."""
     to_stdout = re.search(r"\s(-\w*O\s?-|--output-document[= ]-)(\s|$)", " ".join(argv))
-    if os.path.basename(argv[0]) == "wget" and not to_stdout:
+    if posixpath.basename(argv[0]) == "wget" and not to_stdout:
         return None
     args = positional(argv[1:], CURL_VALUED | {"-O", "--output-document"})
     args += (option(argv, "-Uri") or "").split()
@@ -1611,14 +2482,14 @@ def piped_run(piece):
     if sub:
         return fetch_url(words(sub.group("fetch"), {}))
     stages = [words(s, {}) for s in split_command(piece)]
-    fetch = next((i for i, argv in enumerate(stages) if argv and os.path.basename(argv[0]) in FETCHERS), None)
+    fetch = next((i for i, argv in enumerate(stages) if argv and posixpath.basename(argv[0]) in FETCHERS), None)
     if fetch is None:
         return None
     url = fetch_url(stages[fetch])
     # An API query's answer piped into python is data, not a script.
     query = any("?" in a for a in positional(stages[fetch][1:], CURL_VALUED))
-    if url is not None and any(argv and PIPED_INTO.match(os.path.basename(argv[0])) and reads_stdin(argv)
-                               and not (query and INTERPRETER_NAME.match(os.path.basename(argv[0])))
+    if url is not None and any(argv and PIPED_INTO.match(posixpath.basename(argv[0])) and reads_stdin(argv)
+                               and not (query and INTERPRETER_NAME.match(posixpath.basename(argv[0])))
                                for argv in stages[fetch + 1:]):
         return url
     return None
@@ -1627,7 +2498,7 @@ def piped_run(piece):
 def reads_stdin(argv):
     """Whether a shell or interpreter runs what it reads on standard input:
     given no script, `-c`, `-m`, `-e` or input of its own; `-s` and `-` say so."""
-    shell = re.match(r"^((ba|z|da|k|fi)?sh)$", os.path.basename(argv[0]))
+    shell = re.match(r"^((ba|z|da|k|fi)?sh)$", posixpath.basename(argv[0]))
     # Its input is a file or a heredoc (`curl … | python3 - <<EOF`), not the pipe.
     if any(re.match(r"^\d*<(?!\()", a) for a in argv[1:]):
         return False
@@ -1744,7 +2615,8 @@ MORE_SECRET_NAMES = {".bash_history", ".zsh_history", ".history", ".sh_history",
                      ".psql_history", ".python_history", ".node_repl_history", ".vault-token", ".pgpass",
                      ".my.cnf", "terraform.tfstate", "shadow", "gshadow", "sudoers"}
 MORE_SECRET_EXTENSIONS = {"tfvars", "tfstate"}
-MORE_SECRET_HOME = (".azure", ".oci", ".gnupg", ".config/gcloud")
+MORE_SECRET_HOME = (".azure", ".oci", ".gnupg", ".config/gcloud", ".wrangler/config", ".config/.wrangler/config",
+                    "Library/Preferences/.wrangler/config")
 # Files under a credentials folder that hold none.
 NOT_SECRET = {"known_hosts", "known_hosts.old", "authorized_keys", "config", "environment", "go.env",
               "gpg.conf", "gpg-agent.conf", "dirmngr.conf", "scdaemon.conf", "common.conf"}
@@ -1759,6 +2631,19 @@ KEY_JSON = re.compile(r"^(credentials|client_secrets?[\w.-]*|service[_-]?account
 # Code and docs named for credentials (credentials-cli.test.ts) hold none.
 SOURCE_EXTENSIONS = {"py", "js", "jsx", "ts", "tsx", "mjs", "cjs", "go", "rs", "java", "kt", "rb", "php",
                      "cs", "swift", "c", "h", "cc", "cpp", "md", "mdx", "html", "css", "snap"}
+WINDOWS_SECRETS = [(re.compile(p, re.I), name) for p, name in (
+    (r"^AppData/Roaming/gcloud(/|$)", "~/AppData/Roaming/gcloud"),
+    (r"^AppData/Roaming/GitHub CLI/hosts\.yml$", "~/AppData/Roaming/GitHub CLI/hosts.yml"),
+    (r"^AppData/Roaming/npm/etc/npmrc$", "~/AppData/Roaming/npm/etc/npmrc"),
+    (r"^AppData/Roaming/xdg\.config/\.wrangler/config(/|$)", "~/AppData/Roaming/xdg.config/.wrangler/config"),
+    (r"^AppData/(Local|Roaming)/Microsoft/Credentials(/|$)", r"~/AppData/\1/Microsoft/Credentials"),
+    (r"^AppData/Roaming/Microsoft/Protect(/|$)", "~/AppData/Roaming/Microsoft/Protect"),
+    (r"^AppData/Roaming/Microsoft/Windows/PowerShell/PSReadLine/ConsoleHost_history\.txt$",
+     "ConsoleHost_history.txt"),
+    (r"^AppData/Local/(Google/Chrome|Microsoft/Edge)/User Data/([^/]+/(Login Data|Cookies|Network/Cookies)"
+     r"|Local State)$", r"~/AppData/Local/\1/User Data/\2"),
+    (r"^AppData/Roaming/Mozilla/Firefox/Profiles/[^/]+/(logins\.json|key4\.db|cookies\.sqlite)$",
+     r"~/AppData/Roaming/Mozilla/Firefox/Profiles/*/\1"))]
 SECRET_EXT_PATTERNS = [re.compile(p) for p in SECRETS["extension_patterns"]]
 SECRET_NAME_PATTERNS = [re.compile(p) for p in SECRETS["basename_patterns"]]
 
@@ -1771,15 +2656,21 @@ def secret_file(path, home, whole=True):
     # Not a file: a URL, a query, a key=value argument, a JSON body.
     if "://" in path or "?" in path or "&" in path \
             or (re.match(r"^[\w.-]+=", path) and "/" not in path.split("=")[0]) \
-            or re.search(r"[\s{}\"'<>|;]", path):
+            or re.search(r"[{}\"'<>|;]", path):
         return None
-    if re.match(r"^[A-Za-z]:/", path):
-        path = path[2:]
+    path, home = ps_path(path), ps_path(home)
     full = home + path[1:] if path.startswith("~") else path
-    base = os.path.basename(full)
-    relative = os.path.relpath(full, home) if full.startswith(home + os.sep) else None
+    base = posixpath.basename(full)
+    relative = posixpath.relpath(full, home) if full.startswith(home + "/") else None
     if relative in SECRETS["home_paths"]:
         return "~/" + relative
+    profile = relative or (re.match(r"(?i)^/Users/[^/]+/(.+)$", full) or [None, None])[1]
+    for pattern, name in WINDOWS_SECRETS if profile else ():
+        found = pattern.match(profile)
+        if found:
+            return re.sub(r"/[^/]+/(Login Data|Cookies|Network/Cookies)$", r"/*/\1", found.expand(name))
+    if re.search(r"\s", relative if relative is not None else profile or path):
+        return None
     if not base or base in NOT_SECRET or base.endswith((".pub", "_known_hosts")) or "/.ssh/config.d/" in full:
         return None
     if base in SECRETS["basenames"] or base in MORE_SECRET_NAMES:
@@ -1866,9 +2757,9 @@ def secret_read(argv, home, folder="/"):
     # A coding agent's settings count only when shown, not copied (a backup).
     whole = program in WHOLE_FILE and program != "cp"
     known = folder not in ("/", "") and program not in ("find", "fd", "locate")
-    candidates = [os.path.normpath(os.path.join(folder, a)) if known and not a.startswith(("/", "~", "-", "<"))
-                  and not re.match(r"^[A-Za-z]:\\", a) else a
-                  for a in args if known or "/" in a or re.match(r"^[A-Za-z]:\\", a) or a.startswith(".")
+    candidates = [resolve(folder, a) if known and not a.startswith(("/", "~", "-", "<", "\\"))
+                  and not re.match(r"^[A-Za-z]:[\\/]", a) else a
+                  for a in args if known or "/" in a or re.match(r"^[A-Za-z]:[\\/]", a) or a.startswith(".")
                   or program in ("find", "fd", "locate")]
     # Terraform variables count only when read whole; an env file sourced
     # sets variables, it shows none.
@@ -1886,14 +2777,15 @@ def secret_rule(secret, path, home):
     """(finding, what) for reading a secret file: personal credentials (in a
     home's dot folders, High), shell history, a coding agent's settings, or a
     project's secrets (.env files wherever they are)."""
-    path = re.sub(r"^[A-Za-z]:", "", path.lstrip("@").replace("\\", "/"))
+    path, home = ps_path(path.lstrip("@")), ps_path(home)
     full = home + path[1:] if path.startswith("~") else path
-    if HISTORY.match(secret):
+    if HISTORY.match(secret) or secret == "ConsoleHost_history.txt":
         kind, severity = "shell-history", "medium"
     elif secret in SECRETS["coding_cli_paths"] and not re.search(r"(?i)auth|cred|token|secret|key", secret):
         # A coding agent's settings may hold a token, but mostly settings.
         kind, severity = "agent-settings", "low"
-    elif (PERSONAL.match(full) or full.startswith(home.rstrip("/") + "/.")) \
+    elif (PERSONAL.match(full) or full.startswith(home.rstrip("/") + "/.")
+          or secret.startswith(("~/AppData/", "~/Library/Preferences/.wrangler/"))) \
             and not secret.startswith((".env", "*.env")):
         kind, severity = "personal-credentials", "high"
     else:
@@ -1936,7 +2828,7 @@ def hidden_kind(argv, text, path):
         if program in ("python", "python3") and rest[:1] == ["-m"]:
             return "builds_tests" if rest[1:2] in (["pytest"], ["unittest"]) else "scripts"
         return "scripts" if positional(rest) else None
-    if re.match(r"^\.{0,2}/", path) and os.path.dirname(path) not in SYSTEM_BIN \
+    if re.match(r"^\.{0,2}/", path) and posixpath.dirname(path) not in SYSTEM_BIN \
             and not program.endswith("gradlew"):
         return "scripts"
     if program in ("npm", "pnpm", "yarn", "bun"):
@@ -1970,14 +2862,12 @@ def hidden_kind(argv, text, path):
 def session_logs(home):
     """The session logs under ~/.claude/projects, without following links."""
     root = os.path.join(home, ".claude", "projects")
-    if not os.path.isdir(root):
-        return []
     if not inside(root):
         ERRORS["files_skipped"] += 1
         return []
-    found = []
-    for folder, _, names in os.walk(root, followlinks=False):
-        found += [os.path.join(folder, n) for n in names if n.endswith(".jsonl")]
+    if not os.path.isdir(root):
+        return []
+    found = files_under(root, lambda n: n.endswith(".jsonl"))
     return sorted(found, key=lambda p: pathlib.PurePath(p).parts)
 
 
@@ -2058,7 +2948,8 @@ def read_user(home, days, fmt):
                                 if name in ("Bash", "PowerShell", "Monitor") and args.get("command"):
                                     command = str(args["command"])[:COMMAND_MAX]
                                     cwd = str(entry.get("cwd") or "")[:TEXT_MAX]
-                                    calls.append((stamp, command, cwd, session + "\n" + use, session))
+                                    calls.append((stamp, command, cwd, session + "\n" + use, session,
+                                                  "powershell" if name == "PowerShell" else ""))
                                     one["shell_commands"] += 1
                                     if re.search(r"(^|[;&|(\s`])aws\s", command):
                                         aws_ids.add(session + "\n" + use)
@@ -2104,32 +2995,59 @@ def codex_logs(home):
     found = []
     for name in ("sessions", "archived_sessions"):
         root = os.path.join(home, ".codex", name)
-        if not os.path.isdir(root):
-            continue
         if not inside(root):
             ERRORS["files_skipped"] += 1
             continue
-        for folder, _, names in os.walk(root, followlinks=False):
-            found += [os.path.join(folder, n) for n in names if n.startswith("rollout-") and n.endswith(".jsonl")]
+        if not os.path.isdir(root):
+            continue
+        found += files_under(root, lambda n: n.startswith("rollout-") and n.endswith(".jsonl"))
     return sorted(found, key=lambda p: pathlib.PurePath(p).parts)
 
 
+def codex_words(command):
+    if isinstance(command, str) and command.lstrip().startswith("["):
+        try:
+            words = json.loads(command)
+        except (ValueError, RecursionError):
+            return command
+        return words if isinstance(words, list) and words and all(isinstance(w, str) for w in words) else command
+    return command
+
+
 def codex_script(command):
-    """A Codex shell call's command line: the script given to a shell with -c, else its words joined.
-    None when it isn't one; "" when it applied a patch."""
+    """A Codex shell call's command line: the script given to a shell with -c, or to PowerShell or
+    cmd, else its words joined. None when it isn't one; "" when it applied a patch."""
+    command = codex_words(command)
     if isinstance(command, str):
         script = command
     elif isinstance(command, list) and command and all(isinstance(w, str) for w in command):
-        if os.path.basename(command[0]) in ("apply_patch", "applypatch"):
+        if posixpath.basename(command[0]) in ("apply_patch", "applypatch"):
             return ""
-        if len(command) == 3 and os.path.basename(command[0]) in SHELLS and SHELL_SCRIPT_FLAG.match(command[1]):
+        wrapped = wrapped_script(command)
+        if len(command) == 3 and posixpath.basename(command[0]) in SHELLS and SHELL_SCRIPT_FLAG.match(command[1]):
             script = command[2]
+        elif wrapped and wrapped[1] != "-":
+            script = wrapped[1]
         else:
             script = " ".join(shlex.quote(w) for w in command[:4096])
     else:
         return None
     script = script[:COMMAND_MAX]
     return "" if PATCH_RUN.match(script) else script
+
+
+def codex_shell(command, named, folder):
+    command = codex_words(command)
+    if isinstance(command, list):
+        wrapped = wrapped_script(command) if all(isinstance(w, str) for w in command) else None
+        return wrapped[0] if wrapped and wrapped[1] != "-" else ""
+    if isinstance(command, str) and re.match(r"""(?i)^\s*["']?([^"'\s]*[\\/])?(powershell|pwsh|cmd)(\.exe)?["']?\s""",
+                                             command):
+        return "powershell"
+    if isinstance(named, str) and named:
+        name = program_name(named).lower()
+        return "powershell" if name in ("powershell", "pwsh") else "cmd" if name == "cmd" else ""
+    return "powershell" if re.match(r"^([A-Za-z]:[\\/]|\\\\|//)", folder or "") else ""
 
 
 def codex_folder(path):
@@ -2224,7 +3142,8 @@ def codex_event(kind, payload):
     if name in CODEX_SHELLS:
         if isinstance(args, dict):
             return "command", 2, use, {"command": args.get("command", args.get("cmd")),
-                                       "cwd": args.get("workdir", args.get("working_directory"))}
+                                       "cwd": args.get("workdir", args.get("working_directory")),
+                                       "shell": args.get("shell")}
         return "command", 2, use, {"command": args if isinstance(args, str) else None}
     if space.startswith("mcp__"):
         return "mcp", 2, use, {"server": space[5:].strip("_"), "tool": name, "args": args}
@@ -2294,8 +3213,8 @@ def code_mode(events):
             continue
         commands = [JS_ESCAPE.sub(js_escape, m.group(1)[1:-1]) for m in CODE_MODE_COMMAND.finditer(script)]
         for i, command in enumerate(commands):
-            out.append(("command", 2, f"{use}#{i}", {"command": command, "script": codex_script(command)},
-                        stamp, folder))
+            out.append(("command", 2, f"{use}#{i}", {"command": command, "script": codex_script(command),
+                                                     "shell": codex_shell(command, None, folder)}, stamp, folder))
         if not commands:
             ERRORS["calls_skipped"] += 1
             out.append(("tool", 2, use, {"name": "exec"}, stamp, folder))
@@ -2315,7 +3234,8 @@ def read_codex(home, days, fmt):
             continue
         handle, info = opened
         events, aws_calls, answers, at = [], set(), {}, 0
-        meta = {"session": "", "own": "", "version": "", "repo": "", "folder": "", "read": False, "fork": None}
+        meta = {"session": "", "own": "", "version": "", "repo": "", "folder": "", "read": False, "fork": None,
+                "shell": None}
         with handle:
             if info.st_mtime < since:
                 continue
@@ -2360,6 +3280,7 @@ def read_codex(home, days, fmt):
                         meta["fork"] = None
                         if kind == "turn_context":
                             meta["folder"] = codex_folder(payload.get("cwd")) or meta["folder"]
+                            meta["shell"] = payload.get("shell") or meta["shell"]
                             continue
                         use = payload.get("call_id")
                         if payload.get("type") in ("function_call_output", "custom_tool_call_output") \
@@ -2373,12 +3294,14 @@ def read_codex(home, days, fmt):
                         # An entry without an id is keyed by its place in its thread's log, so the
                         # same rollout in sessions/ and archived_sessions/ counts once.
                         use = use[:256] if isinstance(use, str) and use else f"{meta['own'] or path}#{at}"
+                        folder = codex_folder(details.get("cwd")) or meta["folder"]
                         if action == "command":
                             details["script"] = codex_script(details.get("command"))
+                            details["shell"] = codex_shell(details.get("command"),
+                                                           details.get("shell") or meta["shell"], folder)
                             if rank == 2 and details["script"] and AWS_RUN.search(details["script"]):
                                 aws_calls.add(use)
-                        events.append((action, rank, use, details, stamp, codex_folder(details.get("cwd"))
-                                       or meta["folder"]))
+                        events.append((action, rank, use, details, stamp, folder))
                     except Exception:
                         ERRORS["calls_skipped"] += 1
             except OSError:
@@ -2415,7 +3338,7 @@ def read_codex(home, days, fmt):
                 tool = "apply_patch"
             elif action == "command" and details["script"]:
                 script, at = details["script"], "codex:" + use
-                calls.append((stamp, script, folder, at, session))
+                calls.append((stamp, script, folder, at, session, details["shell"]))
                 one["shell_commands"] += 1
                 if AWS_RUN.search(script):
                     outputs[at] = answers.get(use) or accounts_in(codex_output(details.get("output")))
@@ -2502,8 +3425,10 @@ class Facts:
         `session` and `use` are those of what is being read; `marks` has each
         session's events: session -> [severities, change groups]."""
         self.user, self.home, self.profiles, self.outputs = user, home, profiles or {}, outputs or {}
+        self.recorded = {}
         self.session = self.use = None
         self.stamp = ""
+        self.shown = None
         self.marks = {}
         # session -> {"findings": [...], "shown": Counter, "changes": Counter, "other_code": Counter, ...}
         self.by_session = {}
@@ -2518,13 +3443,13 @@ class Facts:
         the user's own when their agents changed it."""
         own = {name for name, e in self.resources["repositories"].items()
                if e["changes"] and self.user in e["users"]}
-        for rule, text, at, session, stamp in self.fetched:
+        for rule, text, at, session, stamp, shown in self.fetched:
             self.session, self.stamp = session, stamp
             tier = source_tier(rule["url"], text, rule["folder"], own)
-            self.find(FETCHED[rule["id"]][tier], rule["id"], text, None, at)
+            self.find(FETCHED[rule["id"]][tier], rule["id"], text, None, at, shown)
         self.fetched = []
 
-    def find(self, rule, what, text, counted=None, at=0):
+    def find(self, rule, what, text, counted=None, at=0, shown=None):
         """Count a finding; with `counted`, at most once per command."""
         # Some IDs hold a word of the command.
         key = (rule["source"], plain_name(rule["id"], " "))
@@ -2534,8 +3459,11 @@ class Facts:
             counted.add(key)
         if "url" in rule:
             # Ranked once the user's repositories are known.
-            self.fetched.append((rule, text, at, self.session, self.stamp))
+            self.fetched.append((rule, text, at, self.session, self.stamp, self.shown))
             return
+        shown = shown or self.shown
+        if shown:
+            text, at = shown, 0
         if key not in self.findings:
             self.findings[key] = {"source": rule["source"], "id": key[1], "tactic": rule["tactic"],
                                   "severity": rule["severity"], "local": bool(rule.get("local")),
@@ -2626,6 +3554,7 @@ def near(text, start):
 SYSTEM_FOLDERS = {"/etc", "/usr", "/var", "/bin", "/sbin", "/lib", "/lib64", "/boot", "/opt", "/srv", "/System",
                   "/Library", "/Applications", "/private", "/private/etc", "/private/var", "/usr/bin",
                   "/usr/lib", "/usr/local", "/usr/sbin", "/var/lib"}
+WINDOWS_SYSTEM_FOLDER = re.compile(r"(?i)^(/mnt)?(/[a-z])?/(windows(/system32)?|program files( \(x86\))?|programdata)$")
 
 
 def wiped(argv, folder, home):
@@ -2635,18 +3564,20 @@ def wiped(argv, folder, home):
         return None
     severity = None
     for target in positional(argv[1:]):
+        target = ps_path(target) if re.match(r"^[A-Za-z]:([\\/]|$)", target) else target
         # `dir/*` counts as the folder.
         bare = "." if target == "*" else target[:-2] or "/" if target.endswith("/*") else target
         bare = bare.rstrip("/") or "/"
         # A relative one, where the folder is known (`cd ~ && rm -rf .`).
         known = folder != "/" and bare.startswith(".")
-        full = os.path.normpath(os.path.join(folder, bare)) if known else bare
-        if full in ("/", "~", "/root", "/var/root") or os.path.normpath(full) == os.path.normpath(home) \
+        full = resolve(folder, bare) if known else bare
+        if full in ("/", "~", "/root", "/var/root") or resolve(full, "") == resolve(home, "") \
                 or re.match(r"^/(Users|home)/[^/]+$", full):
             return "high"
-        if os.path.normpath(full) in SYSTEM_FOLDERS:
+        system = posixpath.normpath(ps_path(full))
+        if system in SYSTEM_FOLDERS or WINDOWS_SYSTEM_FOLDER.match(system):
             severity = "system"
-        if bare == ".." or (bare == "." and inside(folder) and os.path.isdir(os.path.join(folder, ".git"))):
+        if bare == ".." or (bare == "." and inside(folder) and is_folder(os.path.join(folder, ".git"))):
             severity = severity or "medium"
     return severity
 
@@ -2655,10 +3586,13 @@ VISIBLE_CHANGES = (("code", ("repositories", "registries")), ("cloud", ("aws", "
                    ("web", ("web",)))
 
 
-def scan_command(facts, raw, cwd):
+def scan_command(facts, raw, cwd, shell=""):
     kinds, counted = set(), set()
     facts.command_changes = set()
-    scan_text(facts, runnable(raw), cwd, {"HOME": facts.home}, kinds, counted)
+    if shell:
+        scan_script(facts, raw, cwd, {"HOME": facts.home}, kinds, counted, shell)
+    else:
+        scan_text(facts, runnable(raw), cwd, {"HOME": facts.home}, kinds, counted)
     changed = next((name for name, of in VISIBLE_CHANGES if facts.command_changes & set(of)), None)
     if changed and not kinds:
         facts.visible_changes[changed] += 1
@@ -2754,9 +3688,9 @@ def scan_text(facts, command, here, env, kinds, counted, depth=0):
         parts, here = command_parts(piece, here, env, scripts)
         # A segment that runs a script is read through the script; one run
         # by ssh leaves the segment's own rules (`tar … | ssh h 'tar x'`).
-        piece_found = any(folder is not None for _, folder in scripts)
+        piece_found = any(folder is not None for _, folder, *_ in scripts)
         # Output piped into a shell runs (`echo <base64> | base64 -d | sh`).
-        fed = any(PIPED_INTO.match(os.path.basename(a[0])) and reads_stdin(a) for _, a, _, _ in parts)
+        fed = any(PIPED_INTO.match(posixpath.basename(a[0])) and reads_stdin(a) for _, a, _, _ in parts)
         url = piped_run(piece[:4096])
         if url is not None:
             rule = {"source": "own", "id": "download-run", "url": url, "folder": start}
@@ -2767,7 +3701,8 @@ def scan_text(facts, command, here, env, kinds, counted, depth=0):
                 piece_found = True
                 continue
             found = scan_part(facts, text, argv, folder, path, fed)
-            if found and found[0]["id"] in CAPTURABLE and captured(piece, argv[0]):
+            if found and found[0]["id"] in CAPTURABLE and (
+                    captured(piece, argv[0]) or re.match(r"^\$[\w:]{1,64}\s*=", facts.shown or "")):
                 found = CAPTURABLE[found[0]["id"]] and (CAPTURABLE[found[0]["id"]],) + tuple(found[1:])
             if found:
                 facts.find(found[0], found[1], text, counted, *found[2:])
@@ -2782,8 +3717,21 @@ def scan_text(facts, command, here, env, kinds, counted, depth=0):
             rule, match = segment_rule(piece)
             if rule and not all(read_only(split_part(c) or ["?"]) for c in split_command(piece)):
                 facts.find(rule, rule["id"], piece, counted, match.start())
-        for script, folder in scripts if depth < 8 else []:
-            scan_text(facts, uncommented(script), folder or "/", dict(env), kinds, counted, depth + 1)
+        for script, folder, *shell in scripts if depth < 8 else []:
+            if shell:
+                scan_script(facts, script, folder, dict(env), kinds, counted, shell[0], depth + 1)
+            else:
+                scan_text(facts, uncommented(script), folder or "/", dict(env), kinds, counted, depth + 1)
+    return here
+
+
+def scan_script(facts, script, here, env, kinds, counted, shell, depth=0):
+    shown = facts.shown
+    for statement, command in (ps_units if shell == "powershell" else cmd_units)(script, env, depth):
+        facts.shown = statement
+        here = scan_text(facts, runnable(command), here, env, kinds, counted, depth)
+    facts.shown = shown
+    return here
 
 
 @functools.lru_cache(maxsize=1024)
@@ -2800,7 +3748,7 @@ def read_only(argv):
     program. They can print a secret file, which secret_read checks."""
     program, args = argv[0], argv[1:]
     unsafe = READ_ONLY["unsafe_options"].get(program, [])
-    if program not in READ_ONLY["programs"] or any(
+    if program not in READ_ONLY["programs"] and program not in PS_READ_ONLY_CMDLETS or any(
             a in unsafe or a.startswith(tuple(o + "=" for o in unsafe if o.startswith("--"))) for a in args):
         return False
     if program == "base64" and any(a.startswith("-o") for a in args):
@@ -2822,7 +3770,7 @@ def sigma_rule(path, argv):
             if not REDIRECT.match(a) and not (i and REDIRECT_ALONE.match(argv[i]))]
     subject = (image + "\t" + " ".join([path] + args))[:4096]
     low = subject.lower()
-    rules = sigma_rules(os.path.basename(image).lower(), SIGMA_SCREEN.search(low) is not None)
+    rules = sigma_rules(posixpath.basename(image).lower(), SIGMA_SCREEN.search(low) is not None)
     return next((r for r in rules if (not r["keys"] or any(k in low for k in r["keys"]))
                  and r["pattern"].match(subject)), None)
 
@@ -2873,7 +3821,7 @@ def scan_part(facts, text, argv, folder, path=None, fed=False):
         if rule:
             found = (rule, rule["action"])
     elif program == "git":
-        touched = git_touch(argv, folder)
+        touched = git_touch(argv, folder, facts.recorded.get(facts.session, ""))
         if touched:
             facts.touch("repositories", touched[0], touched[1])
         rule = force_push(argv, folder) or remote_deletion(argv, folder)
@@ -2900,7 +3848,7 @@ def scan_part(facts, text, argv, folder, path=None, fed=False):
         # leave; a form upload to an API (a speed test, an attachment) is a change to that host.
         whole = re.search(r"(^|\s)(-T|--upload-file|--post-file)([ =]|$)", text)
         if host and (whole or DROP_SITES.search(host)):
-            sent = whole or re.search(r"\S*@\S+", text)
+            sent = whole or re.search(r"(?<!\S)\S*@\S+", text)
             found = ({"source": "own", "id": "file-uploaded", "tactic": "Exfiltration",
                       "severity": "high" if DROP_SITES.search(host) else "medium"}, "file upload to " + host,
                      sent.start() if sent else 0)
@@ -2962,6 +3910,7 @@ def collect_user(facts, home, days, number=1):
     days_active |= more[6]
     per.update(more[7])
     facts.start_user(user, home, profiles, outputs)
+    facts.recorded = {s: one["repo"] for s, one in per.items() if one.get("repo")}
     facts.days_active |= days_active
     by_agent = collections.Counter(per.get(s, {}).get("agent", "claude-code") for s in sessions)
     stats = {"name": user, "sessions": len(sessions), "shell_commands": len(calls),
@@ -2969,11 +3918,11 @@ def collect_user(facts, home, days, number=1):
     if by_agent["codex"]:
         stats["sessions_by_agent"] = dict(sorted(by_agent.items()))
 
-    for stamp, raw, cwd, use, session in calls:
+    for stamp, raw, cwd, use, session, shell in calls:
         facts.commands += 1
         facts.session, facts.use, facts.stamp = session, use, stamp
         try:
-            scan_command(facts, raw, cwd)
+            scan_command(facts, raw, cwd, shell)
         except Exception:
             ERRORS["calls_skipped"] += 1
 
@@ -3056,7 +4005,7 @@ def fail(message, code=2):
 
 
 def has_logs(home):
-    return any(os.path.isdir(os.path.join(home, *p)) for p in (
+    return any(is_folder(os.path.join(home, *p), home) for p in (
         (".claude", "projects"), (".codex", "sessions"), (".codex", "archived_sessions")))
 
 
@@ -3064,8 +4013,6 @@ def homes_to_read(given):
     """(home, uid, gid) for each home to read. As root, every real account whose
     home it owns and holds ~/.claude/projects or ~/.codex/sessions; HOME,
     CLAUDE_CONFIG_DIR and CODEX_HOME are not used."""
-    import pwd  # not on Windows, where main() stops first
-
     if given:
         out = []
         for home in given:
@@ -3080,7 +4027,11 @@ def homes_to_read(given):
                       file=sys.stderr)
             out.append((home, info.st_uid, info.st_gid))
         return out
-    if os.geteuid() != 0:
+    if sys.platform == "win32":
+        return windows_profiles() if privileged() else [(os.path.expanduser("~"), 0, 0)]
+    import pwd
+
+    if not privileged():
         # A uid with no account (a container's `-u 1000`) still has a HOME.
         try:
             return [(pwd.getpwuid(os.getuid()).pw_dir, os.getuid(), os.getgid())]
@@ -3103,19 +4054,67 @@ def homes_to_read(given):
     return found
 
 
+PROFILES = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
+
+
+def profile_paths():
+    import winreg
+
+    homes = []
+    with contextlib.suppress(OSError), winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, PROFILES) as profiles:
+        for i in range(winreg.QueryInfoKey(profiles)[0]):
+            sid = winreg.EnumKey(profiles, i)
+            if not sid.startswith("S-1-5-21-"):
+                continue
+            with contextlib.suppress(OSError), winreg.OpenKey(profiles, sid) as profile:
+                path = winreg.QueryValueEx(profile, "ProfileImagePath")[0]
+                homes.append(os.path.abspath(os.path.expandvars(path)))
+    return homes
+
+
+def windows_profiles():
+    found, seen = [], set()
+    for home in sorted(profile_paths(), key=os.path.normcase):
+        if os.path.normcase(home) not in seen and os.path.isdir(home) and not is_link(os.lstat(home)) \
+                and has_logs(home):
+            seen.add(os.path.normcase(home))
+            found.append((home, 0, 0))
+    return found
+
+
 def checked_out(path):
     """The output path; exits 2 if it is a link or its folder is writable by others."""
     path = os.path.abspath(path)
     folder = os.path.dirname(path)
-    if os.path.islink(path):
-        fail(f"{path} is a link; the file isn't written through links.")
+    with contextlib.suppress(OSError):
+        if is_link(os.lstat(path)):
+            fail(f"{path} is a link; the file isn't written through links.")
     try:
-        writable = os.stat(folder).st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+        mode = os.stat(folder).st_mode
     except OSError as error:
         fail(f"Can't write to {folder}: {error.strerror}.")
+    if sys.platform == "win32":
+        if privileged() and linked_on_the_way(folder):
+            fail(f"{folder} is reached through a link or junction; choose a folder with none on its path.")
+        writable = privileged() and others_can_write(folder)
+    else:
+        writable = mode & (stat.S_IWGRP | stat.S_IWOTH)
     if writable:
         fail(f"{folder} can be written by other users; choose a folder only its owner can write to.")
     return path
+
+
+def linked_on_the_way(folder):
+    at = folder
+    while True:
+        try:
+            if is_link(os.lstat(at)):
+                return True
+        except OSError:
+            return True
+        if os.path.dirname(at) == at:
+            return False
+        at = os.path.dirname(at)
 
 
 def write_out(path, text):
@@ -3123,9 +4122,10 @@ def write_out(path, text):
     path = checked_out(path)
     folder = os.path.dirname(path)
     temp = os.path.join(folder, f".{os.path.basename(path)}.{os.getpid()}.{os.urandom(4).hex()}.tmp")
-    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+                 | getattr(os, "O_BINARY", 0), 0o600)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(text)
             handle.flush()
             os.fsync(handle.fileno())
@@ -3151,6 +4151,18 @@ def hardware():
                                  capture_output=True, text=True, timeout=10).stdout
             raw = (re.search(r'"IOPlatformUUID" = "([^"]+)"', out) or [None, ""])[1]
             serial = (re.search(r'"IOPlatformSerialNumber" = "([^"]+)"', out) or [None, ""])[1]
+    elif sys.platform == "win32":
+        import winreg
+
+        # The 64-bit view: a 32-bit Python would otherwise see a copy without it.
+        view = winreg.KEY_READ | winreg.KEY_WOW64_64KEY
+        with contextlib.suppress(OSError), \
+                winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Cryptography", 0, view) as key:
+            raw = str(winreg.QueryValueEx(key, "MachineGuid")[0])[:64].strip()
+        with contextlib.suppress(OSError, subprocess.SubprocessError):
+            serial = subprocess.run([system_tool("WindowsPowerShell", "v1.0", "powershell.exe"), "-NoProfile",
+                                     "-NonInteractive", "-Command", "(Get-CimInstance Win32_BIOS).SerialNumber"],
+                                    capture_output=True, text=True, errors="replace", timeout=15).stdout[:64].strip()
     else:
         for path in ("/etc/machine-id", "/var/lib/dbus/machine-id"):
             with contextlib.suppress(OSError):
@@ -3160,6 +4172,17 @@ def hardware():
         with contextlib.suppress(OSError):
             serial = pathlib.Path("/sys/class/dmi/id/product_serial").read_text()[:64].strip()
     return serial, hashlib.sha256(raw.encode()).hexdigest()[:16] if raw else ""
+
+
+def system_tool(*parts):
+    """A bare name is looked for in the current folder first."""
+    return os.path.join(os.environ.get("SystemRoot", "C:\\Windows"), "System32", *parts)
+
+
+def os_name():
+    if platform.system() == "Windows":
+        return f"Windows {platform.version()}"
+    return f"{platform.system()} {platform.release()}"
 
 
 def default_name(serial, hashed, hostname):
@@ -3180,6 +4203,8 @@ FILES_FOLDER = "agent-activity-files"
 def default_folder(root, system, home):
     """A folder only root can read when an MDM runs it, else agent-activity-files
     next to this file, where `report` looks when given no folder."""
+    if root and system == "Windows":
+        return os.path.join(os.environ.get("ProgramData", "C:\\ProgramData"), "AgentActivity")
     if root:
         return "/Library/Application Support/AgentActivity" if system == "Darwin" \
             else "/var/lib/agent-activity"
@@ -3192,21 +4217,163 @@ def make_own_folder(folder):
         with contextlib.suppress(FileExistsError):
             os.mkdir(folder, 0o700)
         info = os.lstat(folder)
-        return stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid()
+        return stat.S_ISDIR(info.st_mode) and not is_link(info) \
+            and (sys.platform == "win32" or info.st_uid == os.getuid())
     except OSError:
         return False
 
 
 def make_root_folder(folder):
+    windows = sys.platform == "win32"
     try:
-        with contextlib.suppress(FileExistsError):
-            os.mkdir(folder, 0o700)
+        if windows:
+            made = make_locked_folder(folder)
+        else:
+            with contextlib.suppress(FileExistsError):
+                os.mkdir(folder, 0o700)
         info = os.lstat(folder)
-        if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0:
-            fail(f"{folder} must be a folder owned by root.")
-        os.chmod(folder, 0o700)  # nosemgrep: insecure-file-permissions (owner-only)
+        if not stat.S_ISDIR(info.st_mode) or is_link(info) or (not windows and info.st_uid != 0):
+            fail(f"{folder} must be a folder owned by {'Administrators' if windows else 'root'}.")
+        if windows:
+            if not admins_only(folder):
+                fail(f"{folder} can be changed by users other than Administrators; delete it and run again.")
+            if not made and foreign_entries(folder):
+                fail(f"{folder} holds files this tool didn't write; delete it and run again.")
+        else:
+            os.chmod(folder, 0o700)  # nosemgrep: insecure-file-permissions (owner-only)
     except OSError as error:
         fail(f"Can't create {folder}: {error.strerror}.")
+
+
+LOCKED_FOLDER = "O:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)"
+
+
+def make_locked_folder(folder):
+    import ctypes
+
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+
+    class SecurityAttributes(ctypes.Structure):
+        _fields_ = [("length", ctypes.c_uint32), ("descriptor", ctypes.c_void_p), ("inherit", ctypes.c_int)]
+
+    descriptor = ctypes.c_void_p()
+    if not advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW(ctypes.c_wchar_p(LOCKED_FOLDER), 1,
+                                                                       ctypes.byref(descriptor), None):
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        attributes = SecurityAttributes(ctypes.sizeof(SecurityAttributes), descriptor, 0)
+        if kernel.CreateDirectoryW(ctypes.c_wchar_p(folder), ctypes.byref(attributes)):
+            return True
+        error = ctypes.get_last_error()
+        if error == 183:
+            return False
+        raise ctypes.WinError(error)
+    finally:
+        kernel.LocalFree(descriptor)
+
+
+OUR_FILE = re.compile(r"\.?agent-activity-[\w.-]{1,64}\.json(?:\.\d+\.[0-9a-f]{8}\.tmp)?")
+
+
+def foreign_entries(folder):
+    with os.scandir(folder) as entries:
+        for entry in entries:
+            info = entry.stat(follow_symlinks=False)
+            if not OUR_FILE.fullmatch(entry.name) or not stat.S_ISREG(info.st_mode) or is_link(info):
+                return True
+    return False
+
+
+ADMIN_SIDS = {"S-1-5-18", "S-1-5-32-544"}
+TRUSTED_INSTALLER = "S-1-5-80-956008885-3418522649-1831038044-1850242615-2271714194"
+CREATOR_OWNER = "S-1-3-0"
+OWNER_RIGHTS = "S-1-3-4"
+WRITE_ACCESS = 0x500D0156
+
+
+def windows_acl(path):
+    import ctypes
+
+    advapi, kernel = ctypes.WinDLL("advapi32"), ctypes.WinDLL("kernel32")
+    kernel.CreateFileW.restype = ctypes.c_void_p
+    handle = kernel.CreateFileW(ctypes.c_wchar_p(path), 0x20000, 7, None, 3, 0x02000000 | 0x00200000, None)
+    if handle in (None, ctypes.c_void_p(-1).value):
+        return None
+    owner, dacl, descriptor = ctypes.c_void_p(), ctypes.c_void_p(), ctypes.c_void_p()
+    try:
+        if advapi.GetSecurityInfo(ctypes.c_void_p(handle), 1, 0x1 | 0x4, ctypes.byref(owner), None,
+                                  ctypes.byref(dacl), None, ctypes.byref(descriptor)):
+            return None
+    finally:
+        kernel.CloseHandle(ctypes.c_void_p(handle))
+
+    def sid_text(sid):
+        text = ctypes.c_wchar_p()
+        if not advapi.ConvertSidToStringSidW(ctypes.c_void_p(sid), ctypes.byref(text)):
+            return None
+        value = text.value
+        kernel.LocalFree(text)
+        return value
+
+    try:
+        if not dacl.value:
+            return None
+        aces = []
+        for i in range(ctypes.cast(dacl, ctypes.POINTER(ctypes.c_ushort))[2]):
+            ace = ctypes.c_void_p()
+            if not advapi.GetAce(dacl, i, ctypes.byref(ace)):
+                return None
+            kind = ctypes.cast(ace, ctypes.POINTER(ctypes.c_ubyte))[0]
+            mask = ctypes.cast(ctypes.c_void_p(ace.value + 4), ctypes.POINTER(ctypes.c_uint32))[0]
+            aces.append((kind, sid_text(ace.value + 8) if kind in (0, 1) else None, mask))
+        return sid_text(owner.value), aces
+    finally:
+        kernel.LocalFree(descriptor)
+
+
+def admins_only(path):
+    acl = windows_acl(path)
+    return bool(acl) and acl[0] in ADMIN_SIDS and all(sid in ADMIN_SIDS for _, sid, _ in acl[1])
+
+
+def windows_user():
+    try:
+        done = subprocess.run([system_tool("whoami.exe"), "/user", "/fo", "csv", "/nh"], capture_output=True,
+                              text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return done.stdout.strip().rpartition(",")[2].strip('"') or None
+
+
+def is_account(sid):
+    import ctypes
+
+    advapi, kernel = ctypes.WinDLL("advapi32", use_last_error=True), ctypes.WinDLL("kernel32")
+    binary = ctypes.c_void_p()
+    if not advapi.ConvertStringSidToSidW(ctypes.c_wchar_p(sid), ctypes.byref(binary)):
+        return True
+    try:
+        name, domain = ctypes.create_unicode_buffer(256), ctypes.create_unicode_buffer(256)
+        sizes, kind = (ctypes.c_uint32(256), ctypes.c_uint32(256)), ctypes.c_uint32()
+        return bool(advapi.LookupAccountSidW(None, binary, name, ctypes.byref(sizes[0]), domain,
+                                             ctypes.byref(sizes[1]), ctypes.byref(kind))) \
+            or ctypes.get_last_error() != 1332
+    finally:
+        kernel.LocalFree(binary)
+
+
+def others_can_write(folder):
+    acl = windows_acl(folder)
+    trusted = ADMIN_SIDS | {TRUSTED_INSTALLER, CREATOR_OWNER, OWNER_RIGHTS, windows_user()} - {None}
+
+    def other(sid):
+        # App package and capability SIDs, and SIDs of no account (a sandbox's), only narrow what a token's
+        # account SIDs allow.
+        return sid is None or (sid not in trusted and not sid.startswith("S-1-15-") and is_account(sid))
+
+    return not acl or acl[0] not in trusted or any(
+        kind != 1 and (kind != 0 or other(sid)) and mask & WRITE_ACCESS for kind, sid, mask in acl[1])
 
 
 def upload_request(url, name, body):
@@ -3264,15 +4431,20 @@ def arguments(argv, upload_url):
     return args, (args.upload or upload_url).strip()
 
 
+def utf8_output():
+    for stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(AttributeError, ValueError):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv=None, upload_url=""):
     argv = sys.argv[1:] if argv is None else argv
+    utf8_output()
     if argv[:1] == ["report"]:
         import report
         return report.main(argv[1:])
-    if sys.platform == "win32":
-        fail("This tool runs on macOS and Linux; Windows isn't supported.", 1)
     args, upload_url = arguments(argv, upload_url)
-    root = os.geteuid() == 0
+    root = privileged()
     serial, hashed = hardware()
     name = plain_name(args.name or default_name(serial, hashed, socket.gethostname()))
     if upload_url:
@@ -3297,6 +4469,8 @@ def main(argv=None, upload_url=""):
         # Falls back to the home when the folder isn't writable (or macOS blocks it).
         fallback = os.path.join(home, base) if folder != home and not root else None
 
+    if sys.platform == "win32":
+        PROFILE_HOMES[:] = profile_paths()
     facts, users = Facts(), []
     for home, uid, gid in homes_to_read(args.home):
         OWNER.update(given=home, home=os.path.realpath(home), uid=uid)
@@ -3319,7 +4493,7 @@ def main(argv=None, upload_url=""):
         "endpoint": {"hostname": host_hash(socket.gethostname()),
                      "name": name,
                      "machine_id": hashed,
-                     "os": f"{platform.system()} {platform.release()}",
+                     "os": os_name(),
                      "collected_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                      "days": args.days,
                      "first_activity": min(facts.days_active, default=""),
@@ -3395,7 +4569,6 @@ import collections
 import datetime
 import hashlib
 import json
-import math
 import os
 import pathlib
 import re
@@ -3406,7 +4579,7 @@ from html import escape
 
 from collect import (AI_APIS, CHANGE_GROUPS, DATABASE_PACKS, ERRORS, FILES_FOLDER, HERE, KINDS, KNOWN,
                      LOCAL_DB, LOCAL_MCP, REMOTE_DB, RISK_GROUPS, SCHEMA, SEVERITY_RANK, SIGMA, UNNAMED,
-                     change_group, distinct, groups, local_db_host, shipped, under)
+                     change_group, distinct, groups, local_db_host, shipped, under, utf8_output)
 
 TACTICS = {"Reconnaissance", "Resource Development", "Initial Access", "Execution", "Persistence",
            "Privilege Escalation", "Defense Evasion", "Credential Access", "Discovery", "Lateral Movement",
@@ -3883,7 +5056,7 @@ OWN_WORDS = {
     "force-push:unnamed-with-lease": "Force push with lease, branch not named",
     "remote-branch-deleted": "Remote branch deleted",
     "remote-default-branch-or-tag-deleted": "Default, release or protected branch, or tag, deleted on the remote",
-    "keychain-read:captured": "Keychain secret read into a variable",
+    "keychain-read:captured": "Keychain or credential store secret read into a variable",
     "cloud-token-printed": "Cloud access token printed", "reverse-shell": "Reverse shell opened",
     "disk-overwritten": "Disk overwritten or formatted", "system-folder-deleted": "System folder deleted",
     "secret-deleted-for-good": "Secret deleted without recovery",
@@ -3891,7 +5064,8 @@ OWN_WORDS = {
     "package-published": "Package published", "github-token-printed": "GitHub token read (gh auth token)",
     "infrastructure-destroyed": "Infrastructure destroyed", "database-migrated": "Database migration pushed",
     "database-reset": "Database reset", "function-deployed": "Function deployed",
-    "platform-secret-set": "Platform secret set", "keychain-read": "Keychain secret read",
+    "platform-secret-set": "Platform secret set", "keychain-read": "Keychain or credential store secret read",
+    "credential-names-listed": "Saved credential names listed",
     "cloud-metadata-credentials": "Cloud metadata credentials read", "secret-value-read": "Secret value read",
     "file-uploaded": "File uploaded",
     "download-run:known-pinned": "Known installer run (pinned)",
@@ -3902,7 +5076,7 @@ OWN_WORDS = {
     "package-from-url:unknown": "Package from an unknown source",
     "archive-piped-out": "Archive piped to a remote host", "dns-exfiltration": "DNS exfiltration",
     "local-history-discarded": "Local history discarded", "hooks-bypassed": "Git hooks skipped",
-    "scheduled-job": "Scheduled job added", "public-repo-created": "Public repository created",
+    "scheduled-job": "Scheduled job, service or autostart added", "public-repo-created": "Public repository created",
     "home-or-root-deleted": "Home folder or disk deleted", "project-deleted": "Project folder deleted",
     "ssh-key-authorized": "SSH key authorized", "environment-printed": "Environment variables printed",
     "sudo-password-in-command": "Password piped to sudo",
@@ -3914,10 +5088,13 @@ OWN_WORDS = {
     "login-or-sudo-config-changed": "Sign-in, sudo or preload configuration changed",
     "kernel-module-loaded": "Kernel module loaded", "setuid-set": "Setuid bit or capability set",
     "root-certificate-trusted": "Root certificate trusted",
-    "gatekeeper-bypassed": "Gatekeeper check bypassed",
+    "gatekeeper-bypassed": "Downloaded-file check bypassed",
     "tunnel-opened": "Tunnel opened to this machine", "packet-capture": "Network traffic captured",
     "browser-credentials-read": "Browser cookies or saved logins read",
     "python-startup-hook": "Python startup hook added", "remote-desktop-enabled": "Remote access turned on",
+    "defender-weakened": "Microsoft Defender exclusion added or protection turned off",
+    "firewall-turned-off": "Firewall turned off", "execution-policy-loosened": "PowerShell script policy loosened",
+    "local-account-created": "Local user account created", "administrator-added": "Administrator rights granted",
 }
 
 
@@ -4412,7 +5589,7 @@ def risky_section(m, rep, panels, sessions_by_finding):
                   '<th><span class="pill medium"><span class="d"></span>Medium<span class="hs"> risk</span></span></th>'
                   + ('<th class="num">Machines</th>' if n_end > 1 else '<th></th>') + '</tr>'
                   + "".join(rows) + "</table>")
-    return (f'<section class="panel" id="risky"><div class="k">01</div><h2>Agents ran or tried risky actions.</h2>'
+    return ('<section class="panel" id="risky"><div class="k">01</div><h2>Agents ran or tried risky actions.</h2>'
             + (f'<div class="fleet-row">{fleet}{key}</div>' if n_end > 1 else "")
             + f'{matrix}{sessions_line(m, sessions_by_finding)}{all_actions(rep, sessions_by_finding)}</section>')
 
@@ -4665,7 +5842,6 @@ def session_data(m, with_sessions):
     if not with_sessions or not m.get("session_records"):
         return "", {}, {}
     by_finding = {f"{k[0]}:{k[1]}": f.get("sessions", []) for k, f in m["findings"].items() if f.get("sessions")}
-    # Only systems the page lists as written to, so a link's sessions are its row's.
     by_system = collections.defaultdict(set)
     for r in m["session_records"]:
         for c in r["changes"]:
@@ -4854,6 +6030,7 @@ def main(argv=None):
     parser.add_argument("--no-sessions", action="store_true",
                         help="leave the session records out of the page (they stay in the facts)")
     args = parser.parse_args(argv)
+    utf8_output()
     if not os.path.isdir(args.folder):
         sys.exit(f"{args.folder} is not a folder.")
     if not os.access(args.folder, os.R_OK | os.X_OK):
@@ -4921,7 +6098,7 @@ FILES = {
 "rules/shell.json": "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",
 "rules/sigma.json": "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",
 "rules/well_known_hosts.json": "eNplU8uO2zAMvOcrCF/aAqk/YG/9gF566aFYFLRMy9rIpFaPBN5i/30pO3JaFAgczYgjztDynxN0OEjJ3RP8OgF0P8n7rxeWG0OieHWG0hkmiZBngkhBYv6U4AdGguC8fwKEGw0wS8owYlaESZWcIYtqMN8JYpD686s+CBY0s9N/5BFcApa80TLVPon67lzNfMdsZhqrsrbfmqgV5HVfFx4pgsvw2bo8l6E3soCRK8UEGFz/YL/08G3XOIYt3u8kJWq6/iUJa6TCO12LNPJtpljtrdWWQYZQBu/SfN7skrbQ3G1UfXeCZ3XcbeI2ykf37txQ0aEa4awD+mvD41E2uDwUc6HcS7T7FDgsL2mHDdyLV4wcLrbBsGrme11Y8yxc/dDYOBMxa2AnFcQyrJaW9OhjxSPbVmylH+laVwteiQ864ujpcFNscwrdKOo73o+/g5ZxNm3jteC6LWtLXPBNGG9HorrcyUMqYj3p20z/MofircQD3ByPokcw5b3B4kyUJNMx7YPQq6gXsNHGSxknj+2ozRznOUpwphVJIEbX0FysdWwnNFWzS5JHczmc6XtNySH/T2z+dHySnSZN22CqHYw9hlBR/YTi2oapH9Yodn59mEs5unDY1+toyDekp3s3rYdRinIpDaUScMC0e4ZucnbBbU+v8On99AHQZVd4",
-"templates/report.html": "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",
+"templates/report.html": "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",
 "assets/ICONS-LICENSE": "eNptkVFP2zAUhd/7K454GUhdYd3b3tzUaS05cWc7IB5D45JIJY4cF8S/33VKBdMmRXGufc85n29s6xDc4EP8NqLb+35EHRwOwb9AnvZd43DdxjiMv25vj1O9aNzrzWI2EyaD7PauH91slvnhPXTPbcT1/gYHH5Asu2TnDxejZNy6Y4Ond2T+6LByL92I5d2Pn9+Xd8sl6hFDHWKS5K6OrQu4LoS9WYAdj/DTxv6fpP+4f2xlvo+hezpFH1LMcknYOxcodCQ0RI/T6OaT5RwvvukOtNZ9c0uuTTeetQ6xJcrRH+LbNBo6rPt3DKcw+NHhrYstaC+t/hRxcA7UT6yOSJ5D3UfXzDEE/0pMDbnVkV4E/ORf3Zf79D7SOFP+OXH4JL0cDYOrA7oeNc2DlJ0b6Up2y2FUbh+Y5hAGO63uxZqvccUM1Vdg5RqpiVV2qzTW9OskE4UBkxKk0qy0ghs8CLuF5humqV+RhMw+jctMVmtRbiaVKHZSUMQXtcpRcJ1tqWQrIYV9nIJzYUtuzIIMUCrwe15amG0y+cK04pCCrSRHThUrH2F2PBNMzglX88zOSX/5oo5MlYb/rsiLerBmBdskhLP0Uj5smTWKEjXdylTSJvpcqwJSmQm4MpwCmGVJSnMjWDMnHSc0nYgZPZkVqkzdFGo1SwQl30ix4WXGk1BN3VZpaqzMh2AOpoVJiaqySa0mQ/Io+dlxGneaAVFM+VzT5Qs2ueZ/j38x+wMPQh27",
 "assets/space-grotesk-latin-ext.woff2": "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",
 "assets/space-grotesk-latin.woff2": "eNoANkDJv3dPRjIAAQAAAABXEAAUAAAAAM68AABWoAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAABqDJBv6dByJTj9IVkFSgykGYD9TVEFUWCceAIRaL0QRCAqBgTDmdwuESAAw6FgBNgIkA4kMBCAFhG4HiwoMBxvevTdQvXbOL0JvVhXnfG768WcjarfjO5YQDxRwY+iGjQOAJhmR/f//ZyTIISMJ+kewbfXdtiAKqaASO4iK9oUM2xBMj9YRvgwxLEW2eqhxQlUFCMicUZsRs9IxoxCqhIxAR3HS4PDklApXVD7vFG3lgE/fynI80RnfkVW8CUKCkCCd4Kxrz59n6/sO2fL9tbjjr7euWHYKKfPwFSQ7iJX830/S5gCW9wynfwecwsfNaB7lyJURBIiVKaV18oUs3Z/r1Z3YDt/SnUIK5430diy0Dt85560CY5fHiKhYJ9qX55/8ZXbuq5Y0gGwCtcbI9L0hMEYOF0zZYkZAZRHNOfv3sY9gIUDE0QaTQsBrTqmYO6E0UBWgbgzPb7OHwfDz/7YzEpEpighSEp9PSETZqBgooLPm8lzlLV3FuWjPrWW7pe4qt6vyarer7SKnfzf7PxFRknASIFiQUkopy7b7zOX33kmgz+zL/UvMVky73n3b7lIY/t30/+CFbXdrJ9YxNTa/9/aZfvl+n+inyVdZ99yuaq8bpRmVUUwChDjJSXISkhBCSIja79nsva+mZEuCqRqKws/B0GxRLCIuQdt8UTBbHg3CGIvDmBbqSsjnh2ufM4HCvKRMRqJRgc94Z1ve2P22BO5UgZXqlC2t5unpmQWWeCX7WGcunw4hjb7cq6Mo+fSjDw8QjJJ5R7tD0LDIJk4yKCUJRXWicoH/93ehvntu8tunYDajeRKzaZoQhQrUzX1fLhVhaZfWBhVSpRJSM0tvarsC+IcbsHNCYIuJVyiQj6wSE6sFBh5+bu3BvI6UbEEwLyyt+MEi9N+vfdq920tyz0KARwVwar2ZvOD7J2H1MiqAU1GAwoBQiZPAo4Is5JcxJsL7/L2pafsfQOiWggOguOu4UFw4wqkX4dhSrlw7F93fvwvufiwWWODSAiB1IEhaywNPBsCTBJIKWIJ3A+LOM6TkcMkx0yl/8hLoiJOcAuUYY1G5U1O6LEMsnYuutk/t16pov4hHSr3QbqiETr15f4f9qMiyu7eLmIbMEEKlFpP0I+LJQuXeude2vWSQIcpPU65SNnf3X34hA0TFCqhvbsIBCj05OT+hCR5//05vgsXVGXEhj2KMnH7Wd8P65sV/7xY6lFIGEXFDkBCCiLjHcftbr8br+Pa/c9p1HCIi8pL0GFP/i2a8se3yW5saQwg1ByISPBEptfkLKmLOnT3B0i48agpIj4a6lQPeZEPMl6X1IRTMWLAEsg5yrHRSrfnoSDnFaK0Ukcrn8tIrJUqVJR3hsZxmx/EnRvUIR3XZf57J45uLsGxwe/9KnsVYNUwlAE+KCLwRX/6IlhbRsyJ2gUgIBxIpBokThyRIRHqKwZlhBvJXOAXfYoqaovse6LHH5aUyRx990lff8g8R+ZVJJPntDxZ1BS4ByaVECFyVFAoU6ciT5IYIiUBh4fLXO8xTGRD4zncJimb5niAqhpKsoChO0iwvyqpulDYWophQ5ryQ7Xtx2/eH1+47yMOoENeSRme+C4v7xm+OYymAgDlC1JZw4slnXmj6ndc9eLfpeKB7GggOu+Om++/2qZ+C3Lvu+F4rvUh2L+0d2kRXb5IS8+w3ILhe22xf8MCoOfDlrPypMA9a4Mgbe0PXcHdF9k73tUuFTXXk/qrcQYO0ogaO/OuhqVK60Rz7gaL3+KWu1Ia9v+wrIOLOaR1DivToCwbPwSfh/fBqeAU8CnfDjXA5nLv9J/cf+P+9hhSN+rYmCe0ohbBmaaqGNlajttw2s+EZuL/XT/VdfVrv1stAvViX6wzUh2tXbawVtaB6qr3qy1O20hRWG4sDtaNIlVoE+p9H+TLvQ76eicQzBvl49kHenGNZAxnyZfZlIJE0JRBbNMFSFkoyAwMpvPXMHfngC+C5rLEVNIMztc+SmZBEAzO1z+DMSyXmSaYIM+cCMkDLzoofdAq0iIF9Pg6af5kaL5thAlZteoUnARwzACfs0BKZqX2kSzxgmZ+pfWpnUMASDDNjAC0RmTqCgP4eiwgwB9AGaO7UukNfHB/D4g3jX4MWEb2C8fOYgcDMo4DmVqbGE+NTWBJg+jnQkpCp6RPjHVj2woH/Bs1AYM8HQYsGxm8GLfGw962gGTjxPctAS81MTcfGL5eYJJh+K2iJzpSY8ZMlxgnT3wYtCbDndiNhT3BcS5n8e5amox0Gl4xnUj3eTSVdxaf/uZwQAdN/lnvvN/oe/ONdqKZ/5lEoGPYcaSdByG0pAzhwR5HG+t7XS+kwU+qJgIR+URxZ/aJTYPUeoraI9wSy++lT6PR69KEbz5E0+Knj7UOon35d3806UVMfiVdykXvjY18Jw664KzkBoK9JvXbESLCVjuckxIVvUpmfoF4wq+m5ON6si9b1qD+9/xJH6Z/8UHZPtLdE2wzQ6ATJhAizKDaHLxCKJDK5QqXWvOC+OBNTM3MLaxtbO4fTu2bO7Gm9H35Rgs+CD4N3gtcjE8GTgPsBtwKuBlwIOB1wLOBwzIOKjx2Axp2pw4OHQ8AU4hWiQmHM7PFosX/aBIuD5IUNtMJ/0Mdom3A4deH88b2Bw9foNxz/LiFcCbIW/q53wz+djTqdb+eHh40hyhdIrR/f/hzBkeL2+SsBt+OHcoDdv9z5hwQR1nvv4mG70t69w27sGT6dUPfZZk3P9/7heBcO5/D3GGf6AR9GZzZnUH7cGYfd1dnpXfXnZHb+QgGHBzQ/6xFy1esztOJdua1ZHydQ5/N8+eLV3krT+jMzOn5yTyMQhL2WQ2KjJJJcMXjIfTHXDtsDwLrnM+OpSEPxRow1JQr9aUtzqX5duWC1Y4eeTzXR/u6Pngyvkc8yfpwZWBn6qjvTHA2oqsl7BX+501ndZ00I3XxZu8fQ7IhdHV/bTuTb/ZFxhz//yMd1xOqcJnvKSpiMNXp22FvQuVI57to6XRpyeZuj6S0xmmwlyxwx4l96K/xlTzZazIAvy3gt55DopQtVigp3xbSjz/pTwiWeSiYapdPbtPD5/Yd3x7/r7bYGjVDl/+zzZtqnE4fr/mKQ5/LYF8muNn/gfeHrzsbd/6dY6ua96KxVhN8pI99HSi8vb+7hbeknPfKuch9o59o+rx4epbrLX4vn465rrcx/Ol+3crG5zeXZK0eyqZ3+xrflWV036n3A8H0Q+ayYwbvSR05hLCqdEEkZ0ord7OD5AHHb4/A9koSsyaqcZkdeCMmP1z/4PzvkwPHUd3OTR/CHwWfG3/7SqK2hhbK1hVPckWiOtAq7y3L2HzbNrzwm1dnMPV4n6yzj64+izsj0UHPRu2db2fH/AM365wOXI/cfOoy7792GfIs5InCIyijI3qoLYdP7B56Jj4PS097uLkjxzIZ3D1J7Xyjyj9XY1ctP16TE/30f1aR/AR2YTwCUYJT8F4JHk+Z/au0/ijHzkfF0781Iu/LlNxPzyTjizpBCbuG0pfeuMs7n58AfwrYGLUTFp2HlDqlhu/q18g9cEPv+5S6TNloqqlUtys9L+kac2JA8wLoj7Ef1s1764NUDqZQSHONBKkEoCdcwE90cr2uJiU+L0G/Mrt7CogdBLrCjMMbbU57Z/IJYTclY5UtlkZBcroLFZuGbthmdx0f79mxmMBLilTKcgDbmYCw5j5vya8T4jxxm1YZ1sCqEXf9FCpnxjAMxdCeJILiXSEV8tAsf7/AJqFm8PFsZHyhAVQtIZq90MGIdPT6wlmu7dR8tvTg2b4GcCKyCVQ+/8ZEYsIcSa57JXMBncx9ovWPCA5vUs9nbnH2m0lynsdEYrxzDPDXYjSS0QXtQhKUr+CSOP41OYldi+MWHjQyj66vWs6ZYSTuP1UrMpuPa2SyIc65v7Vj5krMx2cV78qt8a6U6YYdljvP+/UW3881DP4vuNGDZb23HCsP7P6vR97n/pkCTdwCpH5pHhkYeJLdAaxE0L/CIFJ7PaUNX19ashR5i5+u+IbKS9byYI6DZUa95VGZs6JL/DwIld1sr1dOP20tzaz+Qp8gPO/8vmXG3NEnfJWrODlkD6Rglt+H0fx7GaWx8wfuYd3kz6tfLHHEQB4jJsoi9pJ6qpcd387sb9Msj4pHvx/P4eH53tSvWFJ2QORplL0JswDKjWvVUPzQp/o8Vkc6fyA8vASUJk/osP+3/L0WLZwPbhTOLFC1UrHgOiZJESpaFK4cGpiYvicYCtBo00mnXx2iO5fKstEoHR20y0qtcRnmb2xjFio11zz3jPPXUeC+VmeC776b66adpykEHrw5CSsxIalLNTEEKzAJzB+CQAZg1AAsH4LAB2HcApgZgzwBsGoCVA3DsDpy0A8ftwMQA7B2AJQMwMwDjAThiANYPUOpLwhMTEe3S6DSaDp1OJ0kdhAQcjg6PpyMQQKGQJxIBsdhcIhFKpRYyGSWXixQKPaWSodJo6+uTBgbahoYMI2OmiSnDzJywsNC2tCSsrLStrQkbG2RrS9rZ6drbYwcHiaOjpZOTrrOz1MVF5epq5OZm5u5u6uFh4OVl4u1t7OOj7+triDtmUytUiVahmpxS1eeVo7GAHK00ytBZDF4vXRIMMmiGoYZwxhiPN8EEniaZQWSmech8C8gttIiXxRaTWmIVssZGrJWQIaDBG2/0RfCOVt8y+C65H5L6Kblfkiqf3pyEozDOGCZ8Ox+chqOGYUZTiFTEkymaUPcnpyCmVACVgniEZ+VFzFvERzHUIr7yopHAT1r+4gQollYGOsXRS8Ww3282sgXJ2BQq0NJ5CEnDvXahU5FmAB/k1g8fRZhSiESpJckmWVFSFMmpClIVJk0R0hUuQ6UyxZQlmpzbaWOHDDnyzkcl6omTQsnUm3M4ffTpjkkoiCFSxxvqaTijzU8FXKhiepoHJOMeOV8k4ZKM++4BMxCWhnqoV0pIlEqmzJJgySRYErx9+FjRvbovCnAioPfMR/YPaXOmfNZV5/wr6/+R9VLMNskNQ+bt7LmpulMbT9Sm9EmWoPwFwSppxNsLz+/V2dyvNhaq36W4I3Sz/uHk+k+9qNSja8ftzOcdc9/ruQd5uHpArF1I11ajjjHLUIpCPVOcmtmQgFlbhMM2PH9hcd4IL/sH00hkmEQ8EQkZJQ/efKi/LNwBtw0yMYdtPkjw/nBE7N+SJE0GJRUNLR0DMxc3D6+ABkGN2oV16BQR1W3AoHnmW2ChRZ622FjjjDfBRJNMNsVU00w3w0yzzDbHXPOmI918+2JLLLXMciustMpqmxyQ76ZCt7g9+7an31Xmjfe++xlAjeSkIu9khRQKcuDfIgWrB0lP/XQakaAuzD4ieCd0SdUyU10NqbPHJG2Ytla2LshLZ/ZOdb+wZ6c2EDztG6iJXvezuu27/wvSlLv/X5qE8iOCyu8wspC5YV7f3KQp6AUHDDCXrUtThaJRj+30bJa4LjsfdoGXvKKEUspeVayK8okX1eA+DWmmjEMnOXhH6dadogSBE1/txdF/diG+o4nX+fWKnnI6BGtg4r10ndQZqTe1ld8JzbWL3GWnK93oTg96ekJFCyyy8GJiFHOWlAHEwylhEI8unMJ6e1amoJGd602eNB/8FvB3/jmI7JFT36nG9aS9S6VA4NKWreDvwVT0EBpb88aJnadIYFuZL121r1OfB65dI88Azz5G/gIEtk8hgFYiDkEIoksLFqO6EJUdGweLz2UOR+DSqO4dLovmS0yH1GM7M0ER11UnZO5l76HEMIYzgpGMYrTHuPNYMI7xnuCRlZ4MpjCVaUxnhmeCWZ4N5jCXeSxhKctYzgpWsspr2vBasI71bGCj83tgF+wegF9GvyJKKKWsgoMHsfbNDsR3fWIFZS+nkB82uijgdMHY0SRnKFMj8g5gxV6CKH0Hww6MRqShnNyKOuu5S6Ar3ehOD3p6koEngylMZRrTmeGZYJZngznMZZ7ne/ECaKEGLPISxkvBMpazgpWssrsH/l7tn3QrHD7AeZI+RLN3kuUjKuFSZRfymHe0Gm+i6XYbY4S2hbkb9Q/LCattJewbBzO2dRyOgKMYR+PBMd2tUbFQe8Wt0jynzEn2L5rp7dFvkrs9QYCzEyPSfOzOcZeeIj2PdAa3cbvvAHdyF3f7Hu8eCoYxnBGMZBSjPcmjJ4MpTGUa05nhmY15FpjNHOYyb+OFwvONRV6SeSlYxnJWsJJVXtMPrwXrWM8GNjrf3i7YPSq/jH5FlFBKWQVHDVgT89ILukLWP+9VML/scZVu7S1uBixQtaqaWLAzj2ViqLxNISb7ZrN1QpLo/qMiy99x8ZJXlFBKWYHtBzfN+HDneZqZMq451wbJJyDhbY/XpXIKzBJixWDyVetU6Xbs0Dtuh4LcDSq/gr2sXICd+ktr0EqiTqGCLYP9y7liMQ8vpWg16xjM9o7gZc1XrGt5tX1M+0RW3vRaL+JQNzaur3k96WoslQt3Xs4J4rH4DM/OZ+ObJllQWoyFzBxWtyEI7GMVR7bst8f+qXnbw5CZUGwdJD8aR1lmhN2LMUiyMKuZQP0mc/DlH5dL+UAtVW2tqiFBV+Y3/ZUZUjBthine54PrHMQjGVSxKz2W5irmiL5cs44Qu8sqfKBvPU33vJdf5y0WkBVtt0rW1/Nz5ZRE9dumAbk0pLFb8W4N2rizhruArnSjOz3oGRPauUmtaGGzM68iNsTGOvXbrY9enkLfPGZjiSccd+EmkHU980R4x4Xnn/HtpoHumQUKw5OQkhEKN1x8StHRU0i9GeBh6YnNR2xco91gUVgwFOuKgsH/fwC6B8Qi4bZG0B7pao6AphO1N/hi/dEe4OheHwOmPmxMhzSAUOODAjECkvDd3769M6WhdOXnNY1Sj741WsPPX1Ly4lRhPsytDKcvwXLcX+/p9psrwrdpG4ZcCdQEhI8aJ5pEkighrPQ0PLlwQpXhBMvHCfISx6YUYxOq5JgJ9mq7A+VoDP1/x8VIiCVJZEi2D95mBinwPDh2ivaXyCDjlEksXZoUyZIQwXNvfQiOeFJMrfVPfmZ1pGa9HpUSl4Nlb+zkjPhmgqdee6fch5JAStIkLwWiCGvg8/Yujj97V0J7NyJ2Q1BvlhfrkTdX9Y6czyymJJAumd55HYQMW5Q390OOOYmkT5b33mQ6yfEsAIUkyQRklQKO2082cZSCb3whzf6OYW6eKPftGch4g2ct6NdcI8lAmnXqPrs61I440sJsexRDazUlMMttH98Z2h0KOpSnDHpO34kVeeCTb/4k18ynB7t5z3F+AruYl8cYhJG7sl6TasqufvjFqB9KedEL3PfRV7+TQwxG2jIQUs2Ir6NZz8xTDeBWK2g/EGFUlECaL82ML8P5DGM4FqgB8riYsjr2xmVPRglBQPgIe9cts35ETUa83e1pamx5OU/s5dK5vURvhJEXOXIKJ/NhzfIUrkf1NK/TWegonqIobUPzi+TEN6IlaTN2oYCn8/NLS+1qs9VqDndIhzsUwx3y4fJytvycabZaGMZPbEu56NngJAjrnghn/WHUbcLL1DwBcGsUnPN7ypHIBf+botkW+lRC8ROp/EBqC/6Yo6enDip7SVzsS3Q7jtN4zOylw55s3PylCjJ8SZ0kD0d5/5IxWliDp4So4/esd9Fw5DhtPVWxsp5L8aBnYUd3adcVzhzLonQt+AZCwTPlvpM1+b1nn81/+aU2QXP8D/qQ0zbzG7N9Q64cL4BhKT3xZrvbH27fYYDfT4dnP6rIMImgXlkBwBnHwrkaL0XWGxzgFsDtAidfvO8/T7llOfbg/ziMng51E6A3Afl5xcEmDCFSBJbhwTrcI7fc+mAAmEXNLgoBCTlAAxWOZkN9DsrBRl/V2DQqXZcQPe+0SYt4v24TCH1nQ9rLC2KYZMZ/Iaoy4EIKydSUIlWUoVrQPIs87xKXx0p8UO6bi7viNVHv14cNx3gmY7ZNDGUuZRl0YQAjGMN5OICP3/SjzYXhZzZv2ZIaGTMP85lFSZapRqP5DjjtsgJPlPoYblw1rngiYI1Jj18KbeidagcuXer3A2ZBX4D+DtCf6E9Cf7w/AR0D/j///nksAfzveQb+bOWnZwHAD48jeAA/3PbpfQT6yas76zvW9vH2PUDgfMDdgEcBg4mA5wHfBn/3E8BfY5Y/ZwNcg/X/w6YJq7P2OKgjCx29Nlc11MDDwMfveSed1kwLFTO1W9qbkMNI67b/mjpvr932qe6Eq7bb7LPzSbXDNRecUeiWS/7apq1X3LTFF4ccdkRz3ea+N65V/Hbn1Wa9x42eyO+INdZaZ70NNtlotFXuKfZRQXL8dt9Xtdm5ODi5/ZsU0FMkmWVDOseISTZlJscLCpDTEng9NPhrajTPJeqehcLwrUCdjFb9Rlp8L7DiGmD0WWiPAhgBKAzh0NngmG1ypfo9Tf1LC16ukY62eKmxJiH3qlDs0rJ0Y4YtuRpObdF6ZykpZ3SXaJUtm5l23sDwsa/BJlEbWq51w+3CE5V1Ba1VV+spJqP8N7AkNaKpK7eueuWchxL1TBfXV+5L5sFwCWl8x272CBwISKSsWKKcIASkKeQvXeYaM5RH4QlVORxb3IeV6G7BIcEocE7ybtCau4FHi6cZYjYye9NGqVHFpeA4g4HFYbXQzTjBMC3l/ZtQwX/uGxuUqAKIzUKPLZiw/oy4byJebEd6qlLoGUpkMFBHKBCgDwCsaQSR2wghEEShKeQiNw1RxkqeYKnM9Eapq7jBCiaFbNdmbxUPPICUhSgC81ooIcMXAMjnbuA4rPTiq7NcMTtPhzXgbEFEv9vAqFqh0YWiRQggV6+HuPnX0LjCEHcUGEgfF0FEGw9wj+TkEC7JFE4v7k2gEuNU6tYHgD66klzISEvAsML+IbxTFb5MBVh3mLW+DZ7IINwp1gvnBASwnNaR06+utjqKCY2TnFzMeDDsyamsrtjFsIZTudeHKOyVsLxx3yZaKK9hRDslhgFgggb0EImqNlMwx2QKzWSd9lSyXfRfqrTSkZ6YNriE1VdVE0OBafg2WtOGbQ2lDTaI0tsZ0+e9a/wz2uEIOnaIDzRPrF34kONRBx53ofhdoW4iU9BpXWooG6J3BNq7SwJiCmKFj5OYI4/UUORRHq8m9oQ0Ow8kI8LittBuEZvHc6PRhFrS8Lq0jAKv2bGnBXmKf6X0kAQEyVNM+yEY4EtcRCIdYKj0QeBYW2O4yIJIVD3yPrhPlHM6VfR1rFKXz9fsI8qarO0i7Z471/7cNYeo3T1m+cIjD7hjx7ONe8a3qxF+U4haGFyCM03vlLUq09rlRNbNKxdy7HcSYMHxFl49u0QYKNEvKpvqjMEQGskTx0CDImS1Qz7xOyXM9Y8KRcvvJ3LBb6im9d5kBlJDAD6E6y6kciskE89+Fk60abgoTW/83BBBCbGuYZ/+4NTHNgOd8CLcMt1+r+ZQ77I7rSDBTYqIokQD7Uf0Po2RIVa6xiT2IPVBLYhhOciJGI8ShAglcbW3mwPpjDx4bnowmfEFNRmx0pA2DKS9F79+Eu2ZLap8cjyae+sNwNNlleMyY5cxfqX1AzqUIotP6xwKJDTyWiYMOEnqMm5DuoUz72m0mJzTU1p/16pm6GNELn+GpDsu3nzM4I403EF/i08f8jY2jW3UWEMC50k6ozVkWKjatVZwKXnYOuKT3WpF/pCXCq5Tj4wL1Sf0t3V7TUfr14zQfqMYtD2ItUMVohG1xxAgWfq/doOb14sD6YwPBw1qce984oOYgiNtDdWxBx0+Ij6MI5jSRDVLbeOKkz4J1SFbmLBfbo1ebkAVut+KgoT2EpISkV29g6weBUodIYGjCURSOyShHX13u86+Z+6NaGsQFRfHdxf3UvMIN8bSup4vPI8YY4OM85Sh4y9SXY8hRXmJuKueA4N4z4vztO2WvnUSGkyb73XZgaprDpGhqisRhlM3UF4QyB7Usy69RsP9g1S1c5L0Xbj9CRqlf/lrcIjnbS6GU5nlw4HCWbWb7rBk+Ikk6YzVWepSpXuBcD6ncJS57ZkexEWnj60DtGHuCtNZqklYMzfzFEHDruLAwsjdALPRqaYmJ4Kc+H16pxMvxw/9w1NGzeDutjeLTqy2j/3OV+wCca93wvxiut14ib9HDMwugQfZVlPzq/QX6g8ipcR/sQS76A8HtPGFSsV4VRhiqVPQkQcYzuIrQ2f+be80F7IlA3iqRljkB9xsXb2T1el0NS/Iy6y1CzINi5LUqoOiulKs3zV1yIDv08g/78z+p7Lyxy9mNu+n3GnnF06uZvv70E/qSF2yYzd03gsaog1QmSLdZ9OCHnXrxEnd6mi1voXfF0QxjKjrCprb9E+ObrYJYBQNG+MGkgqwJ2P2ILTUGdXpK5oTN2KTcJI/yUOAQQA184PIrkF1adKbYr7vPtFYieGqdJ7sLUW3zHH808ZSp9R1rENo2SZ5H52JdW19T2ycZxoOgf2O6SfD5PLb5Mnrc06y8kxCYk8j29IJ0afPkwwTb88Re+VzZLXjIixohvHOnVqrk83KKZJQe2ha7L7fV+n1yzxeqa91Y2BzdUGq6cCK+yPcGOXUFU4uXhCK7TaxOcKPtuX+o85rds62Z6m5Z/llnq0mpHbu8Is1l3SH26rd/QOqtctZ4kQbvOmmbgrC3KuG6p1TI+9ukrcw/UwM2VnjmrqEvU3rN3JHTCrNXh4r05C+h+b16ZqhYkZVxEHN6pddjmPJVOmlZ5GTYa6cZbQqsdKzCONZuAPfWse5VHC1TutFbxKq9bLebOWPTXrcPWeauZTZ2mcaCr9lz4kSt+EoWh1v2a3AEB86Y8P6bXfKY63MoKMadXGryE9rYwcK9Tu79ZQBV3qoNtNndwXCa2cZr4ZZYvuJ3BNpqi3DRE7vD+IxIwZs4ENxKZeXxpw5jdspR+SY2m/KajWddbS5IxrbIxe6WvUg0FABNunB9LHNjdZLrps3WR/Wc6kug6htpCKQ9Ts9gu7xF87fZb2qrPEWOwtagkSTaupruKlFvY3WF4GGekYLmtaOcqg6yXZRVQQCsY9qlD/DjxMk2PDmATzUruOpiCzFfM2u3lIH4XVzPx3IghebL7ZMpxg1GgUP28BzpWsP27tWuHmD3OnGtxuwit1C5ejbKDQJVYg5O8gjyobpWA2yPBhiw1Zke3AyCK/1T8IaIOnuj5rfbTV32mwieXv9XKlH7ifGu76y9PykOHTWzGwL1NXU+24joVHVthhgV9XmGHYVt0KoEGvUkEasVrAoptZAakzz1va0HWkXK33VcaVXlS9n5gtnTOOM0JgqBpulY1WQ+GT285ZZnHIz5SV6MvX1n+LT3h1LZQLSl+M98GrJFfkKW3/NXXEQBgksZAhhNdI6Bt/GJ3Ab3NvhbSE7FxILnfVl0nPiM2aLVkKQ7BnmM9iY1qZBIVQs7RiwIvM3b1y3b506mD9vaNVAsmKarzoSbIz0dx7qlNUY7Di+GQpkYDzG/RKBVu9Ys2Xxlh2rV7eIW2O94YGVc3rbY63AFz+KteHNmJnQifnZH8CCeDWmVgEj4pijUC6qI8EFK2efTVTscXAU25qGqmhd+tdo8dYKO3zpqi7nv7ZCEWrwMacKqZ68dHGQhIT6eqJcBddorrU5ZLXG0QUYHjONRlt79u5dCqsl1eGq/sYamxI+PLOkG0Bh4Vvb4GZwYVw+/KQ9HTo8kn46/0UVgV21HViQ+ZtER5v6HovzxE0dX3Cba2rsTDDyBz9XJMqbWGJ/JVyJBZrKZbep9XGzz6iGNB6DNc7hg2nFXYq30FWpJZO0IuCLpyqbGKhLAunVjg9hyp+sR4qvKbOKIHrzyzaPQZOscRkcLwMMMffz1RFPmiKtMVbr89c5KsuWGMh//7+hyawwiMWYu42p1cbYilodW8EWsdXOggpjvWpFoFGXf4lFaspEJplMWhXlAPyS77B07LslwIyYu/mVna77ivv1TdVVVU3V9b9sl7xzNh/8++m4+vVhuNHVFxZ4dt64smsbvHHbADqMruwePmcjG1C/DX5Vbb3Jgm+xrOBLO+sEH77LB9Mz/j1ieakObnSLl8gA/MD2Amgddm/zwXMIAw+RClchW83h/u8s4I3RJGqlUmGS39l4tULjLZXWhhp8D8kkNl9RwKdMg+6uVua8Y62v9cLP8TVMNlvHAzWIIyDXw1VYXMqA7z00kQSqsFTWbYWt8u6w1CZwt4brCHV1zu1qSzBsIED0MWnlbCtkq+ymQ70uyBd6Yid1NIW+RCBwczgBGUEGxhI4tju7T25APbPVgI4ow1I5x+8sWXeHVCk0kh7egxnSOFYF6wNyZQMMEWKOyWWzTbB583tBRK7TtKOSDhNlX0J1e5NDY5JJ/Z/a3KV/04KJtjqPydjgAddHDwgPrKG20QaFETJ5yYhwZBRU/gRb5dGwRClfx2gT1U+zCBUF5DfgyR+MJKGyQyKL/d6nsLYaQm1r66TWWkJNWxsIKOKiXjqhyeUL/Ay+X10qpTrsGrW5uTH0655ncgT+47VAwUPaH37c+/AHO78ccRCYwhTwd0qWTGIQPIGT9QIlz1hKN3CtUj3/kRizmgy0nFBWVcOZTqnt5F0B0EITQ4CYYnJptxk2t/h7lulJjVHga45UE6qd83lDCWYY+CfPqDDuaOHDu2w4PgMqgYn0wyScf+XHlj3t58l84RU9B2zyrlgL7QY784SanOv7vAx+PcoVowqRUqbigGwksMCNBE/0wbqcUqmBw2BqZq2+f99IOVpW2aR3uUMmWDd/p4mNipR0eul59H6Wnfw1S9tmAgRaGzW0R7jnovTiCeGJWjK5RwhSU/iBNjjKbteZUuXUgA8vfKXYfwludMU3CxyLfiVvuAYvuNaKDqPLu4eHFzAA78Xfbj8y75uArZuNOwXLyKuwzwG2TgpJZPK9jiSvIPrVdGmxoSXtH0ubqG00oHDp3JBMOM+lf7IcQiBHBlZtWH9gfZ0c+F7TLwoGB8LHwiSD5O8+AIaRHYm6UfrcOMC0ZoEvWKFMK5huKqOr+UnGkNvmDgdqECliqWzvFhoMEb6kvjJFw/c1CBXpZIeJukCYdRIFLMTYI1J0WNLk6d5w0OtrqNHh+TNcZF6bJ+8GdAj9tDr7OiRStjAlPiWklASjArBj44BJ8tng43novI09k4LX4dK7gImYopi0XYvIoeqWKocv2OgnuGsbLcw9hM21/XfQFTPgI7t1+QJZIypuN0A6rDMiA3xEGxMpwqbfLVgkKrFZwyJBnUSuDbh9gWDQ2wnPCqA2ZRsqbdXDekVbTKQROVvqXAQRy+5kCoUFn2wRwTVYcXAguzA+I/PXlOfQX41FxGeHcrOBBHH1ceQBCSRkadXU2/DEnUUsCFPYu8r0emMzMIi16Py78Fsq6pIthCSb8EamU1QT0esI+oiupqbYeoKuV1Nd42tWywnyc9L3mANlCESuHjupyu2tauAU7ZI2HWxQtBa0uqioP9n8u1kcjUnMFd8PdwgNJ/SAkOV4UcHur8j+fEW+nzzMX55HLiHnLeeDtK8Kc7hmOfD7V/lt+QaJ0oyZlRIDCu3+ZMUmaiKcSDUVy5gaVbQaJmzQ/lXNMrlhTbdvtmH1N6uGPx/Xs2SFZXnPUrFB9Cv+AtzspcstK2YvUZx/kGT1bF+3YU0lSJ5MbV4mK8sA7xOSlAS80cvSy5Lmaj2gvXxGH5Lzf863MmDsLcumZBHJnp5NPnmQ7baYgfd4qjyVfIkGv9+eySR5Enn8184fx83MTw7+65UrZaz/7BQu1zOrQiOgy8s0lbVdbIO+kyfxi0V0k4Z78F9aSq7lZBny/b1cAL2oRi1v07+iv3IU8krmx4f+1f3/Wv7voHC+dWv5AXVl3TzspSOduXnaC6ZGxFc+NQyNVAJtXm7gq6qA+yu0FL3z3kA/7efktoK8GwUFN/IKth80wBlG76Egc3LJyy39tzekb4jevt3ydPqC8abwlaVpq+qHvFklzQUIvAz7gYfVy4UxXapeGK2TY9wP0C2wGduCHIdnaMTNc4j9gYP7PdHU7mO+ulNDM4dCp8Z8vTeE93/SBlpqoJqDVKsNtAXgwDsPAGhdmcgpYRYpO9+HrmlMaqnIVUMXLhcOST0KLWuuMo+2u1faGxKGdO8L9s/cL/cpdTq/ErDfZgXUeGP1R/+3Dm/FqwM9THrrYfhqoxo/w+ofKvhD/GmsEl+EFRHU2M/ccWkJ8dzB57EH9itgw6Z86b6z+3frdkfEPnTV8uUDnoHSKrBtLzbB8qaswW57X13ETMJen/BSci9i7NRgA0YDNrtdpVaHUDRsom5M8jU125U6eRmWyrRSP+JZg/Ve6KLIyGSxrPwlnqjZaOzQOi4xJCalUmWXvdV9RaAOlMo0VSJWRsYz0zfk3MhyFI4VuROcAY/BUB9wcSsp6eqQazF78XpimmXR/F5Kfmv+pm7r2JBfOi+qMAlQN7e8SkKoCkW93hKvemyv+bcqOlwF+IgpKpd2mxDzGbNSJmtUn6OAX40ZDZo2FOswFexNDLS2ODVGmbT1J7mLrrTNNp2G5/EaplngaYlUE6pCEa/XdhWhun2Pd/9cn2CrdZuMTX6wCREHioWG5vnPO8QSiaqCS8Ge/oFTkJMzq+W1Ig+DbeQKyjx0tMZ6S3LdI5sTrdSLXbRyNb0sb00q4Q1iFjLi0JSeZLPLtS4q8E8ukzCIDyZWXe0Yo905iw/vE0lXPS3Q4mnHvFHBWbfIJhAKbWzBvGz6q2z234sYV02VarVJV7knM53CpOV+mwPHTt78QTSBpgwWf0sp+A+877Y3Bn2+krU7gncULGOgWnNlJSZKfu8APBLqCddmSVO1DrtZopCy2EqmgVg7w62WZU/8fIeXxOIoHIVcb6fTXiQtKHFcKuTqmByBjalCnE9VYVLuwbHJrGm62qpMsr4ZoWmLNfATl/hmTsnXNsT3AyBgkLKZgbqlkBR1hxiKj+PS5bXLNV0pGSkuh1mCx+xWECB6Fim0qzo7ItqVFdMDeRcoNCsjHZ2aVar1LiWEB+aual/VDoQJHXmh16115MotcrvcSo3RpcyQ5BWry0u4vF2sWFHJODtTkqHQOQFMl9bzhXUyWcGvZmmx8YK1ttaacJY6ZF0Z6cfeYk9OOkOPBzRSWSLPyBC5+7lPZUyfnv4UFyR/9LFecBW/i9B/XBLHC8ex5fHxi3FL4fVCSxyMvb2Cv+IUwtvo23uElfyVp5RSG8KeU3tAY8POnWdzbQwmkWd27dz1h43EYEZ+c2LniQ0kG5MR+czxnce/s+UyGW3/2okT+rhcnxjj+bxcoVA8zy8W/474OHOTTlpbRqQjQI6aknV83bJwrDMY5AUPS+Rik9Gj15k8piUr+SuTW1CQSb3706YAA39PvEv97Dh/GX9pV7vVff0XM9jyAHsAlMQY73wMDCFjFefHYuf1Pp8Rb/J59S54TXhj72tLx+Ys4EK8+RzOfB7EXeBsrJ0KstdevIBeuIjdLQaalegICvbumbMj7Tnbd1SxPLHz5blvXBxX5mbvn+AlWJl5di2rM23xs+ccDa9r3ghJQfNiXWgjRHUjU0H2+vMX0AvnsbvMo/WUjunolbSmeAksO7+GdnwNVuUYnSokIyv/xz/3f45A91udmjf/PyWdvjkdmhwArz30dqAH1oPxvWXqYpqaySz4NVDGUBWYb8PDZXwGs6KsrILJ4AOJks/kz2PaJQmTRpOmpFP54syPMrM+bO7ry1mZr4Q68aQ5yCUpYViXWmqWAskTZb/N2Q8OvEAulG//256ZcSPtqYNZVKiDjdfS3i3OPXRjG1qIgze5/bC82V7ar4N32s1wBCgUZ76cmfXSg45nZcZfKnYEZX9um98ilSB5bZr6hKzMA10wcfQYbztr2o8/tj77bP1mgR7TCzbXH/TWe0fgLmJ2iVmkYOrnsOZuMcvN12gKg1V8VwP/khAksaZfLhODt7+Aso/H20cp2M89zu4i5cfY7Fg+qQvMjbQsWK9aOKhwbR8tZQ2f02zYVr6Vz/fw3V3ttOoLLBMuu0+jQ8KhOaTx365bF9tYwNRS0z1b41vhk0mh7teoDkJ2SkxMOHrLoSld3tBctnP/Sd/GNxGdQxksti9gcRqKSwJ02t5diruFzJ864OPfs2gvZ9Awux78GvhIeOU17/tupjvw+tL9Z+HNI2DHxh6TKOwIdE3yUHFn20U1S62WpWD9n85+m7If2HPyL5kaEa/8YRiar0wqDQB1Tm7gq2YnJS8OWFY0zUDNOpSafjMj0/73dnkhmXTzUF7xA1rF/Ub7fsHAlHQKpIgau4hyibfx90t5Js9IqXarTqlvCCmTW98M+a2XBj+xSgzlP2bAj4FoIvWxkvoY3ETUNrE5yfCEy+stKYAHEL7EXSmR+NVarV8lGZD4TZqTvLXFJWt43F0lxbvBRgqM1omCu631QDWMbEjUHqEPxlViSAzc3yt7XkV5afLugtLesrLeUvrdda3P2pWRsSsrE0/eSN/XvjyR9VhZ+vjudF6zlMegkTKes/wm9ITJkG5597mFeeByduFeVvGvKa+hM41c4rnu3GzwIqL1qzG4ikAhNJnLXXq5OfA8DUOOb0mH+7P0Zt0bICReoZasAJZKHoU3Vz9ytXB1/NbzneYL5wfvb6priKJGIUsr+57J2lFYEqyQ8FZqoS+YXPEqLaQABh5K7dPmg5bC4fubfsvM+DTjkyIIumIY63ZPZQVfKyJ2AJr/mvN44x85WULBJySI+GLVJzpi/7e5b0iYCH1fBUg5fK1aN+P08kKKgcnaJX0qWemtVKkccqFII/jo2ib7P0yQgyepUoyZCF5IMXo8RoGplZjcHpPAONHI4O3hynm7efWtvpJz98Qet8MPMOnRZOgofjmz6qfQcKVuRjvcae4ud8a978r3POuwB7MsM+VbQUVl4aeAHTvlESM3N5qi5by+aLe9RG4u5skEP5x1YaGkb1PA732yApK2Iq61SXcviW3RXj3nwV3irkixMhJTl9vQn4mnLSrtC0uwgC2SAHcFIWWNCm8G2Ke+5ysTffUtCj+ePOXP67WpVjAqU+FzkRp3EMvLZ78DOBgCRTXTb7OV4KzMhs9EdiocFP60JQngNpBH4cnHG95PKbCvOHZnL9oScHKb++c1RjLSmvsLS2Lr0vbRRFSFq8KaOi+o+7fCD9/Hl69goe/OW9X9zyQVHHnXW4cVTJMOcAlHfDGdlZNO6q6S8jrBxgDGyRi4JGJSZ0d1/yabIIDLkNDz/s0A7Eji4g4Hztxj77Jf3hVd7oms5C5JfusDd4Dt2DWDIkic28dqijggV5+lDjTTJZSDroxmahI1H0e1xQpPSxqV8ZWvVepi793FLzTiAs6WC+9kHmylYJXMYNqkkdeqhjSDKXMTqVPJs6UpSnr0zzRg4V8G+G+3j38zT8M93x4+vq/tokNfT5v18ecBOB7wyTnUzb5v+xzizC92zouHj4iLQUvdJRdZ/U9ktAdGgRzJ5DHFKKsVxnMiKzE7VUhQl7ZuRIv4enzBxY7J6OUy1ouiCF1ZcXkDYb0RrXtlaxngIx7Sc75R0dcg6wGGTkEkkce0HopqVR2jKBGNIAjzwSTUpYaoStEilUEzoc5sQTRArTiijfp2+w4YH7aWL8hjK5qLGqKNGgdezNIPeGINwM9CvQAJ6z1IQ42HakntlppMDWC6Dy3AAcAqc9SrWURVKdpuWG1eTb1Xz67uesuqewAjxMKdhSquODA9o/4sC5ETqd0hLL46IFL8mw8X7ZeTDA116t2a0fUwYq8XGeNIQJ9sjq4VuUVmj4Z4NASNgkqh9pZWR6Ea5Z1DmtRn0DXT+ZIaldB6aCo6Dc0SPEOSioug7dDKUA5nzzWVBSF7gdRmlsfRbKAOJuuIZyY4IREEsW9aJJMqpAhKVwMuO/9jP6jHUde98ScQJUYXezqzKGuyP6N5Iz9WXqlqYa2ukXquJupBfVv/NEELtjXtQvuo/T4qG+lH9pF/1DHqHXWcA++198vZNNJxzdLZM1fnhSHG2F1bvo6t32d2fF8/QM2c43bemwcJ83PUM8hmdjPCWS5zg2WKNGFQMHFzm/tIeJFEm0AiGclHUfQJX0wslKFKs0d89u+ZlGMWOi4xpVohEX0WWGadrfYYccp5cXesKGqihpDQn794eWvvui2j+y/8alNXKEYOFWpppJWSTjKRi6qpiTqoh+bREsI4yjY3XHnghTf+eBe/YUWtufVbh6z3rI7aEW/Mi21xM25pUkWdJu265NMcLdUz2q3TuqKP1WM9LoVKz0xyYKCHDezkAEc5w0VucBMG3WXDE992u9VzvdH3vOZKx104/Z8e23P7hE0Zogx5hpZqGulniLUc5TakQJH5ZeZmMjL5mbLMZrsc8IinPe9NM9aVAkVZnCxF3mrr6VDHG228iW5Vuy+b7F+2IFuaHfzyH//oL/2VKzez9Wo5hSqA9j1A5fqP1pVICnW6jcYSLoNVTfQItQfVZodvRo7Ir0a1HlfjxaEmcs2PwvpjkXe1eSUMi8WCWKo257qLge1y5TaLoo7s8hSSylKEbrNTIYHV2oKl1Uzok6zrRInaRY5MTtnOWJN5nNF1RTImQstB1Xn4bKoiL7MkKxsD8HQMFohSypHjErgvOJsvfUj+T/fwts7+sARhuUoSBIDTfUVqeI3TMm6el5wndX9djWrlcpYebhjqgL6bC+9NPDVAb6/WcP6nAC5TrN/p37Hrkg8aRwNMjItwjBGU2nOIkdidECguYiG6mlKBwGMGQzOI4QtDFbRLYNzVHu9MmTU02Z4AmBwho9DYUIM8r26kJdKhZs9wPKSEcMmbXGAh4cDNDm3VYbY+MDeyc60xsBrM8c9oxnwYsTINHFlQISBpiGIQkQILImeqqUwyi6X2n/twVoeEy5DUpkHwMPXMxiya2nsmCdbo2ZtA9b6WiaAbifatbUhfbXDlZ6wpdaTqQHmt1BUkSaNudS7TjpTS88JaH+Q+7XuieLCQobrevMV1ltjkvhK7t+xOpGCvRLo3wOAxXJXawJMf2oFmwWJGT7TPQ+RKTiyVdrk6mwCmzPgAUHrAfUllDvjzJ0mkJH7DBXyPWN47cOithbsuf8trDzhCjsQZ8Emk0bgBJAMwiuwIjBb6P7y8ygghUpb9NiP9P9m7KtAfPdxtNoF9rLzYHSOLi8mifgUHCdXfP3Csucf/OoWPWbOyUgtLOZ+qdhxUVFxJQaTHJUEKbfbyPmANYclVJNQkhZmhtxk5r7zhSDU91COanwScAEZbnXYa8N0zQezOcjsmcAbgcqzV2lISKVwccE/HF3LVFOFZ211p2BYUYzgyz/POIopSeZEdtzN8K4mLPOEJlVEAY55wEDs9xVTRzkCtnQiiRwsdk/4zAJFj1h1bTWmsnaSQkkh1xAH/dOpY+wsgvMPp1foCgs7wQs2tSkvtbqyRRYmk14Bx9IVYVWynIQ1l9obBxXYCgv/LzKREhQgVH6rjkLfhXbaJE5xsqBk6NpZJdUncSmvfDQ3JplMMXU0WmFYQm8GxGe4FX3VIhH0C/gyqUFIGDFIpcqDzvI2HFbSrnS0BWmZobKBk5IbHhjpzXZDopMaaCyhfHPOl+fQUfMqfAFM5QhLtDxrSIfxp7vP9I58R9csnnvKhJrwCoLKXe1kZHiO1GoHcclJcRk+i/KedXWvnBHp6jy8LnO+sItmssR0Cd5e3nqdav08nCdBlCnA5358BnIDfTqjt9367UQr2DQOKgunyvrAvXP9rOok9/9jHcAtvduYTNVwmj7Lm5yV7tldprutZqZB0I3KeymRFnVQMen3JDgznYOoAl5mLKBedvgLUsiGRfROVF0EOL7QZKXZcFBAH7TPifV4jAy/fRmB4hhMPw05v3Lohl+pet+bpokhDXkdRywLtDJvL6WBDZqhCUXO5B+O8OtvG9xxsDdjfd3AWFRhTGb7aNxt4an+xssaUZcqqtg777WpNcryo7Q4jTjGry1Fqa7CUWd56mBKekLTl4Qw2c1LCYni/NlgwMgmr3wRZvClIMqnp0c3sYiqTAZfdpLAaqeJdD1Oe+E95Px/HY+WIUgg8cSgK1SXHQTWrdb5E5+bkdWZ10SyK5Nyvf31MF01wTY58SCkXkqLaOpa29idWrE2AgDW5ezP7qoRamf5Pw1H/WIJqgq951gO7LAM2ZErUajFxWbxOZbFioheTCl5BG4dRSWAbN2t9fXK5yK1kylKLuTYrjE8nXOmBFEKuuhZZLZdZcdIYufshXuaRJpEYPzMMSB4WRhAnt9AK2oat3/JO1TdcRzfay4sjv80AuBzRByJXciUFD2ekTZbXClFoQD3maYVBID9QVjCdcK3qnTn95vKzBJUk+MECKxxOEDQXQijWgoDAcxJlg9tXM/I03XVlmlBEKTTl8Uaio7zi77VJ21UoQgx1dU4fraL6oUaQKkmaYjnX99zH1Jtyeq0LacNVTcrExImCSYdhE72ERuAJo6FysgWcoboxG8LKuZ4Rus6kHbd6V8DXbrffYrR8B5sxeOop+yDGuVxOu8zKAJ6ViNW9MdQlT6Rl7aFX6/bITuhlmihzrU6FmHio7FmVRzzGM7UUafq7wpMYBp9t0j3FbIJ0DbuQmEiqMZoWrZlnDR4R3zCXxgkUDBlq9XwLFgqlpLVQDvGZTuc4ea3Z0iW8hJk0WpI+nnhkI66mpGdyNJdYplKU+S7LO526JBaRDAm7CAQTOYqPgfrQaYmAzaDA9US1VK3jjadCw/sS3baXj2DgaCx35BYEHyB4ELm7qL7SLuPO5fgkHnhsnaS3Fg/HFrG/MFbZQMexQgGqgc7zLluVre1WYa6VGUBIyY+8LkugW+7tByJCSIzjDGS1YLwgzC9CAnMvHxgAXqZETJxqsjBQ6WIB5Qv59Kb3SXxFeevB7q/vR6fAZTNa83gjG5ZIq0UJ4TOT7uapExP//t0Nc6dfJbD+IFRAiL2EFVg6Ftjh5O9w9Wre53y53YOdtdCiNtJL27ku6RpFhNfjhOhVepkQtfs5HwDORZLq7/9uPZW8pGJZMMkxn3xzwBn+4mqnQ4yh1+OxR1jKD/I0rKTAh6Zd6tFRhtkWR2cq4qUNnnrK2IjdwNgkxsqpgZo8GgMhfXWj8snHg7bGsExGlp0qvNiqhw6/T9PGvdwHPGm059B1Ts26FZZCzOsQXChgGKx/2MbotCZRVC56bG5ew3iBCfCwMcbORNfOszwM5J7U98qDgX3Cs5wybPQQdE4wkaC4PO3rrcEXf3wnRugbhl7RMtRGYoCQI93YVWU3BpJ4hJu18pHRjzAsyT4/qzYDXHAK1YLMO7AuRH3tYrr/WP/zxt7R0jmZMZ/VN2D/lw8DKvTCMVBDteqJ5CR43PhF6QHpRNK8qUTds3OLvaYvtPufl1FogMpMtwAa1z5UOXkE380ku8xKUlJMp49VAlapBAkMtZvr8wFyuFS7qFw5FO+57iFrOF5dOeiXXNOwM2SJNKmE0UOqxt245Qe1I4LEFoDMYgLuF5cxJF1rPSeU7TREEcFg8FSA4aiaUamqYmxLm32mTY9ss2/++hNHqYfjEha4E2zS7/T0P/wdS+IvoN6USuAjoyuhFrBxtfVMKpWpklfgUWnCXTsIbKoOpQv0z+vCcUQrAhk23uYPI158CbCTJDgtM8mDOAObZQNRaGxVqVnSpmvTbdtYFWAEWvDUU2WhFRPWtWf1QwPXxUMklo6zA3HHyspBcL8zChoSlDI8m6NlLQnDoppKEzOMg7ggS4KKjU6mKCflhvJc5uQACaRvMX3OYdOJ0jNTjSBjFdjfr4p6fIRJp547tqt9Jz+odZGFj/d1i8UmfrEAlEqIoHLT6wKH4disW/R55cQER6abB4DyJCUB2hYl6TSEVv7PGTNFQcIUnpkrTWWV6idP8ZMPG7uw213+Na6/lCRL/Z94UARtWWjUmnUD7U0hjdsBhkE6WOuH3TxjMM5SFgQvLEAeWOQvdPmH1VBOCVN8yzPSca5nGKKFbIPOmB5UTb4jNpn8uNz1/aSY+CCnkgo7hKdFX2U3iO5H8+JKMpibd7oZxpm554dFnwMaCYvz+TNEQ4LMiX36rD4kDbsvnKwDR9shgcpa4BIQPEysYtbHvJD1Z1tMQG2WmZHgVUMC9txpfRw8WpBXf94U0Bn0mQPM7k5DhiOw/0jNbn1jLibBkljloNU2fyBCIGKIMJT2Hky2n8jZccUrT7cYDJAAAHRKh1EGArEW2kHrsVIfDKV6YwQuv1ZefOqGfomAAPTCIx8tKXhXddm0/EO8U0F4WevimzmdvvfsB1F+jOEQISincfvidgdiBmxb6hTyQb7vdQdhJ2B/fff39wQAK/RGG3T+SpFiq9n3JHtlxy310TpXKsM6hYK3lgsIzNDfPLKdUnsJbEnjGaYbxTAvlFwe04uVY0yXSfRmxnlNmURp1jQGDTN6a7z4dO24GBsY6nQgNDYSVcVH3Q46LOasuLksqYswrS2i6BoKG1EbfDGBlm2EMBOdvtRyHAx2/jCMr+EkbQh3bmin4/HVcLKGIyEyuvgudB8xhYLrAE/S07YerylfJHAlI7QP2fbukD5/td7hjPtHhSGz5k5J4fxWaPd+XfEkQfTnfwwBFKMQXfdf3wUqzgXQHOxJUOOH7CInIHRuyvYFFQO8tpFXXl4u9tm/Kd2xwpCO66yIjKN0peUkgr4i6EcVYCXjeZThC01biNgcp26GaxOWV3IdyIkqjHskVV1aWFhaiirk98hr70kP9RsrwvYiRttDm3Wc4pck8E53Li6HgBPEiMcE5W0YnPm/6wfLCJfiLJf6LV+4Xvs6Vwqlkmk+ST0Mk35cn7cK0pbB6fXOMAJsf7bA+kl9k+FxO9slRi8vA405wwpIGJrjumwEzYjF4tiPa3O0XlgIUT0u8rc97tRcroDrMuP9b2yCwAzjWLt25vyA2DGQ6loILGWXedA5d5kHsVphZ2zUl5KscuI8DwuPwExaG57pWEopieMahLU4TkqK5Ziel7FhTL0C5XkMNiRHOCqviojyjAkZCsZ8Gg2qXKnrBEsxYjVXqRRwvFCp5KoiQ7HEXDh2iyUDspVVjuZG80fjV22ERrV1LIXZ6VaGbeXP9iz2qDvbuQjuyBGVSu0Pz1EfXh4TBLEPyoVjuwoAjONsvNybAnejSdH60Vq9h2AjWiBaNFq/twvc3giIVTYQrUY1rYIkmrBqDNuq/dLqKYNBNqppG3qcobQsu717lTeAVmJ8ZGb47ZOkMhnKIX6/P+a3KwXQ0vfkrbxy616dbwi95tzblE3t6KUS33VwaQQnUtSn3t19aLKMw2CrSaZn/dbkepuAtNLK3sEMaaPxq9bB54orX6+s/hKXl9eyy21C6Fr61W995R9YGvPu/EMBoJzhpQQt02pph1Bpofz7YkdhdL9JcFy3TUYCnX3sEz/6WzMJXn82CzGlzBWWQhW4Kkz1GUXpjmKD8+eV62YJdgvOZxFzWyMC1KIxBL2RMkdmNhrUlZYyBqPRnSKzDas7egSW8MrRhraTBW3QnMJz2XKl0vO44CvMAZN5MWOSUYOVWyfWTQEq05oFhGIMAYKY63qYPN21+Q2JwKcGNZVEYZYnjRC5OlgbP1luMgjBtbpyND6a5G3PMILTyk+iRaJZvREgvfugjKaAPmPaaMwqCh4tLufDVKVsvcrDm5wkd4o1vJUv0KQUFtPz3z5QrRYLLVHiaKQOFUzn2IulfPELv97X2wj+8xZNF9E3RxP5yN2RAZw654YHR868XpfiNlaSz3if7GhZd3UNjzCXV1Qj5zzPXreRO5YMO6ZMWr5S0aE4pOLuHAHoGMquFhDLrd7K48Xt9VajsmicB6HMAqqFwM6WDmKNKgSaJAUtbdCsmNdX+NGUaCRRZOqZqo2FBKGkVppxE8fWVZlG1d4jQFsNytGcaFI0cxVMPCsON/XcXH+h7huSn5Z1Rn59oT/MTugVBNoZtkjkcd6Ij/+SKNXNhwwDry60IrWMQFL+uVjP4nZuy1FNDZUDCHTEFTQvITtfsL12ZIYIZjKzMMG+0iS7OrptcwSeo3WvZiQbuwYI/NhUajJSccPTEXSzjrVHCrXFtHlsoyu8althXIj7F0g/JTAoktw+yKGK1sgQcVNG+Gxh5R6UQXF+ylXf5xvyIMgJNLxTY876uxb3i4q7xTPRMDSqAKdwH0u9hfQ4HAnFyLfN3SNWwEmZ2RjcL/S4rRdDI1KeZRS7Vk0Rp6We1aoRpzOqlNMvQccQLox4RjFzPUFBcUtilREt6I5oQ2Fg5cdupCI3b/ckBGMpwc8+2bbj+NR79lp4ipQFXZnSZBtRC+O4epPP54Ha36MxRo1UP4WP51eoXjyszDSVxrDocGhKrE3zEBVZNy/IpNflGe4RdENQHWuB16myS9TH5sCUGRGhVeTB8OBRYzubIUq29hzK/T92ocRkYvnuJAhy2l2elJQX1Oh+/R3xkNGrP3ahpqYothPorMpZAQpG4c5aijzTHIQw2wteudePsrzKs18oKlRVklyxO5rPWsQ4CuEAQ8ZrgDEAecxapQBPNNcBcHLTJsVcT8MwGEamrn9oblZZgkCOkAA+QNY2y0y1M1S8T0oXQWm2e9aphOlbJyTu1nQ4170YP7sL8IfxiwB3mkDA0QHWu6FWM3GoLiZ1hQCbC/hdKfGZyzu9fe0Q0J4O7vy7lhJcA52Tc/ehKBzwdKcUFU5IqbnQrSjgxp8rPlNVAeojXfWh91wQGCzTlZcJar1Gx5YopkK0QF+JdVW5rXEFlT8auOSB8E9jm7lU1/Ru7DKZpzzihhCd5vteoWdpWink80C0Q90xONPtsjatmVwO89ze+ntYjHfFI1pED5Jnrl1tV9jEVmD3rloUnersD7Nv8jhFODGJXOxmrMiBP8bxRzAerEUw+ivaiTTsVWmDufaPOVwFnWjY12wsgSs/ZTe42JDkDhvMFpq63gVx/0TvXmsIFhLzr03ZpuDR8dsHd+vDdHkRZvWiTKFKbywLXd0JBKrsp0JSNkrQ5a2swFhexOTAmtwG12cMTswcrdYwK9UYEsdC5d3f68UEr2rFvM8wgZ8xIY6Zf6ppIE7c4EE1Bxk1Q/knmbadDjDkB3dOBQcI71nQNFjk/9QPfYfxWZw42jPbc84X7B0PLfTPQa4NO7haFjaD6+O6ef0G99RBh69qV0Gigigozqg9a53m94F6iM2OKMPzfe7h26nnn3t3D2OVt/Lv0rtbj1W1cvRy7/VCC2e4ub5+L0jPazV3DFZTsnEE7CTq/LiKLPTrv+Uaz0+CO0H8D1LX0Y7NJhzZDoZY53z8Rvz8lgFg+yKopnia+Dyo7hivIjgeg18h/+5NCTUQcZnwvNbQtfqqSIybV1maxveZOf/X8GY+SL7cSlrS7mLjAUWQfD1fzs9bXQraCQDuK7f/aM/PCKqktf7RwK2rDXC/OqjP1LbLD21b5xsIR5M4tlQ00CspjM10CbcRdyoVk5ogagTbZlTquannejjjBvcog4nUX1zn25PzReBpqeKCJk5CMqeJzDkQIRlt3oDC1u4EIC9wspJiTIC1wOZGkWGDrqGmUPPCgL1ISvg15hGzSuBrsIA/4Y0xJ0z1raHkPcezpVjb0SQwDY6XBF0IxiniSnwzMD/ZrK0FZHuKHk2uSaOlOGXouWTIq1aqHzMT7aF4RRD0nMZ1GYaUmUoI+lJUQJ0u3lxHd8YU2NOchQzY0GokjURwZQKRpu+rREyzeegWrJM2mfxKsf1Yvs0ayLvCrESaYyuAtmvF92YxNSzmzAFGew+K5qdJ/6kt+qSstJhR6HBvBYMsi+Y5HJTc187VALyyMsGX4BU4V0PzY9eII40xh5Dxncr96PAGUZSxrI6kLUYklLIEitXSHbj1aIt+M+EF9grxtS3OmPTrI6/xv/T1Gfnt6he9Jt7yU449nkA4xZvYSmYthnYf22Xi6V09mnOynsZ5cWo4GaSv8m+W9a1gndxZZIQ2l/ehGCNCwJYxGoiUvsRda6KpiaqS83ZbDNuFjwf8eCAfrAJ40WDdjE2KTWMghT7Nd9xeRDZrTpmgEReFICTrAGzKDPdBWzUHAVzIw8MUkltCpIov0/wG3kKwd8Ff3DPt6ZxvRCTyQCXVChzmUdvBu9xk+vSVb4uZQEwjEJlZrEZ3ksG1AQovEZMH3qVTaw2HnpslOK2LbJnOGrmJg8ecYxWqEYIfOVpxtxowLXyr2PzsR5q8Uef1NcfZZu/hFY3+nKYuJ3l39EIyDgDq3Xm5NYXuEUJr293dPmZuvXjXdXhJ6zpSEhXq5F2u9jAS0OctB46a/eYIrK6IIYYGJocyWu+n2wF9bbm70183p1E4NTMQjtBvAe5G0Z0uSsF1xmg9BhgZdg8EDxsvh35L7jlfbp1uvcIdmERvTgJpCaT5JAdwtMUAjeXTxX+x/6v7w72r5+lFVOA/aayGp2tjgCRABxX7QUGiO8acCVrdQNNhLzabvQx/V1evR0vaelFZvgjQlVpA7jPNXSF9YS2vZ3GMveRu3xFJt5tM3c8XhwwjDYm4sBXatc2EZ7XUhZi5QFHfZWYm6bLHQtmqQXc9bd3QTeavGT0MpJzS7LhqnFlmCdTjOt3+eUY7NRzz2DalaEgZ2rp5vp8cjN+M06jO+jFeJALAytiNIXs+CdwjLCfdhLMqJwf4xd5Hg9y+3cMSTMCT6zvosQ6Ax9LZ4G1W12G3o+vgwfI6mRMMbjTmG42PzyDRbj/Scyi3GWMvRIxYD97RMnSvCcvecBkTS3SmAWoStK6NrxOGF7KqiZmnu5BO2pm4NuxmkVd0PkmvZ3hCdyCTApdlGSFKWD9SQEIauRlokZfV1ASgUyjZxUkeNtnrwDFuH/YQlMlMrIVrkw+mPRu8bwhC7/oS4LC5q+36+Y0nol2SpfrpnNjioizPIR9ZqYWgILRgmDwUVmssB7iSI0lkPFcjnEGHQMCvRTaVET3pVwdMrQIoOVl2xGi9gVXytdM53gOTYTlIjLDMSyEcNHwPTW+M2da6hwA5GOpRtYwOaA88y4YcnzMEpmnbtuglAbOqPtO6AY9VwZM1MxdpaQfCuBSDqrqMO8qh3jn/0gAmU8JHnMsEkcQKg7zxUHwBKKSlu8kQFxbsWrBnmg3Fx9cPiF39d39Ne5+r07kRJ6w0icL4s8V2nwcqQahNrZesqxh8W6NBjgDnU7zLKKDljKr1a2sGJyoYFmJoN1KQkNC9I6hEOu9Beyd92MJ310BJGESYSqvg3eDEk+69H3MxHi0Jv/malgcVdO0Oas+zJ1cpNcPCnHxgyTP7pFFJkt5hET1ZjORrl9aPmL8a2gc8lpUvjCLfCZmCvZVtqEEYvv+7e1lZTiymErsswLFUEYI6YETiLbZGXyq4ekgmadFrasNIgmSZJanksE1YfvX4TqDoFmEUG4B5p0dMfVsQruO2fJeY0YHabFKcJBBWG6zFpYDh8IC0UKB7IYk5EEjp5K2drgFsrLRQkPbMNpMaBB3RFgyMYJxlDFA8+Z4T+mFxWYidlJ9Tzc7aaoWgFRsEBr5Mb5VXQHCHtQTMrNEQgc2wVWkgEGzJ1B3kcq7JavWqBGTwNKCUvnesQBgMuCT2En0G2/Y6QbcaW9e4nfq1IwUPQj074Z7vfP+rRwPGxUfv//53vnRjxCFcEvE6kygb7K+r6Y7L05/mh5kMGZlC6m4SGUZGXKQC0yJ6mogW+zJCARohPP9QcOu73rhmo/RvsxJZKfCddx/Y+fAC/3ls7f/ydm4kBpM4QOB/z9J/x6DD/e9rOyPrEtnanGomAGxcapl6EKm2iqrFMmb4PCqSN2Tolja0UZ6HoxbMqpVQkbxVTbcJ3eWZAYI52XbCyPKk2qHuRJBak9KajzrTfmap8EsusVZoPDUUIhvyVSTOWMvq0iEBD2V51M2accJwq757QkZEShuDobPPF3emhLzKWM2cky2olUouF15KoRhdFBndSl31I6iJjCgsH7SaJgzKVoOEdRSNTsBC6TkkJKROL8V1Q+kGr1SeTHmC15xZBjlU0lKNXNvcGghZLRYhTibESSvndbnTzq0dbZxhTIC8IlzbtNWUacIrgANH0QhcU7vHo0EB9QVV6e5rKWY0jcAtPQkuEJAxEjQMXBtTRuZtdUPwkATV6O6FVG9cjcBtSHE6BMbUGNe5TOOMCMvFif+IKh5zXY0/qxwpJRVWszErAp0zo7tv+ezyz+hiugYhqNGpm8iyQ4xjMwRj4GgA04yprRlUklROwA04BpthBMRIeYXazPhMwZG+U6cLKYuQny3WwrhTIHcalrnwkIUjNcDLOkJy/WQ4dZq5/mFsb4JYFDOICtnfaMwaGsg1VaKR3SNOkpVT8qxDnmXIsw/Z6q2W9rouKQlAXskOuY/L/BOS66jcZmY/Ba80EM1Zzdxk2cjMBhGQQRgrnONPM67Wmg6j49AH3FDX8Pr/waD7WN3y5FYO0iSi50V4/yHNEbSX/GLqew0D863F0EgGeDmEmCVBnmU5Ku4sk2BlmuezIlrjs2J2rTMqCcL2ETCPEVmCQH1a26FApPSneEjB8bpEhFi1CAnrF2UR1qZdH78Wwi14K+zWCxNpTz6PNusR7mhfpizLhkWU9hrQNi+8Dh0LN20MVbbQ69GVaQs7dio3AJ/RU7tUlxiKGBGizvWX0RSVmcsWa4ELy8L9Ihr1iFtRbk9Jyat1/by8VE9GPBhRW9YsV6BlxjpG3RQ6jObKfKb+jhldbWFtHdK9fCdh9ln3a8LSTpcoto4iy/iwRjGd/o1eCyPW8T7z3uU6DdFxTvnfsn6PGPvNVkgRA2Pn+mFDiFDOH8yImxFzy8dL4BsFKoZSOKW+6Fo6egZGJmYWVjZ2Dk6+IAhJw1BAlepd16rjO+K/nTp6aTLUCyJS8NbKN9IJRA46ZL8DzrvAiwcDo21461itddIpnvba55xJshSRUdrhikt2aqvZRu1965oO7rnK5bob8nX0lgI37dLJJrsVcyvS2ffe6SqsU1REzAG9fKePbj169eszYI5B88w130ILHLTHFKMsMmSMt456b4WVJppsmqmmEztBYoKFxjtO6puvvlP54KPDzEws5snUaMQ42da7466Z7nnokdPOfA+g0xuMJrPFarM7nGwOl8cXCEViiVQmVyhVao2+gWGi0ImNTRIyHWRlGJjKsbBxcPFU4BMQEkGJYSSkZOQqKSipqGlo6egZGJmYWVjZ2Dk4ubiz7bFYEtR3SmPt72tp7oo2Tet/w5z2T2z7eP4K7uxffnu/2XJJoic75X5k56fun9+dDdyZCFcBU5Xhu6y6XJnX2R6Jt84Yij7G3LH9+ZTGr+eK2jUhXWQgke7iC2lxJwRMvr81ScDEjcTW0ppcJhvC0G2wg0XGmyKjEcI1SmEqnppgF5/xNAS7oCuFcjq6DATirCb2aM7xdMPMfgtpj65O/uIx2pcaMpmTKeGLePi0x2VeQ3X68nrU7M/yAIfiog8LSPbuOdj+5TAxHje5DA1ihNCVjA49S3jwmWRyQW+bmd+ncTxDrfTkvU3X2vY7HvgmeEVrEz/51At7vAcEHEJTbxvENwMRwO2N7C+2Pc9nVIMopHmzsyUaDi3WEqGv9G0RZqEmYoi/e2qNPfrEBOCOdPe1SIhcg8Ad+rtqoMNj0CDoNE32d6ewvk93cnkdEZpixyd+l3nLRfgzAHkuSsY=",

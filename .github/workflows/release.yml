@@ -39,7 +39,7 @@ jobs:
         run: python -m unittest discover -s tests
       - name: Checksums and notes
         run: |
-          sha256sum agent-activity.py > SHA256SUMS
+          sha256sum agent-activity.py agent-activity.ps1 > SHA256SUMS
           awk -v v="${GITHUB_REF_NAME#v}" '$0 ~ "^## \\[" v "\\]" {on=1; next} /^## \[/ {on=0} on' CHANGELOG.md > notes.md
       - name: Publish
         if: github.event_name == 'push'
@@ -48,10 +48,11 @@ jobs:
         run: |
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             mkdir published
-            gh release download "$GITHUB_REF_NAME" -p agent-activity.py -p SHA256SUMS -D published
-            cmp published/agent-activity.py agent-activity.py && cmp published/SHA256SUMS SHA256SUMS
+            gh release download "$GITHUB_REF_NAME" -p agent-activity.py -p agent-activity.ps1 -p SHA256SUMS -D published
+            cmp published/agent-activity.py agent-activity.py && cmp published/agent-activity.ps1 agent-activity.ps1 \
+              && cmp published/SHA256SUMS SHA256SUMS
             echo "$GITHUB_REF_NAME is already published with identical files."
           else
             pre=""; case "$GITHUB_REF_NAME" in v0.*|*-*) pre="--prerelease";; esac
-            gh release create "$GITHUB_REF_NAME" agent-activity.py SHA256SUMS --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag $pre
+            gh release create "$GITHUB_REF_NAME" agent-activity.py agent-activity.ps1 SHA256SUMS --title "$GITHUB_REF_NAME" --notes-file notes.md --verify-tag $pre
           fi

@@ -24,6 +24,9 @@ Provide the link in one of three ways:
 > `diff` against the verified copy should show nothing else. Where you can pass
 > arguments, prefer Jamf parameter 4 or `--upload`, which leave the file unchanged.
 
+Links often hold `&`, so quote them: single quotes in a shell or PowerShell,
+double quotes in a Windows command line such as an Intune install command.
+
 `{name}` in the link is replaced with the machine's name, which is its serial
 number by default. This gives each machine its own file from a single link.
 

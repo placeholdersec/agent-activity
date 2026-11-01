@@ -70,7 +70,7 @@ def run():
 
 def data_files():
     for folder in DATA:
-        for path in sorted((HERE / folder).rglob("*")):
+        for path in sorted((HERE / folder).rglob("*"), key=lambda p: p.relative_to(HERE).parts):
             if path.is_file() and path.name != ".DS_Store":
                 yield path.relative_to(HERE).as_posix(), path.read_bytes()
 
@@ -91,6 +91,6 @@ def build():
 
 
 if __name__ == "__main__":
-    OUT.write_text(build(), encoding="utf-8")
+    OUT.write_bytes(build().encode("utf-8"))
     OUT.chmod(0o755)
     print(f"{OUT}: {OUT.stat().st_size:,} bytes")

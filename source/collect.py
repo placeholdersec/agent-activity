@@ -10,18 +10,22 @@ collected files (report.py). See README.md.
 """
 
 import argparse
+import base64
 import collections
 import configparser
 import contextlib
 import datetime
 import difflib
+import errno
 import functools
 import hashlib
 import ipaddress
 import json
 import os
 import pathlib
+import ntpath
 import platform
+import posixpath
 import re
 import shlex
 import socket
@@ -33,7 +37,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 SCHEMA = "agent-activity-endpoint/1"
 HERE = pathlib.Path(__file__).resolve().parent
 SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
@@ -145,11 +149,17 @@ OWN = [
      "pattern": re.compile(r"^supabase\s+functions\s+deploy\b")},
     {"source": "own", "id": "platform-secret-set", "tactic": "Persistence", "severity": "medium",
      "pattern": re.compile(r"^supabase\s+secrets\s+set\b")},
+    {"source": "own", "id": "credential-names-listed", "tactic": "Discovery", "severity": "medium", "local": True,
+     "pattern": re.compile(r"(?i)^cmdkey\s+/list\b|^vaultcmd\s+/listcreds\b")},
     # -w prints the password, dump-keychain -d the secrets (often an agent's own
     # OAuth token); not when discarded.
     {"source": "own", "id": "keychain-read", "tactic": "Credential Access", "severity": "high",
      "pattern": re.compile(r"^security\s+(find-(generic|internet)-password\b(?!.*\s[1&]?>\s*/dev/null)"
-                           r".*\s-w\b|dump-keychain\b.*\s-d\b)|^secret-tool\s+(lookup|search)\b")},
+                           r".*\s-w\b|dump-keychain\b.*\s-d\b)|^secret-tool\s+(lookup|search)\b"
+                           r"|(?i:^get-storedcredential\b"
+                           r"|^\[(System\.)?Security\.Cryptography\.ProtectedData\]::Unprotect\b"
+                           r"|^add-type\b.*\bCred(Read|Enumerate)W?\b)"
+                           r"|" + GIT + r"credential(\s+fill|-[\w-]+\s+get)\b|^git-credential-[\w-]+\s+get\b")},
     # A secret's value; `--query` naming other fields reads metadata.
     {"source": "own", "id": "secret-value-read", "tactic": "Credential Access", "severity": "high",
      "pattern": re.compile(r"^(kubectl|oc)\s+(\S+\s+){0,8}get\s+secrets?\b.*\s(-o|--output)[ =]?"
@@ -182,7 +192,12 @@ OWN = [
      "pattern": re.compile(GIT + r"(commit|push|merge|rebase)\b.*\s--no-verify\b")},
     {"source": "own", "id": "scheduled-job", "tactic": "Persistence", "severity": "medium", "local": True,
      "pattern": re.compile(r"^systemctl\s+(--user\s+)?enable\b|^launchctl\s+(load|bootstrap)\b"
-                           r"|^crontab\b(?!.*\s-l\b)\s+\S|^cloudflared\s+(.*\s)?service\s+install\b")},
+                           r"|^crontab\b(?!.*\s-l\b)\s+\S|^cloudflared\s+(.*\s)?service\s+install\b"
+                           r"|(?i:^schtasks\s+(.*\s)?/create\b|^(register|set)-scheduledtask\b|^new-service\b"
+                           r"|^sc\s+(\\\\\S+\s+)?(create\s|config\s.*\sbinpath=)"
+                           r"|^(reg\s+add|new-itemproperty|set-itemproperty|sp)\s.*CurrentVersion[\\/]*Run(Once)?(\s|$)"
+                           r"|^(?:[^\n>]*>|(tee|touch)\s|(cp|mv|install|ln)\s\S*\s).*[\\/]Start Menu[\\/]+"
+                           r"Programs[\\/]+Startup([\\/]|\s|$))")},
     # A key that signs in to this account, here or on a host reached by ssh.
     {"source": "own", "id": "ssh-key-authorized", "tactic": "Persistence", "severity": "medium",
      "local": True,
@@ -209,14 +224,17 @@ OWN = [
     # Runs in every new shell of the user, or of all users.
     {"source": "own", "id": "shell-startup-changed", "tactic": "Persistence", "severity": "medium",
      "local": True,
-     "pattern": re.compile(r"^(?:.*>>?\s*|tee\s+(-\S+\s+)*|sed\s+(\S+\s+)*-i\S*\s+(\S+\s+)*)"
-                           r"((~|/\S+)/\.(bash(rc|_profile|_login|_logout)|zshrc|zprofile|zshenv|zlogin"
-                           r"|profile|shrc)|/etc/(profile(\.d/\S*)?|bash\.bashrc|zshrc))(\s|$)")},
+     "pattern": re.compile(r"^(?:[^\n]*>>?\s*|tee\s+(-\S+\s+)*|sed\s+((?!-i)\S+\s+)*-i\S*\s+(\S+\s+)*)"
+                           r"((~|/[^\s>]+)/\.(bash(rc|_profile|_login|_logout)|zshrc|zprofile|zshenv|zlogin"
+                           r"|profile|shrc)|/etc/(profile(\.d/[^\s>]*)?|bash\.bashrc|zshrc))(\s|$)"
+                           r"|(?i:^(?:[^\n]*>>?\s*|tee\s+(-\S+\s+)*|(cp|mv|install|ln)\s.*\s)\$profile(\.\w+)?(\s|$)"
+                           r"|^(?:[^\n>]*>|tee\s|(cp|mv|install|ln)\s\S*\s).*[\\/]"
+                           r"(Microsoft\.\w+_profile|(Windows)?PowerShell[\\/]+profile)\.ps1(\s|$))")},
     # Who may sign in or become root, and what every program loads first.
     {"source": "own", "id": "login-or-sudo-config-changed", "tactic": "Privilege Escalation",
      "severity": "high", "local": True,
-     "pattern": re.compile(r"^(?:.*>>?\s*|tee\s+(-\S+\s+)*|sed\s+(\S+\s+)*-i\S*\s+(\S+\s+)*"
-                           r"|(cp|mv|install|ln)\s.*\s)/etc/(pam\.d/\S*|sudoers(\.d/\S*)?|ld\.so\.preload)"
+     "pattern": re.compile(r"^(?:[^\n]*>>?\s*|tee\s+(-\S+\s+)*|sed\s+((?!-i)\S+\s+)*-i\S*\s+(\S+\s+)*"
+                           r"|(cp|mv|install|ln)\s.*\s)/etc/(pam\.d/[^\s>]*|sudoers(\.d/[^\s>]*)?|ld\.so\.preload)"
                            r"(\s|$)")},
     {"source": "own", "id": "kernel-module-loaded", "tactic": "Persistence", "severity": "high",
      "local": True,
@@ -230,13 +248,16 @@ OWN = [
      "pattern": re.compile(r"^(update-ca-certificates|update-ca-trust|certctl\s+rehash)\b|^trust\s+anchor\s"
                            r"|^security\s+add-trusted-cert\s|^mkcert\s+(-\S+\s+)*-install\b"
                            r"|^(cp|mv|install|ln)\s.*\s(/usr/local/share/ca-certificates"
-                           r"|/etc/pki/ca-trust/source/anchors|/usr/local/share/certs)/?\S*$")},
-    # macOS asks before opening a download; this skips the question.
+                           r"|/etc/pki/ca-trust/source/anchors|/usr/local/share/certs)/?\S*$"
+                           r"|(?i:^certutil\s+(-\S+\s+)*-addstore\s+(-\S+\s+)*(auth)?root(\s|$)"
+                           r"|^import-(pfx)?certificate\b.*\scert:[\\/]+(LocalMachine|CurrentUser)[\\/]+"
+                           r"(Auth)?Root\b)")},
     {"source": "own", "id": "gatekeeper-bypassed", "tactic": "Defense Evasion", "severity": "medium",
      "local": True,
      "pattern": re.compile(r"^xattr\s+(-\S+\s+)*-\w*[dc]\w*\s+(\S+\s+)*com\.apple\.quarantine\b"
                            r"|^xattr\s+(-\S+\s+)*-\w*c"
-                           r"|^spctl\s+(.*\s)?--(master-disable|global-disable|add)\b")},
+                           r"|^spctl\s+(.*\s)?--(master-disable|global-disable|add)\b"
+                           r"|(?i:^unblock-file\b|^rm\s.*:Zone\.Identifier(\s|$))")},
     # A port on this machine reachable from the internet.
     {"source": "own", "id": "tunnel-opened", "tactic": "Command and Control", "severity": "medium",
      "pattern": re.compile(r"^ngrok\s+(http|tcp|tls|start)\b|^devtunnel\s+host\b"
@@ -257,10 +278,31 @@ OWN = [
     # Runs in every Python process started from that environment.
     {"source": "own", "id": "python-startup-hook", "tactic": "Persistence", "severity": "medium",
      "local": True,
-     "pattern": re.compile(r"^(?:.*>>?\s*|tee\s+(-\S+\s+)*)\S*(\.pth|/(user|site)customize\.py)(\s|$)")},
+     "pattern": re.compile(r"^(?:[^\n]*>>?\s*|tee\s+(-\S+\s+)*)[^\s>]*(\.pth|/(user|site)customize\.py)(\s|$)")},
     {"source": "own", "id": "remote-desktop-enabled", "tactic": "Lateral Movement", "severity": "medium",
      "local": True,
-     "pattern": re.compile(r"^systemsetup\s+(.*\s)?-setremotelogin\s+on\b")},
+     "pattern": re.compile(r"^systemsetup\s+(.*\s)?-setremotelogin\s+on\b"
+                           r"|(?i:^(set-itemproperty|new-itemproperty|sp)\s.*\bfDenyTSConnections\b.*\s-Value\s+0\b"
+                           r"|^reg\s+add\s.*\bfDenyTSConnections\b.*\s/d\s+0\b|^enable-psremoting\b"
+                           r"|^(set-item|si)\s+(-Path\s+)?WSMan:[\\/]+localhost[\\/]+Client[\\/]+TrustedHosts\b)")},
+    {"source": "own", "id": "defender-weakened", "tactic": "Defense Evasion", "severity": "high", "local": True,
+     "pattern": re.compile(r"(?i)^add-mppreference\s+(.*\s)?-Exclusion\w*"
+                           r"|^set-mppreference\s+(.*\s)?-Disable\w*(:?\s*(\$true|1)\b|\s*$|\s+-)")},
+    {"source": "own", "id": "firewall-turned-off", "tactic": "Defense Evasion", "severity": "medium",
+     "local": True,
+     "pattern": re.compile(r"(?i)^netsh\s+(advfirewall\s+set\s+\S+\s+state\s+off|firewall\s+set\s+opmode\s+"
+                           r"(mode=)?disable)\b|^set-netfirewallprofile\b.*\s-Enabled\s+(\$?false|0)\b")},
+    # Process scope lasts one session, as `powershell -ExecutionPolicy Bypass` does.
+    {"source": "own", "id": "execution-policy-loosened", "tactic": "Defense Evasion", "severity": "medium",
+     "local": True,
+     "pattern": re.compile(r"(?i)^set-executionpolicy\b(?!.*\s-Scope\s+Process\b).*\s(-ExecutionPolicy\s+)?"
+                           r"(Bypass|Unrestricted)\b")},
+    {"source": "own", "id": "local-account-created", "tactic": "Persistence", "severity": "high", "local": True,
+     "pattern": re.compile(r"(?i)^net1?\s+user\s+\S+(\s+\S+)*\s+/add\b|^new-localuser\b")},
+    {"source": "own", "id": "administrator-added", "tactic": "Privilege Escalation", "severity": "high",
+     "local": True,
+     "pattern": re.compile(r"(?i)^net1?\s+localgroup\s+administrators\s+(\S+\s+)*/add\b"
+                           r"|^add-localgroupmember\b.*\s(-(Group|Name|SID)\s+)?(Administrators|S-1-5-32-544)\b")},
 ]
 
 # Matched on a whole segment, pipes included.
@@ -282,8 +324,8 @@ OWN_SEGMENT = [
                                          r"(?!\s+(-\S+\s+)*-\w*c\b)[^|;&\n]*?)*(\s+2>\S+)*\s*$")),
     # The password in the command, and so in the logs.
     {"source": "own", "id": "sudo-password-in-command", "tactic": "Credential Access", "severity": "medium",
-     "pattern": re.compile(r"\b(echo|printf)\b[^|;&\n]{0,500}\|\s*sudo\s+(-\w+\s+(['\"][^'\"]*['\"]\s+)?)*"
-                           r"-\w*S\b|\bsudo\s+(-\w+\s+(['\"][^'\"]*['\"]\s+)?)*-\w*S\b[^|;&\n]*<<<")},
+     "pattern": re.compile(r"\b(echo|printf)\b[^|;&\n]{0,500}\|\s*sudo\s+(-\w+\s+(['\"][^'\"]{0,256}['\"]\s+)?){0,8}"
+                           r"-\w*S\b|\bsudo\s+(-\w+\s+(['\"][^'\"]{0,256}['\"]\s+)?){0,8}-\w*S\b[^|;&\n<]{0,256}<<<")},
 ]
 
 WIPED = {"high": {"source": "own", "id": "home-or-root-deleted", "tactic": "Impact", "severity": "high",
@@ -353,15 +395,17 @@ WRAPPERS = {"sudo": {"-u", "-g", "-C", "-D", "-h", "-p", "-r", "-t", "-U", "--us
             "xargs": {"-I", "-n", "-P", "-L", "-d", "-E", "-s", "-a", "--max-args", "--max-procs",
                       "--delimiter", "--arg-file", "--replace"}}
 SHELLS = {"bash", "sh", "zsh"}
+WSL_OPTIONS = {"-d": 1, "--distribution": 1, "-u": 1, "--user": 1, "--cd": 1, "--shell-type": 1,
+               "--distribution-id": 1, "--system": 0}
 SHELL_SCRIPT_FLAG = re.compile(r"^-[a-zA-Z]*c$")
 KEYWORDS = {"if", "then", "else", "elif", "while", "until", "do", "!", "{"}
 RUNNERS = {"uv": {"--with", "-w", "--python", "-p", "--project", "--directory", "--package", "--extra",
                   "--group", "--env-file", "--index", "--with-requirements", "--with-editable"},
            "poetry": set(), "pipenv": set()}
-FUNCTION = re.compile(r"(?:^|(?<=[\s;&|(){]))(?:function\s+)?([A-Za-z_][\w-]{0,63})\s*\(\)\s*\{(.{0,4000}?)"
-                      r"[;\n]\s*\}", re.S)
+FUNCTION = re.compile(r"(?:^|(?<=[\s;&|(){]))(?:function\s+)?([A-Za-z_][\w-]{0,63})\s*\(\)\s*\{")
+FUNCTION_END = re.compile(r"[;\n][^\S\n]*\}")
 # A function body that runs its arguments.
-RUNS_ARGS = re.compile(r"(^|\s)(eval|exec|(ba|z)?sh\s+-c)\s|(^|[;&|{(\n])\s*\"?\$[@*1-9]")
+RUNS_ARGS = re.compile(r"(^|\s)(eval|exec|(ba|z)?sh\s+-c)\s|(^|[;&|{(\n])[^\S\n]*\"?\$[@*1-9]")
 
 
 def shell_split(text, comments=False):
@@ -496,7 +540,7 @@ def program_at(values):
 def inner_at(values, k):
     """The index of the command the program at `k` hands over to (`uv run x`,
     `… -- bash -c`, `docker exec c sh`), or None."""
-    program = os.path.basename(values[k])
+    program = posixpath.basename(values[k])
     if program in RUNNERS and values[k + 1:k + 2] == ["run"]:
         j = k + 2
         while j < len(values) and values[j].startswith("-"):
@@ -507,10 +551,10 @@ def inner_at(values, k):
         return j if j < len(values) else None
     if program != "git" and "--" in values[k + 1:]:
         j = values.index("--", k + 1) + 1
-        if j < len(values) and os.path.basename(values[j]) in SHELLS:
+        if j < len(values) and posixpath.basename(values[j]) in SHELLS:
             return j
     if program in ("docker", "podman", "kubectl", "oc") and values[k + 1:k + 2] in (["exec"], ["run"]):
-        return next((j for j in range(k + 2, len(values)) if os.path.basename(values[j]) in SHELLS), None)
+        return next((j for j in range(k + 2, len(values)) if posixpath.basename(values[j]) in SHELLS), None)
     return None
 
 
@@ -547,11 +591,11 @@ def data_words(values, functions):
     k = run_at(values)
     if k is None:
         return []
-    program = os.path.basename(values[k])
+    program = posixpath.basename(values[k])
     if values[k] in ("for", "select") and values[k + 2:k + 3] == ["in"]:
         return list(range(k + 3, len(values)))
     if values[k] in functions or (re.match(r"^\.{0,2}/|^~/", values[k])
-                                  and os.path.dirname(values[k]) not in SYSTEM_BIN):
+                                  and posixpath.dirname(values[k]) not in SYSTEM_BIN):
         return list(range(k + 1, len(values)))
     if INTERPRETER_NAME.match(program) or program in SHELLS:
         inline = SHELL_SCRIPT_FLAG if program in SHELLS else r"^(-[a-z]*[ep]|--eval|--print)$" \
@@ -589,11 +633,26 @@ def data_words(values, functions):
     return out
 
 
+def functions_in(command):
+    out, last, end = [], 0, None
+    for head in FUNCTION.finditer(command):
+        if head.start() < last:
+            continue
+        if end is None or end.start() < head.end():
+            end = FUNCTION_END.search(command, head.end())
+        if not end:
+            break
+        if end.start() - head.end() <= 4000:
+            out.append((head.group(1), command[head.end():end.start()]))
+            last = end.end()
+    return out
+
+
 def blank_data(command):
     """The command with the words its programs take as data replaced by `'…'`,
     recursing into a shell's `-c` script. Words with a substitution are kept."""
     spans = []
-    functions = {m.group(1) for m in FUNCTION.finditer(command) if not RUNS_ARGS.search(m.group(2))} \
+    functions = {name for name, body in functions_in(command) if not RUNS_ARGS.search(body)} \
         if "()" in command else set()
     for simple in simple_commands(command):
         values = []
@@ -608,7 +667,7 @@ def blank_data(command):
                     and not (j and REDIRECT_ALONE.match(values[j - 1])):
                 spans.append((simple[j][0], simple[j][1], "'…'"))
         k = run_at(values)
-        program = os.path.basename(values[k]) if k is not None else ""
+        program = posixpath.basename(values[k]) if k is not None else ""
         at = next((j + 1 for j in range(k + 1, len(values) - 1) if SHELL_SCRIPT_FLAG.match(values[j])),
                   None) if program in SHELLS else None
         if program == "ssh":
@@ -655,7 +714,7 @@ def feeds_shell(line):
     (`bash <<EOF`, `sudo sh -s`, `ssh host <<EOF`), not data."""
     values = re.split(r"[|;&(]", line)[-1].split()
     k = program_at(values)
-    while k is not None and os.path.basename(values[k]) not in SHELLS | {"ssh"}:
+    while k is not None and posixpath.basename(values[k]) not in SHELLS | {"ssh"}:
         k = inner_at(values, k)
     if k is None:
         return False
@@ -795,7 +854,7 @@ def words(part, env, argv=None):
     profile = next((m.group(2) for m in map(ASSIGNMENT.match, reversed(argv[:k]))
                     if m and m.group(1) == "AWS_PROFILE"), None) or env.get("AWS_PROFILE")
     argv = [] if k is None else argv[k:]
-    if argv and os.path.basename(argv[0]) == "aws" and profile and "--profile" not in argv:
+    if argv and posixpath.basename(argv[0]) == "aws" and profile and "--profile" not in argv:
         argv = argv + ["--profile", profile]
     return argv
 
@@ -804,7 +863,16 @@ def expand(path, env):
     """A path with a leading `~` as the home in `env`, which is the logs'
     user's, never the collector's own."""
     home = env.get("HOME")
-    return home + path[1:] if home and (path == "~" or path.startswith("~/")) else path
+    return home + path[1:] if home and (path == "~" or path.startswith(("~/", "~\\"))) else path
+
+
+def drive_path(path):
+    return re.sub(r"^(?:/mnt)?/([A-Za-z])(?=/|$)", r"\1:", path) if sys.platform == "win32" else path
+
+
+def resolve(folder, path):
+    rules = ntpath if any(re.match(r"^([A-Za-z]:|\\\\)", p) for p in (folder, path)) else posixpath
+    return rules.normpath(rules.join(folder, path))
 
 
 def command_parts(command, cwd, env, scripts):
@@ -835,7 +903,7 @@ def command_parts(command, cwd, env, scripts):
             continue
         if argv[0] == "cd" and len(argv) > 1:
             # PATH_MAX on macOS.
-            there = os.path.abspath(os.path.join(here, expand(argv[1], env)[:1024]))
+            there = resolve(here, drive_path(expand(argv[1], env)[:1024]))
             here = there if len(there) <= 1024 else here
             continue
         add_part(out, argv, here, scripts)
@@ -844,12 +912,28 @@ def command_parts(command, cwd, env, scripts):
 
 def add_part(out, argv, here, scripts):
     """A part, and the command it runs when it is a runner (`uv run …`)."""
-    program = os.path.basename(argv[0])
+    program = program_name(argv[0])
     flag = next((i for i, a in enumerate(argv[1:-1], 1) if SHELL_SCRIPT_FLAG.match(a)), None)
     if program in SHELLS and flag:
         out.append((program + " -c ''", [program, "-c", ""], here, argv[0]))
         scripts.append((argv[flag + 1], here))
         return
+    wrapped = wrapped_script(argv)
+    if wrapped and wrapped[1] != "-":
+        scripts.append((wrapped[1], here, wrapped[0]))
+        return
+    if program == "wsl":
+        i = 1
+        while i < len(argv) and argv[i].partition("=")[0] in WSL_OPTIONS:
+            i += 1 + WSL_OPTIONS[argv[i]] if argv[i] in WSL_OPTIONS else 1
+        if i < len(argv) and argv[i] in ("-e", "--exec"):
+            if i + 1 < len(argv):
+                add_part(out, argv[i + 1:], here, scripts)
+            return
+        rest = argv[i + (argv[i:i + 1] == ["--"]):]
+        if rest and not rest[0].startswith("-"):
+            scripts.append((shlex.join(rest), here))
+            return
     # `eval` runs its words as a script, `su -c` its command as another user.
     script = " ".join(argv[1:]) if program == "eval" else \
         option(argv, "-c", "--command") if program == "su" else None
@@ -891,10 +975,610 @@ def positional(argv, valued=()):
     return out
 
 
+class Unquoted(str):
+    pass
+
+
+PS_PLAIN = re.compile(r"[^\s;|&(){}'\"`$,>@]+")
+PS_REDIRECT = re.compile(r"[1-6*]?>>?(&[12])?")
+PS_ESCAPES = {"n": "\n", "t": "\t", "r": "\r", "0": "\0", "a": "\a", "b": "\b", "f": "\f", "v": "\v"}
+PS_KEYWORDS = {"if", "elseif", "else", "foreach", "for", "while", "do", "until", "switch", "try", "catch",
+               "finally", "trap", "function", "filter", "param", "begin", "process", "end", "return", "throw",
+               "exit", "break", "continue", "data", "class", "enum", "using"}
+PS_VARIABLE = re.compile(r"\$(?:\{([^}]{1,64})\}|((?:env:)?[A-Za-z_]\w{0,63}))")
+PS_HOME_VARIABLES = {"home": "~", "env:home": "~", "env:userprofile": "~", "env:appdata": "~/AppData/Roaming",
+                     "env:localappdata": "~/AppData/Local", "env:temp": "~/AppData/Local/Temp",
+                     "env:tmp": "~/AppData/Local/Temp"}
+CMD_HOME_VARIABLES = {"userprofile": "~", "appdata": "~/AppData/Roaming", "localappdata": "~/AppData/Local",
+                      "temp": "~/AppData/Local/Temp", "tmp": "~/AppData/Local/Temp"}
+PS_VALUED = {"path", "literalpath", "filter", "include", "exclude", "destination", "value", "pattern", "uri",
+             "method", "body", "infile", "outfile", "filepath", "argumentlist", "itemtype", "name", "encoding",
+             "tail", "totalcount", "first", "last", "head", "skip", "depth", "type", "target", "headers"}
+PS_SWITCHES = {"recurse", "force", "raw", "wait", "whatif", "confirm", "passthru", "usebasicparsing", "nonewline",
+               "append", "simplematch", "casesensitive", "quiet", "list", "notmatch", "allmatches", "file",
+               "directory", "hidden", "asbytestream", "nowait", "skipcertificatecheck", "disablekeepalive",
+               "noclobber", "container", "leaf", "parent", "resolve", "relative", "isabsolute", "followsymlink"}
+PS_ALIASES = {**dict.fromkeys(("get-content", "gc", "type", "cat"), "cat"),
+              **dict.fromkeys(("remove-item", "ri", "rm", "del", "erase", "rd", "rmdir"), "rm"),
+              **dict.fromkeys(("copy-item", "cpi", "cp", "copy"), "cp"),
+              **dict.fromkeys(("move-item", "mi", "mv", "move"), "mv"),
+              **dict.fromkeys(("set-content", "sc", "out-file", "tee-object", "tee"), "tee"),
+              **dict.fromkeys(("add-content", "ac"), "append"),
+              **dict.fromkeys(("new-item", "ni"), "new-item"), **dict.fromkeys(("mkdir", "md"), "mkdir"),
+              **dict.fromkeys(("invoke-webrequest", "iwr", "invoke-restmethod", "irm"), "fetch"),
+              **dict.fromkeys(("invoke-expression", "iex"), "iex"),
+              **dict.fromkeys(("start-process", "saps", "start"), "start"),
+              **dict.fromkeys(("set-location", "sl", "cd", "chdir", "push-location", "pushd"), "cd"),
+              **dict.fromkeys(("select-string", "sls"), "grep"),
+              **dict.fromkeys(("get-childitem", "gci", "ls", "dir", "get-item", "gi"), "ls"),
+              **dict.fromkeys(("write-output", "write", "echo", "write-host"), "echo")}
+PS_FETCH_PARAMETERS = {"uri", "method", "outfile", "usebasicparsing", "headers", "body", "infile", "useragent",
+                       "contenttype", "timeoutsec", "websession", "sessionvariable", "maximumredirection",
+                       "usedefaultcredentials"}
+PS_READ_ONLY = {alias: names[0] for names in (
+    ("test-path",), ("resolve-path", "rvpa"), ("get-location", "gl", "pwd"), ("measure-object", "measure"),
+    ("select-object", "select"), ("where-object", "where", "?"), ("foreach-object", "%"),
+    ("sort-object", "sort"), ("out-string",), ("out-null",), ("out-host", "oh"), ("out-default",),
+    ("get-command", "gcm"), ("get-process", "gps", "ps"), ("convertfrom-json",), ("convertto-json",),
+    ("get-date",), ("join-path",), ("split-path",), ("group-object", "group"), ("get-member", "gm"),
+    ("start-sleep", "sleep"), ("write-error",), ("write-warning",), ("write-verbose",), ("write-debug",),
+    ("write-information",), ("get-help", "help"), ("get-filehash",), ("compare-object", "compare"),
+    ("get-unique", "gu"), ("convertfrom-csv",), ("convertto-csv",), ("get-host",), ("get-culture",),
+    ("get-random",), ("get-alias", "gal"), ("get-psdrive", "gdr"), ("get-itemproperty", "gp"),
+    ("get-uptime",), ("format-list", "fl"), ("format-table", "ft"), ("format-wide", "fw"),
+    ("format-custom", "fc"), ("get-variable", "gv"), ("get-service", "gsv"), ("get-computerinfo",),
+    ("get-netipaddress",), ("get-netconnectionprofile",), ("get-itempropertyvalue", "gpv"),
+    ("get-psreadlineoption",), ("get-executionpolicy",)) for alias in names}
+PS_READ_ONLY_CMDLETS = set(PS_READ_ONLY.values())
+PS_DOWNLOAD = re.compile(r"(?i)\.Download(?:String|Data|File)(?:Async)?\(\s*['\"]([^'\"]{1,4096})['\"]")
+PS_UNPROTECT = re.compile(r"(?i)\[(?:System\.)?Security\.Cryptography\.ProtectedData\]::Unprotect\b")
+PS_READ_ALL = re.compile(r"(?i)\[(?:System\.)?IO\.File\]::(?:ReadAll(?:Text|Lines|Bytes)|OpenRead|Copy)"
+                         r"\(\s*['\"]([^'\"]{1,4096})['\"]")
+PS_CAST = re.compile(r"^[\w.\[\], ]{1,64}$")
+PS_ASSIGNMENT = re.compile(r"\$([\w:]{1,64})\s*[-+*/]?=(.*)$", re.S)
+PS_ASSIGNED = re.compile(r"\$([\w:]{1,64})$")
+PS_WRAPPER_SWITCHES = {"-noprofile", "-nop", "-noninteractive", "-noni", "-nologo", "-noexit", "-sta", "-mta",
+                       "-login", "-l", "-mergeerrors"}
+
+
+def program_name(word):
+    name = re.split(r"[\\/]", word)[-1]
+    bare = re.sub(r"(?i)\.(exe|cmd|bat|com|ps1)$", "", name)
+    return bare.lower() if bare != name or "\\" in word else name
+
+
+def wrapped_script(argv):
+    program = program_name(argv[0]) if argv else ""
+    if program == "cmd":
+        at = next((i for i, a in enumerate(argv[1:], 1) if re.match(r"(?i)^//?[ckr]$", a)), None)
+        if at is None:
+            return None
+        script = " ".join(argv[at + 1:])
+        if len(script) > 1 and script[0] == script[-1] == '"':
+            script = script[1:-1]
+        return "cmd", script
+    if program not in ("powershell", "pwsh"):
+        return None
+    i = 1
+    while i < len(argv):
+        word, low = argv[i], argv[i].lower()
+        if low in ("-", "-command", "-c", "-co", "-com", "-comm", "-comma", "-comman") and \
+                (low != "-" or i == len(argv) - 1):
+            rest = argv[i + 1:] if low != "-" else ["-"]
+            return "powershell", " ".join(rest) or "-"
+        if re.match(r"^-(e|ec|en|enc|enco|encod|encode|encoded|encodedc\w*)$", low):
+            try:
+                script = base64.b64decode(argv[i + 1][:COMMAND_MAX * 2], validate=True).decode("utf-16-le")
+            except (IndexError, ValueError):
+                return None
+            return "powershell", script
+        if low in ("-file", "-f"):
+            return None
+        if low in PS_WRAPPER_SWITCHES or re.match(r"^-\w+:", low):
+            i += 1
+        elif word.startswith("-"):
+            i += 2
+        else:
+            return "powershell", " ".join(argv[i:])
+    return None
+
+
+def ps_skip(text, i, close):
+    opening, depth = {")": "(", "}": "{"}[close], 1
+    while i < len(text) and depth:
+        depth += (text[i] == opening) - (text[i] == close)
+        i += 1
+    return i
+
+
+def ps_word(text, i, units, depth):
+    redirect = PS_REDIRECT.match(text, i)
+    if redirect:
+        op = redirect.group().replace("*>", "&>")
+        return {"value": op, "items": [op], "quoted": False, "kind": "redirect", "raw": op, "units": []}, \
+            redirect.end()
+    start, items, current, quoted, kind, inner = i, [], [], False, "word", []
+
+    def nested(at, close):
+        if depth >= 16:
+            return ps_skip(text, at, close)
+        found = []
+        end = ps_block(text, at, close, found, depth + 1)
+        inner.extend(found)
+        units.extend(found)
+        return end
+
+    while i < len(text):
+        c, ahead = text[i], text[i + 1:i + 2]
+        if c in " \t\r\n;|&)}>" or text.startswith(("`\n", "`\r\n"), i):
+            break
+        if c == "'":
+            end = i + 1
+            while True:
+                end = text.find("'", end)
+                if end < 0 or text[end + 1:end + 2] != "'":
+                    break
+                end += 2
+            end = len(text) if end < 0 else end
+            current.append(text[i + 1:end].replace("''", "'"))
+            quoted, i = True, end + 1
+        elif c == '"':
+            i, quoted = i + 1, True
+            while i < len(text) and (text[i] != '"' or text[i:i + 2] == '""'):
+                if text[i] == '"':
+                    current.append('"')
+                    i += 2
+                elif text[i] == "`" and i + 1 < len(text):
+                    current.append(PS_ESCAPES.get(text[i + 1], text[i + 1]))
+                    i += 2
+                elif text.startswith("$(", i):
+                    current.append(SUBSTITUTION)
+                    i = nested(i + 2, ")")
+                else:
+                    current.append(text[i])
+                    i += 1
+            i += 1
+        elif c == "@" and ahead in ("'", '"') and re.match(r"[ \t]*\r?\n", text[i + 2:i + 40]):
+            close = "\n" + ahead + "@"
+            end = text.find(close, i + 2)
+            end = len(text) if end < 0 else end
+            current.append(text[text.find("\n", i) + 1:end])
+            quoted, i = True, end + len(close)
+        elif c == "(" or c in "@$" and ahead == "(":
+            kind = "group" if i == start else kind
+            current.append(SUBSTITUTION if c == "$" else "(…)")
+            i = nested(i + (1 if c == "(" else 2), ")")
+        elif c == "{" or c == "@" and ahead == "{":
+            kind = "block" if i == start else kind
+            current.append("{…}")
+            i = nested(i + (1 if c == "{" else 2), "}")
+        elif c == "$" and ahead == "{":
+            end = text.find("}", i)
+            end = len(text) if end < 0 else end + 1
+            current.append(text[i:end])
+            i = end
+        elif c == "`":
+            current.append(ahead)
+            i += 2
+        elif c == ",":
+            items.append("".join(current))
+            current = []
+            i += 1
+        else:
+            plain = PS_PLAIN.match(text, i)
+            current.append(plain.group() if plain else c)
+            i = plain.end() if plain else i + 1
+    items.append("".join(current))
+    return {"value": ",".join(items), "items": items, "quoted": quoted, "kind": kind, "raw": text[start:i],
+            "units": inner}, i
+
+
+def ps_block(text, i, close, units, depth=0):
+    start, pipeline, element, call = i, [], [], False
+
+    def finish(at, after):
+        nonlocal start, pipeline, element
+        if element:
+            pipeline.append(element)
+        if pipeline and len(units) < 1000:
+            units.append((text[start:at].strip(), pipeline))
+        start, pipeline, element = after, [], []
+
+    while i < len(text):
+        c = text[i]
+        if c in " \t\r":
+            i += 1
+        elif text.startswith(("`\n", "`\r\n"), i):
+            i += 2 + (text[i + 1] == "\r")
+        elif c == "#" or text.startswith("<#", i):
+            end = text.find("#>" if c == "<" else "\n", i + 1)
+            i = len(text) if end < 0 else end + (2 if c == "<" else 0)
+        elif close and c == close:
+            finish(i, i + 1)
+            return i + 1
+        elif c in ")}":
+            finish(i, i + 1)
+            if close:
+                return i + 1
+            i += 1
+        elif c in "\n;" or text.startswith(("&&", "||"), i):
+            step = 2 if c in "&|" else 1
+            finish(i, i + step)
+            i += step
+        elif c == "|":
+            if element:
+                pipeline.append(element)
+            element = []
+            i += 1
+        elif c == "&":
+            rest = text[i + 1:i + 200].lstrip(" \t")
+            if not rest or rest[0] in "\n;":
+                finish(i, i + 1)
+            call = bool(rest)
+            i += 1
+        else:
+            word, i = ps_word(text, i, units, depth)
+            word["call"], call = call, False
+            element.append(word)
+    finish(len(text), len(text))
+    return len(text)
+
+
+def ps_expand(value, env):
+    def variable(match):
+        name = (match.group(1) or match.group(2)).lower()
+        known = PS_HOME_VARIABLES.get(name)
+        return known if known is not None else env.get("ps:" + name, match.group(0))
+    return PS_VARIABLE.sub(variable, value) if "$" in value else value
+
+
+def ps_path(value):
+    value = re.sub(r"(?i)^(Microsoft\.PowerShell\.Core\\)?FileSystem::", "", value).replace("\\", "/")
+    value = re.sub(r"(?i)^//wsl(?:\.localhost|\$)/[^/]+(?=/)", "", value)
+    return re.sub(r"^[A-Za-z]:(?=/|$)", "", value) or "/"
+
+
+def ps_arguments(words):
+    named, rest, i = {}, [], 0
+    while i < len(words):
+        word = words[i]
+        param = re.match(r"^-([A-Za-z][\w-]*)(:)?(.*)$", word["value"], re.S) if not word["quoted"] else None
+        if not param:
+            rest += word["items"]
+            i += 1
+            continue
+        name, after = param.group(1).lower(), words[i + 1] if i + 1 < len(words) else None
+        if param.group(2):
+            named[name] = [param.group(3)] if param.group(3) else after["items"] if after else []
+            i += 1 if param.group(3) else 2
+        elif after is None or (name not in PS_VALUED and any(s.startswith(name) for s in PS_SWITCHES)) or (
+                not after["quoted"] and re.match(r"^-[A-Za-z]", after["value"])):
+            named[name] = []
+            i += 1
+        else:
+            named[name] = after["items"]
+            i += 2
+    return named, rest
+
+
+def ps_flag(named, *names):
+    return any(n.startswith(given) for given in named for n in names)
+
+
+def ps_value(named, *names):
+    return next((named[n] for n in names if named.get(n)), [])
+
+
+def ps_paths(named, rest, *names):
+    return [ps_path(p) for p in ps_value(named, *(names or ("path", "literalpath", "lp"))) + rest if p]
+
+
+def ps_redirects(words, env):
+    kept, out, i = [], [], 0
+    while i < len(words):
+        if words[i]["kind"] != "redirect":
+            kept.append(words[i])
+            i += 1
+            continue
+        out.append(Unquoted(words[i]["value"]))
+        if not words[i]["value"].endswith(("&1", "&2")) and i + 1 < len(words):
+            target = ps_expand(words[i + 1]["value"], env)
+            out.append("/dev/null" if target.lower() == "$null" else ps_path(target))
+            i += 1
+        i += 1
+    return kept, out
+
+
+def ps_cast_end(value):
+    i = 0
+    while value.startswith("[", i):
+        depth, j = 0, i
+        while j < min(len(value), i + 66):
+            depth += (value[j] == "[") - (value[j] == "]")
+            j += 1
+            if not depth:
+                break
+        if depth or not PS_CAST.match(value[i + 1:j - 1]):
+            return None
+        i = j
+    return i
+
+
+def ps_assigned(words, env):
+    first = words[0]
+    if first["kind"] != "word" or not first["raw"].startswith(("$", "[")):
+        return words
+    at = ps_cast_end(first["value"])
+    joined, named = (PS_ASSIGNMENT.match(first["value"], at), PS_ASSIGNED.match(first["value"], at)) \
+        if at is not None else (None, None)
+    if joined:
+        raw = first["raw"].partition("=")[2]
+        rest = ([dict(first, value=joined.group(2), items=[joined.group(2)], raw=raw,
+                      quoted=raw[:1] in "'\"@")] if joined.group(2) else []) + words[1:]
+    elif named and len(words) > 1 and not words[1]["quoted"] and re.match(r"^[-+*/]?=$", words[1]["value"]):
+        joined, rest = named, words[2:]
+    else:
+        return words
+    if len(rest) == 1 and rest[0]["kind"] == "word" and SUBSTITUTION not in rest[0]["value"] and (
+            rest[0]["quoted"] or re.match(r"^[$\d@-]", rest[0]["value"])):
+        env["ps:" + joined.group(1).lower()] = ps_expand(rest[0]["value"], env)
+        return []
+    return rest
+
+
+def ps_command(words, env, units, depth):
+    words = ps_assigned(words, env) if words else words
+    words, redirects = ps_redirects(words, env)
+    downloads = [["curl", m.group(1)] for w in words for m in PS_DOWNLOAD.finditer(w["raw"])]
+    downloads += [["cat", ps_path(ps_expand(m.group(1), env))] for w in words
+                  for m in PS_READ_ALL.finditer(w["raw"])]
+    downloads += [[m.group(0)] for w in words for m in PS_UNPROTECT.finditer(w["raw"])]
+    if not words:
+        return []
+    first = words[0]
+    program = ps_expand(first["value"], env)
+    if first["kind"] != "word" or not program or program[0] in "$[@-0123456789({" \
+            or program.lower() in PS_KEYWORDS or (first["quoted"] and not first["call"]
+                                                  and not re.search(r"(?i)^[^:]*\.(exe|cmd|bat|com)$", program)):
+        return downloads[0] if downloads else []
+    name = program_name(program).lower()
+    alias = None if re.search(r"(?i)\.exe$", program) else PS_ALIASES.get(name)
+    args = words[1:]
+    named, rest = ps_arguments(args)
+    if alias == "fetch" or name in ("curl", "wget") and not program.lower().endswith(".exe") \
+            and any(n in PS_FETCH_PARAMETERS for n in named):
+        url = ps_value(named, "uri") or rest or [""]
+        method = ps_value(named, "method")
+        sent = ps_value(named, "infile")
+        saved = ps_value(named, "outfile")
+        return ["curl"] + (["-X", method[0]] if method else []) + ["-d", "…"] * bool(named.get("body")) \
+            + (["-T", ps_path(ps_expand(sent[0], env))] if sent else []) \
+            + (["-o", ps_path(ps_expand(saved[0], env))] if saved else []) + [ps_expand(url[0], env)] + redirects
+    expanded = {k: [ps_expand(v, env) for v in vs] for k, vs in named.items()}
+    rest = [ps_expand(v, env) for v in rest]
+    argv = None
+    if name in ("curl", "wget"):
+        alias = None
+    if alias == "cat":
+        argv = ["cat"] + ps_paths(expanded, rest)
+    elif alias == "rm":
+        argv = ["rm"] + ["-r"] * ps_flag(named, "recurse") + ["-f"] * ps_flag(named, "force") \
+            + ["-WhatIf"] * ps_flag(named, "whatif") \
+            + [p + ":" + s for p in ps_paths(expanded, rest) for s in ps_value(expanded, "stream")[:1]] \
+            + ps_paths(expanded, rest) * (not ps_value(expanded, "stream"))
+    elif alias in ("cp", "mv"):
+        argv = [alias] + ["-r"] * (alias == "cp" and ps_flag(named, "recurse")) + ps_paths(expanded, rest) \
+            + [ps_path(p) for p in ps_value(expanded, "destination")[:1]]
+    elif alias in ("tee", "append"):
+        paths = [] if named.get("variable") else ps_paths(expanded, rest, "path", "literalpath", "filepath")
+        argv = ["tee"] + ["-a"] * (alias == "append" or ps_flag(named, "append")) + paths[:1]
+    elif alias == "new-item":
+        target = "/".join(ps_paths(expanded, rest)[:1] + ps_value(expanded, "name")) or "."
+        kind = (ps_value(expanded, "itemtype", "type") or ["file"])[0].lower()
+        argv = ["mkdir", "-p", target] if kind == "directory" else \
+            ["ln", "-s"] + [ps_path(p) for p in ps_value(expanded, "value", "target")[:1]] + [target] \
+            if kind in ("symboliclink", "hardlink", "junction") else \
+            ["tee", target] if named.get("value") else ["touch", target]
+    elif alias == "mkdir":
+        argv = ["mkdir", "-p"] + ps_paths(expanded, rest)
+    elif alias == "iex":
+        inner = [u for w in args if w["kind"] == "group" for u in w["units"]][-1:]
+        fetched = [line for _, p in inner for line in [ps_pipeline(p, dict(env), [], depth)]
+                   if line.startswith("curl ")] or [shlex.join(d) for d in downloads if d[0] == "curl"]
+        if fetched:
+            return Unquoted(fetched[0] + " | iex")
+        for w in args:
+            if w["kind"] == "word" and w["quoted"] and depth < 8:
+                units += ps_units(w["value"], env, depth + 1)
+        argv = [] if args else ["iex"]
+    elif alias == "start":
+        target = ps_value(expanded, "filepath") or rest[:1]
+        if not target or re.match(r"^\w+://", target[0]):
+            return []
+        more = ps_value(expanded, "argumentlist", "args") or rest[1:]
+        return ps_command([dict(first, value=target[0], items=target[:1], quoted=False, call=True)]
+                          + [{"value": a, "items": [a], "quoted": True, "kind": "word", "raw": a, "units": [],
+                              "call": False} for a in more], env, units, depth)
+    elif alias == "cd":
+        target = ps_value(expanded, "path", "literalpath") or rest[:1]
+        argv = ["cd", target[0]] if target else []
+    elif alias == "grep":
+        pattern = ps_value(expanded, "pattern")
+        paths = rest if pattern else rest[1:]
+        argv = ["grep"] + ["-q"] * ps_flag(named, "quiet") + ((pattern or rest)[:1] or ["…"]) \
+            + ps_paths(expanded, paths)
+    elif alias == "ls":
+        listed = ps_value(expanded, "path", "literalpath") + rest
+        argv = ["env"] if any(re.match(r"(?i)^env:[\\/]?\*?$", p) for p in listed) else ["ls"]
+    elif alias == "echo":
+        argv = ["echo"] + rest
+    if argv is not None:
+        return argv + redirects if argv else []
+    values = [program] + [ps_expand(w["value"], env) for w in args]
+    wrapped = wrapped_script(values)
+    if wrapped and depth < 8:
+        shell, script = wrapped
+        if script == "-":
+            return ["sh", "-s"]
+        units += (ps_units if shell == "powershell" else cmd_units)(script, env, depth + 1)
+        return []
+    if name in ("powershell", "pwsh"):
+        script = next((v for i, v in enumerate(values[:-1]) if v.lower() in ("-file", "-f")), None)
+        return ["sh", values[values.index(script) + 1].replace("\\", "/")] if script else []
+    if name in PS_READ_ONLY:
+        return [PS_READ_ONLY[name]] + redirects
+    program = program.replace("\\", "/") if re.match(r"^\.{0,2}[\\/]", program) else name
+    return [program] + values[1:] + redirects
+
+
+def ps_pipeline(pipeline, env, units, depth):
+    parts = []
+    for element in pipeline:
+        argv = ps_command(element, env, units, depth)
+        if isinstance(argv, Unquoted):
+            parts.append(argv)
+        elif argv:
+            parts.append(" ".join(a if isinstance(a, Unquoted) else shlex.quote(a) for a in argv))
+    return " | ".join(parts)
+
+
+def ps_units(script, env, depth=0):
+    found, out = [], []
+    ps_block(script[:COMMAND_MAX], 0, None, found, depth)
+    for text, pipeline in found:
+        more = []
+        line = ps_pipeline(pipeline, env, more, depth)
+        out += more
+        if line:
+            out.append((re.sub(r"@(['\"])[ \t]*\r?\n.*?\n\1@", r"@\1…\1@", text, flags=re.S), line))
+    return out[:400]
+
+
+CMD_SEPARATOR = re.compile(r"&&|\|\||[&|\n()]")
+CMD_BUILTINS = {"type": "cat", "del": "rm", "erase": "rm", "rd": "rm", "rmdir": "rm", "copy": "cp",
+                "xcopy": "cp", "move": "mv", "ren": "mv", "rename": "mv", "dir": "ls", "md": "mkdir",
+                "mkdir": "mkdir", "cd": "cd", "chdir": "cd", "pushd": "cd", "findstr": "grep", "echo": "echo"}
+CMD_SWITCH = re.compile(r"^/[A-Za-z?](:\S*)?$")
+CMD_REDIRECT = re.compile(r"(>>?|<)(&\d)?")
+
+
+def cmd_statements(script):
+    out, words, word, quote, start, i = [], [], None, False, 0, 0
+
+    def finish(at):
+        nonlocal words, word
+        if word is not None:
+            words.append(word)
+        if words:
+            out.append((script[start:at].strip(), words))
+        words, word = [], None
+
+    while i < len(script) and len(out) < 400:
+        c = script[i]
+        separator = None if quote else CMD_SEPARATOR.match(script, i)
+        if c == '"':
+            quote, word = not quote, word or ""
+        elif quote:
+            word += c
+        elif c == "^" and i + 1 < len(script):
+            word = (word or "") + script[i + 1]
+            i += 1
+        elif separator and (c != "(" or word is None):
+            finish(i)
+            i = start = separator.end()
+            continue
+        elif c in " \t\r":
+            if word is not None:
+                words.append(word)
+            word = None
+        elif c in "<>":
+            prefix = word if word is not None and re.match(r"^\d$", word) else ""
+            if word is not None and not prefix:
+                words.append(word)
+            redirect = CMD_REDIRECT.match(script, i)
+            words.append(Unquoted(prefix + redirect.group()))
+            word, i = None, i + len(redirect.group())
+            continue
+        else:
+            word = (word or "") + c
+        i += 1
+    finish(len(script))
+    return out
+
+
+def cmd_units(script, env, depth=0):
+    out, listed = [], False
+    for text, words in cmd_statements(script[:COMMAND_MAX]):
+        words = [w if isinstance(w, Unquoted) else re.sub(r"%(\w{1,64})%", lambda m: CMD_HOME_VARIABLES.get(
+            m.group(1).lower(), env.get("cmd:" + m.group(1).lower(), m.group(0))), w) for w in words]
+        if listed or isinstance(words[0], Unquoted):
+            listed = False
+            continue
+        words[0] = words[0].lstrip("@")
+        low = [w.lower() for w in words]
+        if low[0] == "if":
+            k = 1 + (low[1:2] == ["/i"])
+            k += low[k:k + 1] == ["not"]
+            k += 2 if low[k:k + 1] in (["exist"], ["defined"], ["errorlevel"]) else 3 if low[k + 1:k + 2] in (
+                ["=="], ["equ"], ["neq"], ["lss"], ["leq"], ["gtr"], ["geq"]) else 1
+            words, low = words[k:], low[k:]
+        elif low[0] == "for":
+            listed = "do" not in low
+            k = low.index("do") + 1 if "do" in low else len(low)
+            words, low = words[k:], low[k:]
+        while low and low[0] in ("call", "else", "do"):
+            words, low = words[1:], low[1:]
+        if not words or isinstance(words[0], Unquoted) or low[0] in (
+                "rem", "::", "goto", "exit", "setlocal", "endlocal", "cls", "title", "set"):
+            if low and low[0] == "set" and len(words) > 1 and "=" in words[1]:
+                name, _, value = words[1].partition("=")
+                env["cmd:" + name.lower()] = value
+            continue
+        if low[0] == "start":
+            words = [w for i, w in enumerate(words[1:]) if not CMD_SWITCH.match(w) and (i or w)]
+            if not words:
+                continue
+            low = [w.lower() for w in words]
+        builtin = CMD_BUILTINS.get(low[0])
+        switches = {w.lower() for w in words[1:] if CMD_SWITCH.match(w)}
+        redirects, args = [], []
+        for i, w in enumerate(words[1:], 1):
+            if isinstance(w, Unquoted):
+                redirects.append(w)
+            elif isinstance(words[i - 1], Unquoted) and not words[i - 1].endswith(("&1", "&2")):
+                redirects.append("/dev/null" if w.lower() == "nul" else ps_path(w))
+            elif not (builtin and CMD_SWITCH.match(w)):
+                args.append(w)
+        if builtin == "rm":
+            argv = ["rm"] + ["-r"] * ("/s" in switches) + ["-f"] * bool({"/q", "/f"} & switches) \
+                + [ps_path(a) for a in args]
+        elif builtin in ("cat", "cp", "mv", "mkdir"):
+            argv = [builtin] + ["-r"] * (builtin == "cp" and bool({"/s", "/e"} & switches)) \
+                + [ps_path(a) for a in args]
+        elif builtin == "cd":
+            argv = ["cd"] + args[:1]
+        elif builtin == "grep":
+            argv = ["grep", (args or ["…"])[0]] + [ps_path(a) for a in args[1:]]
+        elif builtin in ("ls", "echo"):
+            argv = [builtin] + args * (builtin == "echo")
+        else:
+            wrapped = wrapped_script(words)
+            if wrapped and depth < 8:
+                out += (ps_units if wrapped[0] == "powershell" else cmd_units)(wrapped[1], env, depth + 1)
+                continue
+            argv = [program_name(words[0]).lower()] + args
+        out.append((text, " ".join(a if isinstance(a, Unquoted) else shlex.quote(a) for a in argv + redirects)))
+    return out
+
+
 # --- Masking ---
 
 # A variable, option, header or JSON/YAML key name whose value is secret.
-SECRET_WORD = re.compile(r"(?i)pass|pwd|auth|cred|key|token|secret|cookie|session")
+SECRET_NAME = r"(?:pass|pwd|auth|cred|key|token|secret|cookie|session|(?<![a-z])pat(?![a-z]))"
+SECRET_WORD = re.compile(r"(?i)" + SECRET_NAME)
+
+PIPED_SECRET = (r"(?=\s*(?:&\s*echo\s+[^&|)\n]{1,256})?\)?\s*\|\s*(?:sudo\b[^|;&\n]*\s-S\b"
+                r"|net1?(?:\.exe)?\s+(?:user|use)\b|ConvertTo-SecureString\b))")
 
 # Every repetition is bounded or can't overlap itself, so masking is linear.
 # The last entry must stay last: `masked(long_runs=False)` drops it.
@@ -926,7 +1610,7 @@ MASKS = [
     (re.compile(r"(://)[^/\s:@]{16,256}@"), r"\1••••@"),
     # Passwords given as a client's option.
     (re.compile(r"(\b(?:redis-cli\b[^|;&\n]{0,300}?\s-a|mongo(?:sh)?\b[^|;&\n]{0,300}?\s-p"
-                r"|sqlcmd\b[^|;&\n]{0,300}?\s-P|zip\b[^|;&\n]{0,300}?\s-P"
+                r"|sqlcmd\b[^|;&\n]{0,300}?\s-P|zip\b[^|;&\n]{0,300}?\s-P|psexec(?:64)?\b[^|;&\n]{0,300}?\s-p"
                 r"|(?:docker|podman)\s+login\b[^|;&\n]{0,300}?\s-p)\s+)(?!-)(?:\"[^\"\n]*\"|'[^'\n]*'|\S+)"),
      r"\1••••"),
     (re.compile(r"(\b(?:gh\s+secret\s+set\b[^|;&\n]{0,300}?\s(?:--body|-b)|aws\s+ssm\s+put-parameter\b"
@@ -934,18 +1618,46 @@ MASKS = [
     # Signatures and one-time codes in a URL's query (Azure SAS, presigned URLs, OAuth).
     (re.compile(r"(?i)([?&](?:sig|signature|x-amz-signature|x-goog-signature|code|access_token|refresh_token"
                 r"|id_token|client_secret)=)[^&#\s\"']{1,4096}"), r"\1••••"),
-    # A password piped or fed to `sudo -S`.
-    (re.compile(r"(\b(?:echo|printf)\s+(?:-\w+\s+)?(?:'%s\\n'\s+)?)(?:\"[^\"\n]*\"|'[^'\n]*'|\S+)(?=\s*\|\s*sudo\b[^|;&\n]*\s-S\b)"),
-     r"\1••••"),
-    (re.compile(r"(\bsudo\b[^|;&\n]*\s-S\b[^|;&\n]*<<<\s*)(?:\"[^\"\n]*\"|'[^'\n]*'|\S+)"), r"\1••••"),
+    (re.compile(r"(?i)(\b(?:echo|printf|write-output|write-host)(?:\s+-\w+)*\s+(?:'%s\\n'\s+)?)"
+                r"(?:\"[^\"\n]*\"|'[^'\n]*'|(?=([^\s|&)\"']+))\2)" + PIPED_SECRET), r"\1••••"),
+    (re.compile(r"(?i)(?<![\w$])(?:\"[^\"\n]*\"|'[^'\n]*'|@([\"'])[ \t]*\r?\n(?:(?!\1@)[^\n]{0,1024}\n){1,8}\1@)"
+                + PIPED_SECRET), "••••"),
+    (re.compile(r"(\bsudo\b(?=[^|;&\n]{0,256}?\s-S\b)[^|;&\n<]{0,256}<<<\s*)(?:\"[^\"\n]*\"|'[^'\n]*'|\S+)"), r"\1••••"),
+    (re.compile(r"(?i)(\bwsl(?:\.exe)?\b[^|;&\n]{0,200}?\s(?:-u|--user)(?:\s+|=))(?!root\b)[^\s'\"]{1,64}"), r"\1user"),
     (re.compile(r"(\baws\s+configure\s+set\s+[\w.-]{0,64}(secret|token|key)[\w.-]{0,64}\s+)\S+"), r"\1••••"),
     (re.compile(r"(?i)(--[\w-]{0,40}(pass|pwd|token|secret|key|auth|cred)[\w-]{0,40}(?<!-stdin)(?<!-file)[ =])(\S+)"), r"\1••••"),
+    (re.compile(r"(?i)(\bnet1?(?:\.exe)?\s+)(user|use)\b([^|;&\n]{0,2000})"), lambda m: masked_net(m)),
+    (re.compile(r"(?i)(\bConvertTo-SecureString(?:\s+-(?!String\b)\w+)*\s+(?:-String[:\s]\s*)?)(?![-$(@])"
+                r"(?:\"[^\"\n]*\"|'[^'\n]*'|[^\s)|;]+)"), r"\1••••"),
+    (re.compile(r"(?i)(\bschtasks(?:\.exe)?\b[^|;&\n]{0,1000}?\s/r?p\s+)(?!/)(?:\"[^\"\n]*\"|\S+)"), r"\1••••"),
+    (re.compile(r"(?i)((?<![\w-])-\w{0,40}(?:password|passwd|passin|passout|pwd|secret|token|credential"
+                r"|(?:api|access|secret)key)\w{0,40}(?::|\s+))(?![-$(@])(?:\"[^\"\n]*\"|'[^'\n]*'|[^\s)|;,]+)"),
+     r"\1••••"),
+    (re.compile(r"(?i)(\$env:\w{0,64}" + SECRET_NAME + r"\w{0,64}\s*\+?=\s*"
+                r"|\b(?:set-item|si|new-item|ni)\s+(?:-path\s+)?env:\w{0,64}" + SECRET_NAME + r"\w{0,64}\s+(?:-value\s+)?"
+                r"|\bSetEnvironmentVariable\(\s*['\"]\w{0,64}" + SECRET_NAME + r"\w{0,64}['\"]\s*,\s*)"
+                r"(?:\"[^\"\n]*\"|'[^'\n]*'|[^\s;|)]+)"), r"\1••••"),
     # A variable, a `-var`, or a JSON/YAML key (`"password": "…"`).
     (re.compile(r"((?<![\w-])([\"']?)(?!(?i:(?:proxy-)?authorization)\W)([A-Za-z_][\w-]{0,63})\2\s*[:=]\s*)"
                 r"(?!\$\(|••••|//)(\"[^\"\n]{0,4096}\"|'[^'\n]{0,4096}'|[^\s\"',;}&?#]{1,4096})"),
      lambda m: m.group(1) + "••••" if SECRET_WORD.search(m.group(3)) else m.group(0)),
     (re.compile(r"\b[A-Za-z0-9+/_-]{40,}={0,2}"), lambda m: masked_path(m.group(0))),
 ]
+NET_WORD = re.compile(r"\s+|\"[^\"\n]*\"?|[^\s\"]+")
+
+
+def masked_net(match):
+    out, given, share = [], 0, False
+    for word in NET_WORD.findall(match.group(3)):
+        if not word.isspace() and not word.startswith("/") and word != "*":
+            given += 1
+            if given >= 2 and (match.group(2).lower() == "user" or share):
+                word = "••••"
+            share = share or word.startswith("\\\\")
+        out.append(word)
+    return match.group(1) + match.group(2) + "".join(out)
+
+
 # A path segment that reads as a name; a token's random text rarely does.
 NAME_LIKE = re.compile(r"^[A-Z]?[a-z0-9._-]{0,31}$")
 
@@ -957,7 +1669,49 @@ def masked_path(text):
     return "/".join(p if not p or NAME_LIKE.match(p) else "••••" for p in text.split("/"))
 
 
-OTHER_HOME = re.compile(r"(?<![\w/.-])/(Users|home)/[^/\s'\"]+(?:(?: [^/\s'\"]+){1,3}(?=[/'\"]|$))?")
+NAME_END = r"\[\]:;|&=,+*?<>"
+OTHER_HOME = re.compile(r"(?<![\w/.-])/(Users|home)/(?:[^/\s'\"" + NAME_END + r"()]+(?:[ \t]{1,4}(?!-)[^/\s'\""
+                        + NAME_END + r"()]+){0,9}(?=[/'\"\n()" + NAME_END + r"]|$)|[^/\s'\"]+)")
+ENCODED = r"%(?:25){0,3}"
+PATH_SEP = r"(?:[\\/]|" + ENCODED + r"(?:5[cC]|2[fF]))"
+DRIVE_COLON = r"(?::|" + ENCODED + r"3a|\$)"
+NAME_PART = r"(?:(?!" + ENCODED + r"(?:5[cC]|2[fF]|3[aA]))[^\\/\s'\"" + NAME_END + r"])+"
+UNC = r"(?:(?<![\w:\\/])[\\/]{2,8}(?:\?[\\/]{1,4}UNC[\\/]{1,4})?|\b(?:file|smb):/{2}(?:/{2})?(?!/))"
+WINDOWS_HOME = re.compile(r"(?i)(?<![\w.])(?:(?:[a-z]" + DRIVE_COLON + r"|/mnt/[a-z]|/[a-z]"
+                          r"|" + UNC + r"[^\\/\s'\"]{1,253}[\\/]{1,4}[^\\/\s'\"]{1,80}|(?<![\\/])(?=\\))"
+                          + PATH_SEP + r"+(?:Users|Documents and Settings|DOCUME~\d{1,3})"
+                          r"|" + UNC + r"[^\\/\s'\"]{1,253}[\\/]{1,4}[^\\/\s'\"]{0,40}(?:home|user|profile)[^\\/\s'\"]{0,40})"
+                          + PATH_SEP + r"+(" + NAME_PART + r"(?:[ \t]{1,4}(?!-)" + NAME_PART + r"){0,9}(?=" + PATH_SEP
+                          + r"|['\"\n" + NAME_END + r"]|$)|" + NAME_PART + ")")
+UNC_HOST = re.compile(r"(?i)(" + UNC + r")(?!wsl(?:\.localhost|\$)[\\/]|localhost[\\/]|127\.0\.0\.1[\\/]|[?.~][\\/])"
+                      r"[^\\/\s'\"]{1,253}(?=[\\/])")
+WINDOWS_PATH = re.compile(r"^[A-Za-z]:[\\/]")
+PROFILE_HOMES = []
+WSL_HOME = re.compile(r"(?i)(?:\\{1,8}|(?<![\w.])/{2,3})wsl(?:\.localhost|\$)[\\/]+[^\\/\s'\"]+[\\/]+home[\\/]+"
+                      r"([^\\/\s'\"]+)")
+BARE_WINDOWS_HOME = re.compile(r"(?i)(?<![\w.])[a-z]:Users([^\s'\"]+)")
+
+
+@functools.lru_cache(maxsize=64)
+def home_pattern(home):
+    drive, rest = ntpath.splitdrive(home)
+    parts = [p for p in re.split(r"[\\/]+", rest) if p]
+    if not re.match(r"^[A-Za-z]:$", drive) or not parts:
+        return None
+    letter = drive[0]
+    return re.compile(r"(?i)(?<![\w.])(?:" + letter + DRIVE_COLON + "|/mnt/" + letter + "|/" + letter + ")" + PATH_SEP
+                      + "+" + (PATH_SEP + "+").join(
+                          "(?:" + ("(?: |" + ENCODED + "20)").join(map(re.escape, p.split(" "))) + "|"
+                          + re.escape(re.sub(r"[\s.]", "", p)[:6]) + r"~\d{1,3})" for p in parts)
+                      + r"(?![^\\/\s'\"%" + NAME_END + r"])")
+
+
+def own_name(name, own):
+    for _ in range(4):
+        name = urllib.parse.unquote(name)
+    name = name.lower()
+    short = re.match(r"^(\w{1,6})~\d{1,3}$", name)
+    return name == own or bool(own and short and re.sub(r"[\s.]", "", own)[:6] == short.group(1))
 
 
 def masked(text, home, long_runs=True):
@@ -965,8 +1719,18 @@ def masked(text, home, long_runs=True):
     `~other`. Without `long_runs`, long runs of letters and digits are kept,
     since a resource name can be one."""
     text = text[:TEXT_MAX]
-    if home:
-        text = re.sub(re.escape(home.rstrip("/")) + r"(?![^/\s'\"])", "~", text)
+    if home and WINDOWS_PATH.match(home):
+        text = home_pattern(home).sub("~", text)
+    elif home:
+        text = re.sub(re.escape(home.rstrip("/")) + r"(?![^/\s'\"()" + NAME_END + "])", "~", text)
+    for other in PROFILE_HOMES:
+        pattern = home_pattern(other)
+        text = pattern.sub("~other", text) if pattern else text
+    own = re.split(r"[\\/]", home.rstrip("\\/"))[-1].lower() if home else None
+    text = WINDOWS_HOME.sub(lambda m: "~" if own_name(m.group(1), own) else "~other", text)
+    text = WSL_HOME.sub(lambda m: "~" if m.group(1).lower() == own else "~other", text)
+    text = UNC_HOST.sub(r"\1••••", text)
+    text = BARE_WINDOWS_HOME.sub(lambda m: "~" if own and m.group(1).lower().startswith(own) else "~other", text)
     text = OTHER_HOME.sub("~other", text)
     for pattern, replacement in MASKS if long_runs else MASKS[:-1]:
         text = pattern.sub(replacement, text)
@@ -1010,27 +1774,122 @@ def safe_name(text, home):
 OWNER = {"given": "", "home": "/", "uid": -1}
 
 
-def inside(path):
-    """Whether a path, links followed, is in the home being read."""
+def inside(path, home=None):
+    """Whether a path, links followed, is in the home being read. On Windows a
+    link or share is refused unread: Windows would sign in to its host."""
+    if "\0" in path:
+        return False
+    if sys.platform == "win32":
+        return any(inside_unlinked(path, h) for h in ([home] if home else [OWNER["home"], OWNER["given"]]) if h)
+    home = OWNER["home"] if home is None else home
     try:
-        home, real = OWNER["home"], os.path.realpath(path)
+        home, real = os.path.normcase(home), os.path.normcase(os.path.realpath(path))
     except (OSError, ValueError):
         return False
-    return real == home or real.startswith(home.rstrip("/") + "/")
+    return real == home or real.startswith(home.rstrip(os.sep) + os.sep)
+
+
+def inside_unlinked(path, home):
+    try:
+        home, full = os.path.normcase(os.path.abspath(home)), os.path.normcase(os.path.abspath(path))
+    except (OSError, ValueError):
+        return False
+    if re.match(r"[\\/]{2}", path) or full.startswith("\\\\") or \
+            full != home and not full.startswith(home.rstrip(os.sep) + os.sep):
+        return False
+    at = home
+    for part in full[len(home):].split(os.sep):
+        if part:
+            at = os.path.join(at, part)
+            try:
+                if is_link(os.lstat(at)):
+                    return False
+            except FileNotFoundError:
+                return True
+            except (OSError, ValueError):
+                return False
+    return True
+
+
+def is_folder(path, home=None):
+    return inside(path, home) and os.path.isdir(path) if sys.platform == "win32" else os.path.isdir(path)
+
+
+def is_file(path):
+    return inside(path) and os.path.isfile(path) if sys.platform == "win32" else os.path.isfile(path)
+
+
+def files_under(root, wanted):
+    if sys.platform != "win32":
+        return [os.path.join(folder, n) for folder, _, names in os.walk(root, followlinks=False)
+                for n in names if wanted(n)]
+    found, folders = [], [root]
+    while folders:
+        try:
+            entries = list(os.scandir(folders.pop()))
+        except OSError:
+            continue
+        for entry in entries:
+            try:
+                info = entry.stat(follow_symlinks=False)
+            except OSError:
+                continue
+            if stat.S_ISDIR(info.st_mode) and not is_link(info):
+                folders.append(entry.path)
+            elif wanted(entry.name):
+                found.append(entry.path)
+    return found
+
+
+def is_link(info):
+    return stat.S_ISLNK(info.st_mode) or bool(getattr(info, "st_file_attributes", 0)
+                                              & stat.FILE_ATTRIBUTE_REPARSE_POINT)
+
+
+def open_unlinked(path):
+    """Windows has no O_NOFOLLOW: no link, no junction on the way, and not swapped while opened."""
+    if not inside(path):
+        raise OSError(errno.ELOOP, "a link", path)
+    before = os.lstat(path)
+    if is_link(before):
+        raise OSError(errno.ELOOP, "a link", path)
+    fd = os.open(path, os.O_RDONLY | getattr(os, "O_BINARY", 0))
+    after = os.fstat(fd)
+    opened = final_path(fd)
+    if (after.st_ino, after.st_dev) != (before.st_ino, before.st_dev) or not opened or not any(
+            opened == h or opened.startswith(h.rstrip(os.sep) + os.sep)
+            for h in {os.path.normcase(OWNER["home"]), os.path.normcase(OWNER["given"])} if h):
+        os.close(fd)
+        raise OSError(errno.ELOOP, "replaced while opened", path)
+    return fd
+
+
+def final_path(fd):
+    import ctypes
+    import msvcrt
+
+    kernel = ctypes.WinDLL("kernel32")
+    buffer = ctypes.create_unicode_buffer(32768)
+    size = kernel.GetFinalPathNameByHandleW(ctypes.c_void_p(msvcrt.get_osfhandle(fd)), buffer, 32768, 0)
+    path = buffer.value if 0 < size < 32768 else ""
+    if not path.startswith("\\\\?\\") or path.startswith("\\\\?\\UNC\\"):
+        return None
+    return os.path.normcase(path[4:])
 
 
 def open_owned(path, limit):
     """(text file, stat) for a file of the user's, or None. A file there but
     not theirs, or too big, is counted."""
+    windows = sys.platform == "win32"
     try:
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        fd = open_unlinked(path) if windows else os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     except (FileNotFoundError, NotADirectoryError, ValueError):
         return None
     except OSError:
         ERRORS["files_skipped"] += 1
         return None
     info = os.fstat(fd)
-    if not stat.S_ISREG(info.st_mode) or info.st_uid != OWNER["uid"] or info.st_size > limit:
+    if not stat.S_ISREG(info.st_mode) or (not windows and info.st_uid != OWNER["uid"]) or info.st_size > limit:
         os.close(fd)
         ERRORS["files_skipped"] += 1
         return None
@@ -1063,10 +1922,20 @@ def lines_of(handle, calls=AGENT_TURN):
         yield line
 
 
+def privileged():
+    if sys.platform == "win32":
+        import ctypes
+        try:
+            return bool(ctypes.windll.shell32.IsUserAnAdmin())
+        except (AttributeError, OSError):
+            return False
+    return os.geteuid() == 0
+
+
 @contextlib.contextmanager
 def as_user(uid, gid):
     """Run as this user while reading their files, when running as root."""
-    if os.geteuid() != 0 or uid == 0:
+    if sys.platform == "win32" or os.geteuid() != 0 or uid == 0:
         yield
         return
     groups, egid = os.getgroups(), os.getegid()
@@ -1200,7 +2069,7 @@ def aws_profiles(home):
 
 # --- Code repositories ---
 
-REPO_URL = re.compile(r"(?:https?://|ssh://)?(?:[\w.-]+@)?([\w.-]+\.[a-z]{2,})[:/]([\w.-]+)/([\w.-]+?)"
+REPO_URL = re.compile(r"(?<![\w.-])(?:https?://|ssh://)?(?:[\w.-]{1,256}@)?([\w.-]{1,253}\.[a-z]{2,63})[:/]([\w.-]{1,256})/([\w.-]+?)"
                       r"(?:\.git)?/?$")
 GH_WRITE_VERBS = {"create", "merge", "close", "edit", "comment", "review", "ready", "reopen", "delete",
                   "transfer", "lock", "unlock", "upload", "rename", "archive", "unarchive", "set", "remove",
@@ -1231,15 +2100,15 @@ def git_dirs(folder):
     here = os.path.realpath(folder)
     while inside(here):
         dot = os.path.join(here, ".git")
-        if os.path.isdir(dot) and not os.path.islink(dot):
+        if is_folder(dot) and not os.path.islink(dot):
             return dot, dot
-        if os.path.isfile(dot):
+        if is_file(dot):
             pointer = (read_small(dot) or "").split("gitdir:", 1)
             gitdir = os.path.normpath(os.path.join(here, pointer[1].strip())) if len(pointer) > 1 else None
             if not gitdir or not inside(gitdir):
                 return None
             named = os.path.join(gitdir, "commondir")
-            common = os.path.isfile(named) and read_small(named)
+            common = is_file(named) and read_small(named)
             common = os.path.normpath(os.path.join(gitdir, common.strip())) if common else gitdir
             return (gitdir, common) if inside(common) else None
         parent = os.path.dirname(here)
@@ -1283,7 +2152,7 @@ def git_verb(argv, folder):
     while i < len(argv) and argv[i].startswith("-"):
         if argv[i] in ("-C", "-c") and i + 1 < len(argv):
             if argv[i] == "-C":
-                here = os.path.abspath(os.path.join(here, expand(argv[i + 1], {"HOME": OWNER["given"]})))
+                here = resolve(here, drive_path(expand(argv[i + 1], {"HOME": OWNER["given"]})))
             i += 2
             continue
         i += 1
@@ -1361,7 +2230,7 @@ def remote_deletion(argv, folder):
     return REMOTE_DELETED["protected" if protected else "branch"]
 
 
-def git_touch(argv, folder):
+def git_touch(argv, folder, recorded=""):
     """(repo, "read" | "write") for a git command that reaches a remote."""
     i, here = git_verb(argv, folder)
     if i >= len(argv):
@@ -1374,6 +2243,8 @@ def git_touch(argv, folder):
         repo = next((repo_name(a) for a in rest if repo_name(a)), None)
     else:
         remotes = remotes_of(here)
+        if not remotes and recorded and not inside(here) and repo_name(recorded):
+            remotes = {"origin": repo_name(recorded)}
         repo = remotes.get(rest[0]) if rest and rest[0] in remotes else remotes.get("origin")
         if not repo and rest:
             repo = repo_name(rest[0])
@@ -1540,7 +2411,7 @@ def fetch_url(argv):
     """The URL a fetch reads, "" when it is built at run time, None for a
     `wget` that writes to a file."""
     to_stdout = re.search(r"\s(-\w*O\s?-|--output-document[= ]-)(\s|$)", " ".join(argv))
-    if os.path.basename(argv[0]) == "wget" and not to_stdout:
+    if posixpath.basename(argv[0]) == "wget" and not to_stdout:
         return None
     args = positional(argv[1:], CURL_VALUED | {"-O", "--output-document"})
     args += (option(argv, "-Uri") or "").split()
@@ -1557,14 +2428,14 @@ def piped_run(piece):
     if sub:
         return fetch_url(words(sub.group("fetch"), {}))
     stages = [words(s, {}) for s in split_command(piece)]
-    fetch = next((i for i, argv in enumerate(stages) if argv and os.path.basename(argv[0]) in FETCHERS), None)
+    fetch = next((i for i, argv in enumerate(stages) if argv and posixpath.basename(argv[0]) in FETCHERS), None)
     if fetch is None:
         return None
     url = fetch_url(stages[fetch])
     # An API query's answer piped into python is data, not a script.
     query = any("?" in a for a in positional(stages[fetch][1:], CURL_VALUED))
-    if url is not None and any(argv and PIPED_INTO.match(os.path.basename(argv[0])) and reads_stdin(argv)
-                               and not (query and INTERPRETER_NAME.match(os.path.basename(argv[0])))
+    if url is not None and any(argv and PIPED_INTO.match(posixpath.basename(argv[0])) and reads_stdin(argv)
+                               and not (query and INTERPRETER_NAME.match(posixpath.basename(argv[0])))
                                for argv in stages[fetch + 1:]):
         return url
     return None
@@ -1573,7 +2444,7 @@ def piped_run(piece):
 def reads_stdin(argv):
     """Whether a shell or interpreter runs what it reads on standard input:
     given no script, `-c`, `-m`, `-e` or input of its own; `-s` and `-` say so."""
-    shell = re.match(r"^((ba|z|da|k|fi)?sh)$", os.path.basename(argv[0]))
+    shell = re.match(r"^((ba|z|da|k|fi)?sh)$", posixpath.basename(argv[0]))
     # Its input is a file or a heredoc (`curl … | python3 - <<EOF`), not the pipe.
     if any(re.match(r"^\d*<(?!\()", a) for a in argv[1:]):
         return False
@@ -1690,7 +2561,8 @@ MORE_SECRET_NAMES = {".bash_history", ".zsh_history", ".history", ".sh_history",
                      ".psql_history", ".python_history", ".node_repl_history", ".vault-token", ".pgpass",
                      ".my.cnf", "terraform.tfstate", "shadow", "gshadow", "sudoers"}
 MORE_SECRET_EXTENSIONS = {"tfvars", "tfstate"}
-MORE_SECRET_HOME = (".azure", ".oci", ".gnupg", ".config/gcloud")
+MORE_SECRET_HOME = (".azure", ".oci", ".gnupg", ".config/gcloud", ".wrangler/config", ".config/.wrangler/config",
+                    "Library/Preferences/.wrangler/config")
 # Files under a credentials folder that hold none.
 NOT_SECRET = {"known_hosts", "known_hosts.old", "authorized_keys", "config", "environment", "go.env",
               "gpg.conf", "gpg-agent.conf", "dirmngr.conf", "scdaemon.conf", "common.conf"}
@@ -1705,6 +2577,19 @@ KEY_JSON = re.compile(r"^(credentials|client_secrets?[\w.-]*|service[_-]?account
 # Code and docs named for credentials (credentials-cli.test.ts) hold none.
 SOURCE_EXTENSIONS = {"py", "js", "jsx", "ts", "tsx", "mjs", "cjs", "go", "rs", "java", "kt", "rb", "php",
                      "cs", "swift", "c", "h", "cc", "cpp", "md", "mdx", "html", "css", "snap"}
+WINDOWS_SECRETS = [(re.compile(p, re.I), name) for p, name in (
+    (r"^AppData/Roaming/gcloud(/|$)", "~/AppData/Roaming/gcloud"),
+    (r"^AppData/Roaming/GitHub CLI/hosts\.yml$", "~/AppData/Roaming/GitHub CLI/hosts.yml"),
+    (r"^AppData/Roaming/npm/etc/npmrc$", "~/AppData/Roaming/npm/etc/npmrc"),
+    (r"^AppData/Roaming/xdg\.config/\.wrangler/config(/|$)", "~/AppData/Roaming/xdg.config/.wrangler/config"),
+    (r"^AppData/(Local|Roaming)/Microsoft/Credentials(/|$)", r"~/AppData/\1/Microsoft/Credentials"),
+    (r"^AppData/Roaming/Microsoft/Protect(/|$)", "~/AppData/Roaming/Microsoft/Protect"),
+    (r"^AppData/Roaming/Microsoft/Windows/PowerShell/PSReadLine/ConsoleHost_history\.txt$",
+     "ConsoleHost_history.txt"),
+    (r"^AppData/Local/(Google/Chrome|Microsoft/Edge)/User Data/([^/]+/(Login Data|Cookies|Network/Cookies)"
+     r"|Local State)$", r"~/AppData/Local/\1/User Data/\2"),
+    (r"^AppData/Roaming/Mozilla/Firefox/Profiles/[^/]+/(logins\.json|key4\.db|cookies\.sqlite)$",
+     r"~/AppData/Roaming/Mozilla/Firefox/Profiles/*/\1"))]
 SECRET_EXT_PATTERNS = [re.compile(p) for p in SECRETS["extension_patterns"]]
 SECRET_NAME_PATTERNS = [re.compile(p) for p in SECRETS["basename_patterns"]]
 
@@ -1717,15 +2602,21 @@ def secret_file(path, home, whole=True):
     # Not a file: a URL, a query, a key=value argument, a JSON body.
     if "://" in path or "?" in path or "&" in path \
             or (re.match(r"^[\w.-]+=", path) and "/" not in path.split("=")[0]) \
-            or re.search(r"[\s{}\"'<>|;]", path):
+            or re.search(r"[{}\"'<>|;]", path):
         return None
-    if re.match(r"^[A-Za-z]:/", path):
-        path = path[2:]
+    path, home = ps_path(path), ps_path(home)
     full = home + path[1:] if path.startswith("~") else path
-    base = os.path.basename(full)
-    relative = os.path.relpath(full, home) if full.startswith(home + os.sep) else None
+    base = posixpath.basename(full)
+    relative = posixpath.relpath(full, home) if full.startswith(home + "/") else None
     if relative in SECRETS["home_paths"]:
         return "~/" + relative
+    profile = relative or (re.match(r"(?i)^/Users/[^/]+/(.+)$", full) or [None, None])[1]
+    for pattern, name in WINDOWS_SECRETS if profile else ():
+        found = pattern.match(profile)
+        if found:
+            return re.sub(r"/[^/]+/(Login Data|Cookies|Network/Cookies)$", r"/*/\1", found.expand(name))
+    if re.search(r"\s", relative if relative is not None else profile or path):
+        return None
     if not base or base in NOT_SECRET or base.endswith((".pub", "_known_hosts")) or "/.ssh/config.d/" in full:
         return None
     if base in SECRETS["basenames"] or base in MORE_SECRET_NAMES:
@@ -1812,9 +2703,9 @@ def secret_read(argv, home, folder="/"):
     # A coding agent's settings count only when shown, not copied (a backup).
     whole = program in WHOLE_FILE and program != "cp"
     known = folder not in ("/", "") and program not in ("find", "fd", "locate")
-    candidates = [os.path.normpath(os.path.join(folder, a)) if known and not a.startswith(("/", "~", "-", "<"))
-                  and not re.match(r"^[A-Za-z]:\\", a) else a
-                  for a in args if known or "/" in a or re.match(r"^[A-Za-z]:\\", a) or a.startswith(".")
+    candidates = [resolve(folder, a) if known and not a.startswith(("/", "~", "-", "<", "\\"))
+                  and not re.match(r"^[A-Za-z]:[\\/]", a) else a
+                  for a in args if known or "/" in a or re.match(r"^[A-Za-z]:[\\/]", a) or a.startswith(".")
                   or program in ("find", "fd", "locate")]
     # Terraform variables count only when read whole; an env file sourced
     # sets variables, it shows none.
@@ -1832,14 +2723,15 @@ def secret_rule(secret, path, home):
     """(finding, what) for reading a secret file: personal credentials (in a
     home's dot folders, High), shell history, a coding agent's settings, or a
     project's secrets (.env files wherever they are)."""
-    path = re.sub(r"^[A-Za-z]:", "", path.lstrip("@").replace("\\", "/"))
+    path, home = ps_path(path.lstrip("@")), ps_path(home)
     full = home + path[1:] if path.startswith("~") else path
-    if HISTORY.match(secret):
+    if HISTORY.match(secret) or secret == "ConsoleHost_history.txt":
         kind, severity = "shell-history", "medium"
     elif secret in SECRETS["coding_cli_paths"] and not re.search(r"(?i)auth|cred|token|secret|key", secret):
         # A coding agent's settings may hold a token, but mostly settings.
         kind, severity = "agent-settings", "low"
-    elif (PERSONAL.match(full) or full.startswith(home.rstrip("/") + "/.")) \
+    elif (PERSONAL.match(full) or full.startswith(home.rstrip("/") + "/.")
+          or secret.startswith(("~/AppData/", "~/Library/Preferences/.wrangler/"))) \
             and not secret.startswith((".env", "*.env")):
         kind, severity = "personal-credentials", "high"
     else:
@@ -1882,7 +2774,7 @@ def hidden_kind(argv, text, path):
         if program in ("python", "python3") and rest[:1] == ["-m"]:
             return "builds_tests" if rest[1:2] in (["pytest"], ["unittest"]) else "scripts"
         return "scripts" if positional(rest) else None
-    if re.match(r"^\.{0,2}/", path) and os.path.dirname(path) not in SYSTEM_BIN \
+    if re.match(r"^\.{0,2}/", path) and posixpath.dirname(path) not in SYSTEM_BIN \
             and not program.endswith("gradlew"):
         return "scripts"
     if program in ("npm", "pnpm", "yarn", "bun"):
@@ -1916,14 +2808,12 @@ def hidden_kind(argv, text, path):
 def session_logs(home):
     """The session logs under ~/.claude/projects, without following links."""
     root = os.path.join(home, ".claude", "projects")
-    if not os.path.isdir(root):
-        return []
     if not inside(root):
         ERRORS["files_skipped"] += 1
         return []
-    found = []
-    for folder, _, names in os.walk(root, followlinks=False):
-        found += [os.path.join(folder, n) for n in names if n.endswith(".jsonl")]
+    if not os.path.isdir(root):
+        return []
+    found = files_under(root, lambda n: n.endswith(".jsonl"))
     return sorted(found, key=lambda p: pathlib.PurePath(p).parts)
 
 
@@ -2004,7 +2894,8 @@ def read_user(home, days, fmt):
                                 if name in ("Bash", "PowerShell", "Monitor") and args.get("command"):
                                     command = str(args["command"])[:COMMAND_MAX]
                                     cwd = str(entry.get("cwd") or "")[:TEXT_MAX]
-                                    calls.append((stamp, command, cwd, session + "\n" + use, session))
+                                    calls.append((stamp, command, cwd, session + "\n" + use, session,
+                                                  "powershell" if name == "PowerShell" else ""))
                                     one["shell_commands"] += 1
                                     if re.search(r"(^|[;&|(\s`])aws\s", command):
                                         aws_ids.add(session + "\n" + use)
@@ -2050,32 +2941,59 @@ def codex_logs(home):
     found = []
     for name in ("sessions", "archived_sessions"):
         root = os.path.join(home, ".codex", name)
-        if not os.path.isdir(root):
-            continue
         if not inside(root):
             ERRORS["files_skipped"] += 1
             continue
-        for folder, _, names in os.walk(root, followlinks=False):
-            found += [os.path.join(folder, n) for n in names if n.startswith("rollout-") and n.endswith(".jsonl")]
+        if not os.path.isdir(root):
+            continue
+        found += files_under(root, lambda n: n.startswith("rollout-") and n.endswith(".jsonl"))
     return sorted(found, key=lambda p: pathlib.PurePath(p).parts)
 
 
+def codex_words(command):
+    if isinstance(command, str) and command.lstrip().startswith("["):
+        try:
+            words = json.loads(command)
+        except (ValueError, RecursionError):
+            return command
+        return words if isinstance(words, list) and words and all(isinstance(w, str) for w in words) else command
+    return command
+
+
 def codex_script(command):
-    """A Codex shell call's command line: the script given to a shell with -c, else its words joined.
-    None when it isn't one; "" when it applied a patch."""
+    """A Codex shell call's command line: the script given to a shell with -c, or to PowerShell or
+    cmd, else its words joined. None when it isn't one; "" when it applied a patch."""
+    command = codex_words(command)
     if isinstance(command, str):
         script = command
     elif isinstance(command, list) and command and all(isinstance(w, str) for w in command):
-        if os.path.basename(command[0]) in ("apply_patch", "applypatch"):
+        if posixpath.basename(command[0]) in ("apply_patch", "applypatch"):
             return ""
-        if len(command) == 3 and os.path.basename(command[0]) in SHELLS and SHELL_SCRIPT_FLAG.match(command[1]):
+        wrapped = wrapped_script(command)
+        if len(command) == 3 and posixpath.basename(command[0]) in SHELLS and SHELL_SCRIPT_FLAG.match(command[1]):
             script = command[2]
+        elif wrapped and wrapped[1] != "-":
+            script = wrapped[1]
         else:
             script = " ".join(shlex.quote(w) for w in command[:4096])
     else:
         return None
     script = script[:COMMAND_MAX]
     return "" if PATCH_RUN.match(script) else script
+
+
+def codex_shell(command, named, folder):
+    command = codex_words(command)
+    if isinstance(command, list):
+        wrapped = wrapped_script(command) if all(isinstance(w, str) for w in command) else None
+        return wrapped[0] if wrapped and wrapped[1] != "-" else ""
+    if isinstance(command, str) and re.match(r"""(?i)^\s*["']?([^"'\s]*[\\/])?(powershell|pwsh|cmd)(\.exe)?["']?\s""",
+                                             command):
+        return "powershell"
+    if isinstance(named, str) and named:
+        name = program_name(named).lower()
+        return "powershell" if name in ("powershell", "pwsh") else "cmd" if name == "cmd" else ""
+    return "powershell" if re.match(r"^([A-Za-z]:[\\/]|\\\\|//)", folder or "") else ""
 
 
 def codex_folder(path):
@@ -2170,7 +3088,8 @@ def codex_event(kind, payload):
     if name in CODEX_SHELLS:
         if isinstance(args, dict):
             return "command", 2, use, {"command": args.get("command", args.get("cmd")),
-                                       "cwd": args.get("workdir", args.get("working_directory"))}
+                                       "cwd": args.get("workdir", args.get("working_directory")),
+                                       "shell": args.get("shell")}
         return "command", 2, use, {"command": args if isinstance(args, str) else None}
     if space.startswith("mcp__"):
         return "mcp", 2, use, {"server": space[5:].strip("_"), "tool": name, "args": args}
@@ -2240,8 +3159,8 @@ def code_mode(events):
             continue
         commands = [JS_ESCAPE.sub(js_escape, m.group(1)[1:-1]) for m in CODE_MODE_COMMAND.finditer(script)]
         for i, command in enumerate(commands):
-            out.append(("command", 2, f"{use}#{i}", {"command": command, "script": codex_script(command)},
-                        stamp, folder))
+            out.append(("command", 2, f"{use}#{i}", {"command": command, "script": codex_script(command),
+                                                     "shell": codex_shell(command, None, folder)}, stamp, folder))
         if not commands:
             ERRORS["calls_skipped"] += 1
             out.append(("tool", 2, use, {"name": "exec"}, stamp, folder))
@@ -2261,7 +3180,8 @@ def read_codex(home, days, fmt):
             continue
         handle, info = opened
         events, aws_calls, answers, at = [], set(), {}, 0
-        meta = {"session": "", "own": "", "version": "", "repo": "", "folder": "", "read": False, "fork": None}
+        meta = {"session": "", "own": "", "version": "", "repo": "", "folder": "", "read": False, "fork": None,
+                "shell": None}
         with handle:
             if info.st_mtime < since:
                 continue
@@ -2306,6 +3226,7 @@ def read_codex(home, days, fmt):
                         meta["fork"] = None
                         if kind == "turn_context":
                             meta["folder"] = codex_folder(payload.get("cwd")) or meta["folder"]
+                            meta["shell"] = payload.get("shell") or meta["shell"]
                             continue
                         use = payload.get("call_id")
                         if payload.get("type") in ("function_call_output", "custom_tool_call_output") \
@@ -2319,12 +3240,14 @@ def read_codex(home, days, fmt):
                         # An entry without an id is keyed by its place in its thread's log, so the
                         # same rollout in sessions/ and archived_sessions/ counts once.
                         use = use[:256] if isinstance(use, str) and use else f"{meta['own'] or path}#{at}"
+                        folder = codex_folder(details.get("cwd")) or meta["folder"]
                         if action == "command":
                             details["script"] = codex_script(details.get("command"))
+                            details["shell"] = codex_shell(details.get("command"),
+                                                           details.get("shell") or meta["shell"], folder)
                             if rank == 2 and details["script"] and AWS_RUN.search(details["script"]):
                                 aws_calls.add(use)
-                        events.append((action, rank, use, details, stamp, codex_folder(details.get("cwd"))
-                                       or meta["folder"]))
+                        events.append((action, rank, use, details, stamp, folder))
                     except Exception:
                         ERRORS["calls_skipped"] += 1
             except OSError:
@@ -2361,7 +3284,7 @@ def read_codex(home, days, fmt):
                 tool = "apply_patch"
             elif action == "command" and details["script"]:
                 script, at = details["script"], "codex:" + use
-                calls.append((stamp, script, folder, at, session))
+                calls.append((stamp, script, folder, at, session, details["shell"]))
                 one["shell_commands"] += 1
                 if AWS_RUN.search(script):
                     outputs[at] = answers.get(use) or accounts_in(codex_output(details.get("output")))
@@ -2448,8 +3371,10 @@ class Facts:
         `session` and `use` are those of what is being read; `marks` has each
         session's events: session -> [severities, change groups]."""
         self.user, self.home, self.profiles, self.outputs = user, home, profiles or {}, outputs or {}
+        self.recorded = {}
         self.session = self.use = None
         self.stamp = ""
+        self.shown = None
         self.marks = {}
         # session -> {"findings": [...], "shown": Counter, "changes": Counter, "other_code": Counter, ...}
         self.by_session = {}
@@ -2464,13 +3389,13 @@ class Facts:
         the user's own when their agents changed it."""
         own = {name for name, e in self.resources["repositories"].items()
                if e["changes"] and self.user in e["users"]}
-        for rule, text, at, session, stamp in self.fetched:
+        for rule, text, at, session, stamp, shown in self.fetched:
             self.session, self.stamp = session, stamp
             tier = source_tier(rule["url"], text, rule["folder"], own)
-            self.find(FETCHED[rule["id"]][tier], rule["id"], text, None, at)
+            self.find(FETCHED[rule["id"]][tier], rule["id"], text, None, at, shown)
         self.fetched = []
 
-    def find(self, rule, what, text, counted=None, at=0):
+    def find(self, rule, what, text, counted=None, at=0, shown=None):
         """Count a finding; with `counted`, at most once per command."""
         # Some IDs hold a word of the command.
         key = (rule["source"], plain_name(rule["id"], " "))
@@ -2480,8 +3405,11 @@ class Facts:
             counted.add(key)
         if "url" in rule:
             # Ranked once the user's repositories are known.
-            self.fetched.append((rule, text, at, self.session, self.stamp))
+            self.fetched.append((rule, text, at, self.session, self.stamp, self.shown))
             return
+        shown = shown or self.shown
+        if shown:
+            text, at = shown, 0
         if key not in self.findings:
             self.findings[key] = {"source": rule["source"], "id": key[1], "tactic": rule["tactic"],
                                   "severity": rule["severity"], "local": bool(rule.get("local")),
@@ -2572,6 +3500,7 @@ def near(text, start):
 SYSTEM_FOLDERS = {"/etc", "/usr", "/var", "/bin", "/sbin", "/lib", "/lib64", "/boot", "/opt", "/srv", "/System",
                   "/Library", "/Applications", "/private", "/private/etc", "/private/var", "/usr/bin",
                   "/usr/lib", "/usr/local", "/usr/sbin", "/var/lib"}
+WINDOWS_SYSTEM_FOLDER = re.compile(r"(?i)^(/mnt)?(/[a-z])?/(windows(/system32)?|program files( \(x86\))?|programdata)$")
 
 
 def wiped(argv, folder, home):
@@ -2581,18 +3510,20 @@ def wiped(argv, folder, home):
         return None
     severity = None
     for target in positional(argv[1:]):
+        target = ps_path(target) if re.match(r"^[A-Za-z]:([\\/]|$)", target) else target
         # `dir/*` counts as the folder.
         bare = "." if target == "*" else target[:-2] or "/" if target.endswith("/*") else target
         bare = bare.rstrip("/") or "/"
         # A relative one, where the folder is known (`cd ~ && rm -rf .`).
         known = folder != "/" and bare.startswith(".")
-        full = os.path.normpath(os.path.join(folder, bare)) if known else bare
-        if full in ("/", "~", "/root", "/var/root") or os.path.normpath(full) == os.path.normpath(home) \
+        full = resolve(folder, bare) if known else bare
+        if full in ("/", "~", "/root", "/var/root") or resolve(full, "") == resolve(home, "") \
                 or re.match(r"^/(Users|home)/[^/]+$", full):
             return "high"
-        if os.path.normpath(full) in SYSTEM_FOLDERS:
+        system = posixpath.normpath(ps_path(full))
+        if system in SYSTEM_FOLDERS or WINDOWS_SYSTEM_FOLDER.match(system):
             severity = "system"
-        if bare == ".." or (bare == "." and inside(folder) and os.path.isdir(os.path.join(folder, ".git"))):
+        if bare == ".." or (bare == "." and inside(folder) and is_folder(os.path.join(folder, ".git"))):
             severity = severity or "medium"
     return severity
 
@@ -2601,10 +3532,13 @@ VISIBLE_CHANGES = (("code", ("repositories", "registries")), ("cloud", ("aws", "
                    ("web", ("web",)))
 
 
-def scan_command(facts, raw, cwd):
+def scan_command(facts, raw, cwd, shell=""):
     kinds, counted = set(), set()
     facts.command_changes = set()
-    scan_text(facts, runnable(raw), cwd, {"HOME": facts.home}, kinds, counted)
+    if shell:
+        scan_script(facts, raw, cwd, {"HOME": facts.home}, kinds, counted, shell)
+    else:
+        scan_text(facts, runnable(raw), cwd, {"HOME": facts.home}, kinds, counted)
     changed = next((name for name, of in VISIBLE_CHANGES if facts.command_changes & set(of)), None)
     if changed and not kinds:
         facts.visible_changes[changed] += 1
@@ -2700,9 +3634,9 @@ def scan_text(facts, command, here, env, kinds, counted, depth=0):
         parts, here = command_parts(piece, here, env, scripts)
         # A segment that runs a script is read through the script; one run
         # by ssh leaves the segment's own rules (`tar … | ssh h 'tar x'`).
-        piece_found = any(folder is not None for _, folder in scripts)
+        piece_found = any(folder is not None for _, folder, *_ in scripts)
         # Output piped into a shell runs (`echo <base64> | base64 -d | sh`).
-        fed = any(PIPED_INTO.match(os.path.basename(a[0])) and reads_stdin(a) for _, a, _, _ in parts)
+        fed = any(PIPED_INTO.match(posixpath.basename(a[0])) and reads_stdin(a) for _, a, _, _ in parts)
         url = piped_run(piece[:4096])
         if url is not None:
             rule = {"source": "own", "id": "download-run", "url": url, "folder": start}
@@ -2713,7 +3647,8 @@ def scan_text(facts, command, here, env, kinds, counted, depth=0):
                 piece_found = True
                 continue
             found = scan_part(facts, text, argv, folder, path, fed)
-            if found and found[0]["id"] in CAPTURABLE and captured(piece, argv[0]):
+            if found and found[0]["id"] in CAPTURABLE and (
+                    captured(piece, argv[0]) or re.match(r"^\$[\w:]{1,64}\s*=", facts.shown or "")):
                 found = CAPTURABLE[found[0]["id"]] and (CAPTURABLE[found[0]["id"]],) + tuple(found[1:])
             if found:
                 facts.find(found[0], found[1], text, counted, *found[2:])
@@ -2728,8 +3663,21 @@ def scan_text(facts, command, here, env, kinds, counted, depth=0):
             rule, match = segment_rule(piece)
             if rule and not all(read_only(split_part(c) or ["?"]) for c in split_command(piece)):
                 facts.find(rule, rule["id"], piece, counted, match.start())
-        for script, folder in scripts if depth < 8 else []:
-            scan_text(facts, uncommented(script), folder or "/", dict(env), kinds, counted, depth + 1)
+        for script, folder, *shell in scripts if depth < 8 else []:
+            if shell:
+                scan_script(facts, script, folder, dict(env), kinds, counted, shell[0], depth + 1)
+            else:
+                scan_text(facts, uncommented(script), folder or "/", dict(env), kinds, counted, depth + 1)
+    return here
+
+
+def scan_script(facts, script, here, env, kinds, counted, shell, depth=0):
+    shown = facts.shown
+    for statement, command in (ps_units if shell == "powershell" else cmd_units)(script, env, depth):
+        facts.shown = statement
+        here = scan_text(facts, runnable(command), here, env, kinds, counted, depth)
+    facts.shown = shown
+    return here
 
 
 @functools.lru_cache(maxsize=1024)
@@ -2746,7 +3694,7 @@ def read_only(argv):
     program. They can print a secret file, which secret_read checks."""
     program, args = argv[0], argv[1:]
     unsafe = READ_ONLY["unsafe_options"].get(program, [])
-    if program not in READ_ONLY["programs"] or any(
+    if program not in READ_ONLY["programs"] and program not in PS_READ_ONLY_CMDLETS or any(
             a in unsafe or a.startswith(tuple(o + "=" for o in unsafe if o.startswith("--"))) for a in args):
         return False
     if program == "base64" and any(a.startswith("-o") for a in args):
@@ -2768,7 +3716,7 @@ def sigma_rule(path, argv):
             if not REDIRECT.match(a) and not (i and REDIRECT_ALONE.match(argv[i]))]
     subject = (image + "\t" + " ".join([path] + args))[:4096]
     low = subject.lower()
-    rules = sigma_rules(os.path.basename(image).lower(), SIGMA_SCREEN.search(low) is not None)
+    rules = sigma_rules(posixpath.basename(image).lower(), SIGMA_SCREEN.search(low) is not None)
     return next((r for r in rules if (not r["keys"] or any(k in low for k in r["keys"]))
                  and r["pattern"].match(subject)), None)
 
@@ -2819,7 +3767,7 @@ def scan_part(facts, text, argv, folder, path=None, fed=False):
         if rule:
             found = (rule, rule["action"])
     elif program == "git":
-        touched = git_touch(argv, folder)
+        touched = git_touch(argv, folder, facts.recorded.get(facts.session, ""))
         if touched:
             facts.touch("repositories", touched[0], touched[1])
         rule = force_push(argv, folder) or remote_deletion(argv, folder)
@@ -2846,7 +3794,7 @@ def scan_part(facts, text, argv, folder, path=None, fed=False):
         # leave; a form upload to an API (a speed test, an attachment) is a change to that host.
         whole = re.search(r"(^|\s)(-T|--upload-file|--post-file)([ =]|$)", text)
         if host and (whole or DROP_SITES.search(host)):
-            sent = whole or re.search(r"\S*@\S+", text)
+            sent = whole or re.search(r"(?<!\S)\S*@\S+", text)
             found = ({"source": "own", "id": "file-uploaded", "tactic": "Exfiltration",
                       "severity": "high" if DROP_SITES.search(host) else "medium"}, "file upload to " + host,
                      sent.start() if sent else 0)
@@ -2908,6 +3856,7 @@ def collect_user(facts, home, days, number=1):
     days_active |= more[6]
     per.update(more[7])
     facts.start_user(user, home, profiles, outputs)
+    facts.recorded = {s: one["repo"] for s, one in per.items() if one.get("repo")}
     facts.days_active |= days_active
     by_agent = collections.Counter(per.get(s, {}).get("agent", "claude-code") for s in sessions)
     stats = {"name": user, "sessions": len(sessions), "shell_commands": len(calls),
@@ -2915,11 +3864,11 @@ def collect_user(facts, home, days, number=1):
     if by_agent["codex"]:
         stats["sessions_by_agent"] = dict(sorted(by_agent.items()))
 
-    for stamp, raw, cwd, use, session in calls:
+    for stamp, raw, cwd, use, session, shell in calls:
         facts.commands += 1
         facts.session, facts.use, facts.stamp = session, use, stamp
         try:
-            scan_command(facts, raw, cwd)
+            scan_command(facts, raw, cwd, shell)
         except Exception:
             ERRORS["calls_skipped"] += 1
 
@@ -3002,7 +3951,7 @@ def fail(message, code=2):
 
 
 def has_logs(home):
-    return any(os.path.isdir(os.path.join(home, *p)) for p in (
+    return any(is_folder(os.path.join(home, *p), home) for p in (
         (".claude", "projects"), (".codex", "sessions"), (".codex", "archived_sessions")))
 
 
@@ -3010,8 +3959,6 @@ def homes_to_read(given):
     """(home, uid, gid) for each home to read. As root, every real account whose
     home it owns and holds ~/.claude/projects or ~/.codex/sessions; HOME,
     CLAUDE_CONFIG_DIR and CODEX_HOME are not used."""
-    import pwd  # not on Windows, where main() stops first
-
     if given:
         out = []
         for home in given:
@@ -3026,7 +3973,11 @@ def homes_to_read(given):
                       file=sys.stderr)
             out.append((home, info.st_uid, info.st_gid))
         return out
-    if os.geteuid() != 0:
+    if sys.platform == "win32":
+        return windows_profiles() if privileged() else [(os.path.expanduser("~"), 0, 0)]
+    import pwd
+
+    if not privileged():
         # A uid with no account (a container's `-u 1000`) still has a HOME.
         try:
             return [(pwd.getpwuid(os.getuid()).pw_dir, os.getuid(), os.getgid())]
@@ -3049,19 +4000,67 @@ def homes_to_read(given):
     return found
 
 
+PROFILES = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
+
+
+def profile_paths():
+    import winreg
+
+    homes = []
+    with contextlib.suppress(OSError), winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, PROFILES) as profiles:
+        for i in range(winreg.QueryInfoKey(profiles)[0]):
+            sid = winreg.EnumKey(profiles, i)
+            if not sid.startswith("S-1-5-21-"):
+                continue
+            with contextlib.suppress(OSError), winreg.OpenKey(profiles, sid) as profile:
+                path = winreg.QueryValueEx(profile, "ProfileImagePath")[0]
+                homes.append(os.path.abspath(os.path.expandvars(path)))
+    return homes
+
+
+def windows_profiles():
+    found, seen = [], set()
+    for home in sorted(profile_paths(), key=os.path.normcase):
+        if os.path.normcase(home) not in seen and os.path.isdir(home) and not is_link(os.lstat(home)) \
+                and has_logs(home):
+            seen.add(os.path.normcase(home))
+            found.append((home, 0, 0))
+    return found
+
+
 def checked_out(path):
     """The output path; exits 2 if it is a link or its folder is writable by others."""
     path = os.path.abspath(path)
     folder = os.path.dirname(path)
-    if os.path.islink(path):
-        fail(f"{path} is a link; the file isn't written through links.")
+    with contextlib.suppress(OSError):
+        if is_link(os.lstat(path)):
+            fail(f"{path} is a link; the file isn't written through links.")
     try:
-        writable = os.stat(folder).st_mode & (stat.S_IWGRP | stat.S_IWOTH)
+        mode = os.stat(folder).st_mode
     except OSError as error:
         fail(f"Can't write to {folder}: {error.strerror}.")
+    if sys.platform == "win32":
+        if privileged() and linked_on_the_way(folder):
+            fail(f"{folder} is reached through a link or junction; choose a folder with none on its path.")
+        writable = privileged() and others_can_write(folder)
+    else:
+        writable = mode & (stat.S_IWGRP | stat.S_IWOTH)
     if writable:
         fail(f"{folder} can be written by other users; choose a folder only its owner can write to.")
     return path
+
+
+def linked_on_the_way(folder):
+    at = folder
+    while True:
+        try:
+            if is_link(os.lstat(at)):
+                return True
+        except OSError:
+            return True
+        if os.path.dirname(at) == at:
+            return False
+        at = os.path.dirname(at)
 
 
 def write_out(path, text):
@@ -3069,9 +4068,10 @@ def write_out(path, text):
     path = checked_out(path)
     folder = os.path.dirname(path)
     temp = os.path.join(folder, f".{os.path.basename(path)}.{os.getpid()}.{os.urandom(4).hex()}.tmp")
-    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0)
+                 | getattr(os, "O_BINARY", 0), 0o600)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(text)
             handle.flush()
             os.fsync(handle.fileno())
@@ -3097,6 +4097,18 @@ def hardware():
                                  capture_output=True, text=True, timeout=10).stdout
             raw = (re.search(r'"IOPlatformUUID" = "([^"]+)"', out) or [None, ""])[1]
             serial = (re.search(r'"IOPlatformSerialNumber" = "([^"]+)"', out) or [None, ""])[1]
+    elif sys.platform == "win32":
+        import winreg
+
+        # The 64-bit view: a 32-bit Python would otherwise see a copy without it.
+        view = winreg.KEY_READ | winreg.KEY_WOW64_64KEY
+        with contextlib.suppress(OSError), \
+                winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Cryptography", 0, view) as key:
+            raw = str(winreg.QueryValueEx(key, "MachineGuid")[0])[:64].strip()
+        with contextlib.suppress(OSError, subprocess.SubprocessError):
+            serial = subprocess.run([system_tool("WindowsPowerShell", "v1.0", "powershell.exe"), "-NoProfile",
+                                     "-NonInteractive", "-Command", "(Get-CimInstance Win32_BIOS).SerialNumber"],
+                                    capture_output=True, text=True, errors="replace", timeout=15).stdout[:64].strip()
     else:
         for path in ("/etc/machine-id", "/var/lib/dbus/machine-id"):
             with contextlib.suppress(OSError):
@@ -3106,6 +4118,17 @@ def hardware():
         with contextlib.suppress(OSError):
             serial = pathlib.Path("/sys/class/dmi/id/product_serial").read_text()[:64].strip()
     return serial, hashlib.sha256(raw.encode()).hexdigest()[:16] if raw else ""
+
+
+def system_tool(*parts):
+    """A bare name is looked for in the current folder first."""
+    return os.path.join(os.environ.get("SystemRoot", "C:\\Windows"), "System32", *parts)
+
+
+def os_name():
+    if platform.system() == "Windows":
+        return f"Windows {platform.version()}"
+    return f"{platform.system()} {platform.release()}"
 
 
 def default_name(serial, hashed, hostname):
@@ -3126,6 +4149,8 @@ FILES_FOLDER = "agent-activity-files"
 def default_folder(root, system, home):
     """A folder only root can read when an MDM runs it, else agent-activity-files
     next to this file, where `report` looks when given no folder."""
+    if root and system == "Windows":
+        return os.path.join(os.environ.get("ProgramData", "C:\\ProgramData"), "AgentActivity")
     if root:
         return "/Library/Application Support/AgentActivity" if system == "Darwin" \
             else "/var/lib/agent-activity"
@@ -3138,21 +4163,163 @@ def make_own_folder(folder):
         with contextlib.suppress(FileExistsError):
             os.mkdir(folder, 0o700)
         info = os.lstat(folder)
-        return stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid()
+        return stat.S_ISDIR(info.st_mode) and not is_link(info) \
+            and (sys.platform == "win32" or info.st_uid == os.getuid())
     except OSError:
         return False
 
 
 def make_root_folder(folder):
+    windows = sys.platform == "win32"
     try:
-        with contextlib.suppress(FileExistsError):
-            os.mkdir(folder, 0o700)
+        if windows:
+            made = make_locked_folder(folder)
+        else:
+            with contextlib.suppress(FileExistsError):
+                os.mkdir(folder, 0o700)
         info = os.lstat(folder)
-        if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0:
-            fail(f"{folder} must be a folder owned by root.")
-        os.chmod(folder, 0o700)  # nosemgrep: insecure-file-permissions (owner-only)
+        if not stat.S_ISDIR(info.st_mode) or is_link(info) or (not windows and info.st_uid != 0):
+            fail(f"{folder} must be a folder owned by {'Administrators' if windows else 'root'}.")
+        if windows:
+            if not admins_only(folder):
+                fail(f"{folder} can be changed by users other than Administrators; delete it and run again.")
+            if not made and foreign_entries(folder):
+                fail(f"{folder} holds files this tool didn't write; delete it and run again.")
+        else:
+            os.chmod(folder, 0o700)  # nosemgrep: insecure-file-permissions (owner-only)
     except OSError as error:
         fail(f"Can't create {folder}: {error.strerror}.")
+
+
+LOCKED_FOLDER = "O:BAD:P(A;OICI;FA;;;SY)(A;OICI;FA;;;BA)"
+
+
+def make_locked_folder(folder):
+    import ctypes
+
+    advapi = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+
+    class SecurityAttributes(ctypes.Structure):
+        _fields_ = [("length", ctypes.c_uint32), ("descriptor", ctypes.c_void_p), ("inherit", ctypes.c_int)]
+
+    descriptor = ctypes.c_void_p()
+    if not advapi.ConvertStringSecurityDescriptorToSecurityDescriptorW(ctypes.c_wchar_p(LOCKED_FOLDER), 1,
+                                                                       ctypes.byref(descriptor), None):
+        raise ctypes.WinError(ctypes.get_last_error())
+    try:
+        attributes = SecurityAttributes(ctypes.sizeof(SecurityAttributes), descriptor, 0)
+        if kernel.CreateDirectoryW(ctypes.c_wchar_p(folder), ctypes.byref(attributes)):
+            return True
+        error = ctypes.get_last_error()
+        if error == 183:
+            return False
+        raise ctypes.WinError(error)
+    finally:
+        kernel.LocalFree(descriptor)
+
+
+OUR_FILE = re.compile(r"\.?agent-activity-[\w.-]{1,64}\.json(?:\.\d+\.[0-9a-f]{8}\.tmp)?")
+
+
+def foreign_entries(folder):
+    with os.scandir(folder) as entries:
+        for entry in entries:
+            info = entry.stat(follow_symlinks=False)
+            if not OUR_FILE.fullmatch(entry.name) or not stat.S_ISREG(info.st_mode) or is_link(info):
+                return True
+    return False
+
+
+ADMIN_SIDS = {"S-1-5-18", "S-1-5-32-544"}
+TRUSTED_INSTALLER = "S-1-5-80-956008885-3418522649-1831038044-1850242615-2271714194"
+CREATOR_OWNER = "S-1-3-0"
+OWNER_RIGHTS = "S-1-3-4"
+WRITE_ACCESS = 0x500D0156
+
+
+def windows_acl(path):
+    import ctypes
+
+    advapi, kernel = ctypes.WinDLL("advapi32"), ctypes.WinDLL("kernel32")
+    kernel.CreateFileW.restype = ctypes.c_void_p
+    handle = kernel.CreateFileW(ctypes.c_wchar_p(path), 0x20000, 7, None, 3, 0x02000000 | 0x00200000, None)
+    if handle in (None, ctypes.c_void_p(-1).value):
+        return None
+    owner, dacl, descriptor = ctypes.c_void_p(), ctypes.c_void_p(), ctypes.c_void_p()
+    try:
+        if advapi.GetSecurityInfo(ctypes.c_void_p(handle), 1, 0x1 | 0x4, ctypes.byref(owner), None,
+                                  ctypes.byref(dacl), None, ctypes.byref(descriptor)):
+            return None
+    finally:
+        kernel.CloseHandle(ctypes.c_void_p(handle))
+
+    def sid_text(sid):
+        text = ctypes.c_wchar_p()
+        if not advapi.ConvertSidToStringSidW(ctypes.c_void_p(sid), ctypes.byref(text)):
+            return None
+        value = text.value
+        kernel.LocalFree(text)
+        return value
+
+    try:
+        if not dacl.value:
+            return None
+        aces = []
+        for i in range(ctypes.cast(dacl, ctypes.POINTER(ctypes.c_ushort))[2]):
+            ace = ctypes.c_void_p()
+            if not advapi.GetAce(dacl, i, ctypes.byref(ace)):
+                return None
+            kind = ctypes.cast(ace, ctypes.POINTER(ctypes.c_ubyte))[0]
+            mask = ctypes.cast(ctypes.c_void_p(ace.value + 4), ctypes.POINTER(ctypes.c_uint32))[0]
+            aces.append((kind, sid_text(ace.value + 8) if kind in (0, 1) else None, mask))
+        return sid_text(owner.value), aces
+    finally:
+        kernel.LocalFree(descriptor)
+
+
+def admins_only(path):
+    acl = windows_acl(path)
+    return bool(acl) and acl[0] in ADMIN_SIDS and all(sid in ADMIN_SIDS for _, sid, _ in acl[1])
+
+
+def windows_user():
+    try:
+        done = subprocess.run([system_tool("whoami.exe"), "/user", "/fo", "csv", "/nh"], capture_output=True,
+                              text=True, timeout=60)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return done.stdout.strip().rpartition(",")[2].strip('"') or None
+
+
+def is_account(sid):
+    import ctypes
+
+    advapi, kernel = ctypes.WinDLL("advapi32", use_last_error=True), ctypes.WinDLL("kernel32")
+    binary = ctypes.c_void_p()
+    if not advapi.ConvertStringSidToSidW(ctypes.c_wchar_p(sid), ctypes.byref(binary)):
+        return True
+    try:
+        name, domain = ctypes.create_unicode_buffer(256), ctypes.create_unicode_buffer(256)
+        sizes, kind = (ctypes.c_uint32(256), ctypes.c_uint32(256)), ctypes.c_uint32()
+        return bool(advapi.LookupAccountSidW(None, binary, name, ctypes.byref(sizes[0]), domain,
+                                             ctypes.byref(sizes[1]), ctypes.byref(kind))) \
+            or ctypes.get_last_error() != 1332
+    finally:
+        kernel.LocalFree(binary)
+
+
+def others_can_write(folder):
+    acl = windows_acl(folder)
+    trusted = ADMIN_SIDS | {TRUSTED_INSTALLER, CREATOR_OWNER, OWNER_RIGHTS, windows_user()} - {None}
+
+    def other(sid):
+        # App package and capability SIDs, and SIDs of no account (a sandbox's), only narrow what a token's
+        # account SIDs allow.
+        return sid is None or (sid not in trusted and not sid.startswith("S-1-15-") and is_account(sid))
+
+    return not acl or acl[0] not in trusted or any(
+        kind != 1 and (kind != 0 or other(sid)) and mask & WRITE_ACCESS for kind, sid, mask in acl[1])
 
 
 def upload_request(url, name, body):
@@ -3210,15 +4377,20 @@ def arguments(argv, upload_url):
     return args, (args.upload or upload_url).strip()
 
 
+def utf8_output():
+    for stream in (sys.stdout, sys.stderr):
+        with contextlib.suppress(AttributeError, ValueError):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv=None, upload_url=""):
     argv = sys.argv[1:] if argv is None else argv
+    utf8_output()
     if argv[:1] == ["report"]:
         import report
         return report.main(argv[1:])
-    if sys.platform == "win32":
-        fail("This tool runs on macOS and Linux; Windows isn't supported.", 1)
     args, upload_url = arguments(argv, upload_url)
-    root = os.geteuid() == 0
+    root = privileged()
     serial, hashed = hardware()
     name = plain_name(args.name or default_name(serial, hashed, socket.gethostname()))
     if upload_url:
@@ -3243,6 +4415,8 @@ def main(argv=None, upload_url=""):
         # Falls back to the home when the folder isn't writable (or macOS blocks it).
         fallback = os.path.join(home, base) if folder != home and not root else None
 
+    if sys.platform == "win32":
+        PROFILE_HOMES[:] = profile_paths()
     facts, users = Facts(), []
     for home, uid, gid in homes_to_read(args.home):
         OWNER.update(given=home, home=os.path.realpath(home), uid=uid)
@@ -3265,7 +4439,7 @@ def main(argv=None, upload_url=""):
         "endpoint": {"hostname": host_hash(socket.gethostname()),
                      "name": name,
                      "machine_id": hashed,
-                     "os": f"{platform.system()} {platform.release()}",
+                     "os": os_name(),
                      "collected_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                      "days": args.days,
                      "first_activity": min(facts.days_active, default=""),

@@ -44,6 +44,38 @@ jobs:
       - name: Tests
         run: python -m unittest discover -s tests -v
 
+  windows:
+    name: Windows, Python ${{ matrix.python }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Tests
+        run: python -I -m unittest discover -s tests -v
+      - name: As an administrator, the launcher refuses the runner's Python, which others can change
+        shell: powershell
+        run: |
+          $dir, $log = (Join-Path $env:RUNNER_TEMP 'launcher'), (Join-Path $env:RUNNER_TEMP 'launcher.log')
+          New-Item -ItemType Directory -Path $dir | Out-Null
+          icacls $dir /inheritance:r /grant:r '*S-1-5-18:(OI)(CI)F' '*S-1-5-32-544:(OI)(CI)F' | Out-Null
+          Copy-Item agent-activity.ps1, agent-activity.py -Destination $dir
+          icacls $dir /setowner '*S-1-5-32-544' /T | Out-Null
+          cmd /c "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$dir\agent-activity.ps1`" --help 2>`"$log`""
+          $code, $err = $LASTEXITCODE, (Get-Content -Raw -LiteralPath $log)
+          if ($code -ne 1 -or $err -notlike '*a Python is run only if no one but*hostedtoolcache*') {
+            "exit $code, $err"
+            exit 1
+          }
+          exit 0
+
   macos:
     name: macOS, system Python
     runs-on: macos-latest

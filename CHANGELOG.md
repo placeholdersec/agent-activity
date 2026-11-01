@@ -4,6 +4,39 @@ All notable changes to this project are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-11-01
+
+### Added
+
+- Windows 11 support. As administrator or SYSTEM the collector reads every
+  profile with logs, found in the registry, and writes to
+  `%ProgramData%\AgentActivity\`, readable only by administrators. Windows
+  profile, WSL and UNC paths are masked like other homes.
+- PowerShell and cmd commands, from Claude Code's PowerShell tool and Codex,
+  are read as the commands they amount to, so the same rules apply; examples
+  show them as written. Commands run through `wsl` are read too.
+- Windows detection rules: Credential Manager and DPAPI reads, scheduled tasks,
+  services, Run keys and the Startup folder, PowerShell profiles, Defender
+  exclusions, the firewall turned off, a loosened script policy, local accounts
+  and administrators added, root certificates, Remote Desktop and PowerShell
+  remoting turned on, and Windows system folders deleted. Windows credential
+  files, such as browser logins and the PowerShell history, count as secrets.
+- `git credential fill` and wrangler's OAuth token, on every platform, count as
+  credential reads.
+- `agent-activity.ps1`, released beside the script, finds Python 3.9 or later
+  on Windows and runs the collector; Intune instructions in the MDM guide.
+- Tests run on Windows.
+
+### Fixed
+
+- Two masking and detection patterns for `sudo -S` could take minutes on a
+  hostile log line; they now take milliseconds.
+
+### Changed
+
+- "Gatekeeper check bypassed" is now "Downloaded-file check bypassed", since it
+  covers Windows' `Unblock-File`; the rule's ID is unchanged.
+
 ## [0.2.0] - 2026-11-01
 
 ### Added
@@ -80,6 +113,7 @@ All notable changes to this project are listed here. The format follows
 - One file, `agent-activity.py`, built reproducibly from `source/`, with no
   dependencies beyond the Python 3.9+ standard library.
 
+[0.3.0]: https://github.com/placeholdersec/agent-activity/releases/tag/v0.3.0
 [0.2.0]: https://github.com/placeholdersec/agent-activity/releases/tag/v0.2.0
 [0.1.2]: https://github.com/placeholdersec/agent-activity/releases/tag/v0.1.2
 [0.1.1]: https://github.com/placeholdersec/agent-activity/releases/tag/v0.1.1

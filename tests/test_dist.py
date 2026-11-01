@@ -10,7 +10,6 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from unittest import mock
 
 import support
 import collect
@@ -64,34 +63,67 @@ class Built(unittest.TestCase):
         self.assertEqual(bundle.build(), BUILT.read_text(encoding="utf-8"), "run source/bundle.py")
         self.assertLess(BUILT.stat().st_size, 2**20, "Intune takes scripts under 1 MB")
 
+    def test_windows_launcher_is_released(self):
+        # Windows CI runs it; here, that it runs the script beside it isolated and ships with it.
+        launcher = (support.REPO / "agent-activity.ps1").read_text(encoding="utf-8")
+        self.assertIn("-I $script @args", launcher)
+        release = (support.REPO / ".github" / "workflows" / "release.yml").read_text(encoding="utf-8")
+        self.assertIn("sha256sum agent-activity.py agent-activity.ps1 > SHA256SUMS", release)
+        self.assertIn("agent-activity.py agent-activity.ps1 SHA256SUMS", release)
+
+    def test_windows_launcher_trusts_only_python_administrators_control(self):
+        # Windows CI runs it; here, that as SYSTEM or an administrator no Python is run before its folder is checked.
+        launcher = (support.REPO / "agent-activity.ps1").read_text(encoding="utf-8")
+        check = launcher[launcher.index("function Test-Python"):]
+        self.assertLess(check.index("Test-AdminOnly $p"), check.index("& $exe"))
+        self.assertIn("$launchers = if ($system) { @(Join-Path $env:SystemRoot 'py.exe') }", launcher)
+        self.assertIn("if (-not $system) {\n    foreach ($c in @(Get-Command python.exe", launcher)
+        self.assertIn("foreach ($py in @($launchers | Where-Object { $_ -notlike '*\\WindowsApps\\*' }))", launcher)
+        self.assertIn("if ($line -match", launcher)
+
+    def test_windows_launcher_checks_what_python_loads_and_the_script_folder(self):
+        launcher = (support.REPO / "agent-activity.ps1").read_text(encoding="utf-8")
+        check = launcher[launcher.index("function Test-Python"):launcher.index("& $exe")]
+        for part in ("'DLLs'", "'Lib\\site-packages'", "-Filter '*.dll'", "-Filter '*.pth'"):
+            self.assertIn(part, check)
+        self.assertLess(launcher.index("Test-AdminOnly $PSScriptRoot"), launcher.index("function Test-Python"))
+        self.assertIn("(Test-AdminOnly (Split-Path -Parent $py))", launcher)
+        self.assertNotIn("$me.User.Value)", launcher)
+
     def test_same_output_as_the_sources(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = pathlib.Path(tmp)
             for case in ("resources", "risky_aws", "detections"):
                 home = support.copy_case(case, tmp)
                 for tool, out in (([sys.executable, support.COLLECT], tmp / "src" / f"{case}.json"),
-                                  (["sh", BUILT], tmp / "built" / f"{case}.json")):
+                                  ([*support.SHIPPED, BUILT], tmp / "built" / f"{case}.json")):
                     out.parent.mkdir(exist_ok=True)
                     subprocess.run([*tool, "--home", home, "--days", str(support.days()), "--out", out],
                                    check=True, capture_output=True)
-                src, built = (without_time((tmp / f / f"{case}.json").read_text()) for f in ("src", "built"))
+                src, built = (without_time((tmp / f / f"{case}.json").read_text(encoding="utf-8")) for f in ("src", "built"))
                 self.assertEqual(src, built, case)
                 # A distinct machine per file and one collection time, so the two reports can match.
                 for folder, data in (("src", src), ("built", built)):
                     data["endpoint"].update(machine_id=case, collected_at="2026-10-26T00:00:00Z")
                     (tmp / folder / f"{case}.json").write_text(json.dumps(data))
-            for folder, tool in (("src", [sys.executable, support.REPORT]), ("built", ["sh", BUILT, "report"])):
+            for folder, tool in (("src", [sys.executable, support.REPORT]), ("built", [*support.SHIPPED, BUILT, "report"])):
                 subprocess.run([*tool, tmp / folder, "--org", "Acme"], check=True, capture_output=True)
             for name in ("agent-activity-report.html", "agent-activity-report.facts.json"):
-                self.assertEqual((tmp / "src" / name).read_text(), (tmp / "built" / name).read_text(), name)
+                self.assertEqual((tmp / "src" / name).read_text(encoding="utf-8"),
+                                 (tmp / "built" / name).read_text(encoding="utf-8"), name)
 
     def test_default_output(self):
         # In agent-activity-files next to the file, where `report` looks by default; in the
-        # home folder when that folder can't be written; named by the machine.
+        # home folder when that folder can't be written; named by the machine. An administrator
+        # on Windows is taken for an MDM: in %ProgramData%\AgentActivity, with nothing to send.
+        admin = support.WINDOWS and collect.privileged()
         with tempfile.TemporaryDirectory() as tmp:
             tmp = pathlib.Path(tmp).resolve()
             logs = support.copy_case("benign", tmp)
-            for writable in (True, False):
+            data = tmp / "ProgramData"
+            data.mkdir()
+            # Windows keeps who may write in ACLs: a read-only mode doesn't stop it.
+            for writable in (True,) if support.WINDOWS else (True, False):
                 home, here = pathlib.Path(tmp) / f"user-{writable}", pathlib.Path(tmp) / f"dl-{writable}"
                 home.mkdir()
                 here.mkdir()
@@ -100,17 +132,19 @@ class Built(unittest.TestCase):
                     here.chmod(0o555)
                 done = subprocess.run([SYSTEM_PYTHON, here / "agent-activity.py", "--home", logs,
                                        "--name", "Asset 7", "--days", str(support.days())],
-                                      capture_output=True, text=True, env=dict(os.environ, HOME=str(home)))
-                out = (here / "agent-activity-files" if writable else home) / "agent-activity-Asset_7.json"
+                                      capture_output=True, text=True,
+                                      env=dict(os.environ, HOME=str(home), ProgramData=str(data)))
+                out = (data / "AgentActivity" if admin else here / "agent-activity-files" if writable else home) \
+                    / "agent-activity-Asset_7.json"
                 self.assertEqual(done.stdout.splitlines(), [
                     f"Read the Claude Code logs of 1 user: 17 agent commands in the last {support.days()} days.",
-                    f"Saved {out}", "Send this file to your security team."], done.stderr)
-                self.assertEqual(json.loads(out.read_text())["endpoint"]["name"], "Asset_7")
+                    f"Saved {out}"] + ([] if admin else ["Send this file to your security team."]), done.stderr)
+                self.assertEqual(json.loads(out.read_text(encoding="utf-8"))["endpoint"]["name"], "Asset_7")
                 here.chmod(0o755)
-            report = subprocess.run(["sh", pathlib.Path(tmp) / "dl-True" / "agent-activity.py", "report"],
-                                    capture_output=True, text=True)
-            self.assertTrue((pathlib.Path(tmp) / "dl-True" / "agent-activity-files" / "agent-activity-report.html")
-                            .exists(), report.stderr)
+            files = data / "AgentActivity" if admin else tmp / "dl-True" / "agent-activity-files"
+            report = subprocess.run([*support.SHIPPED, tmp / "dl-True" / "agent-activity.py", "report"]
+                                    + ([files] if admin else []), capture_output=True, text=True)
+            self.assertTrue((files / "agent-activity-report.html").exists(), report.stderr)
 
     def test_root_folder_and_name(self):
         self.assertEqual(collect.default_folder(True, "Darwin", "/var/root"), "/Library/Application Support/AgentActivity")
@@ -150,10 +184,6 @@ class Built(unittest.TestCase):
         for args in (["--home", "/nonexistent/home"], ["--upload", "http://example.com/x"]):
             done = subprocess.run([sys.executable, support.COLLECT, *args, "--out", "-"], capture_output=True, text=True)
             self.assertEqual((done.returncode, len(done.stderr.splitlines())), (2, 1), done.stderr)
-        with mock.patch.object(sys, "platform", "win32"), self.assertRaises(SystemExit), \
-                mock.patch("sys.stderr") as err:
-            collect.main([])
-        self.assertIn("Windows isn't supported", "".join(c.args[0] for c in err.write.call_args_list))
 
 
 if __name__ == "__main__":

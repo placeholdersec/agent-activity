@@ -109,7 +109,7 @@ class Collect(unittest.TestCase):
 
     def test_reads_only_rollouts(self):
         home = support.FIXTURES / "codex" / "home"
-        collect.OWNER.update(given=str(home), home=os.path.realpath(home), uid=os.getuid())
+        collect.OWNER.update(given=str(home), home=os.path.realpath(home), uid=support.UID)
         names = {os.path.basename(p) for p in collect.codex_logs(str(home))}
         self.assertTrue(names and all(re.match(r"^rollout-.*\.jsonl$", n) for n in names), names)
 
@@ -122,6 +122,7 @@ class Collect(unittest.TestCase):
 
 class Hardening(unittest.TestCase):
 
+    @unittest.skipUnless(support.SYMLINKS, "making links needs an administrator or Developer Mode on Windows")
     def test_links_and_other_users_files_are_not_read(self):
         with tempfile.TemporaryDirectory() as tmp:
             other = pathlib.Path(tmp) / "other"

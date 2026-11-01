@@ -79,7 +79,6 @@ class Merge(unittest.TestCase):
         self.assertIn("endpoints 3", self.digest)
 
     def test_examples(self):
-        import report
         # The same command on two machines is one example.
         self.assertEqual(self.facts["findings"]["traildiscover:DeleteBucket"]["examples"],
                          ["aws s3 rb s3://old-bucket --force", "aws s3 rb s3://old --profile staging"])
@@ -91,6 +90,12 @@ class Merge(unittest.TestCase):
         import report
         self.assertEqual(report.label({"source": "sigma", "id": "proc_creation_lnx_userdel", "what": ""}),
                          "User has been deleted via userdel")
+
+    def test_every_own_rule_has_a_label(self):
+        import collect
+        import report
+        ids = {r["id"] for r in collect.OWN + collect.OWN_SEGMENT + list(collect.WIPED.values())}
+        self.assertEqual({i for i in ids if i not in report.OWN_WORDS}, set())
 
     def test_resources_merge(self):
         unknown = self.facts["resources"]["aws"]["unknown"]
@@ -186,6 +191,7 @@ class SharedMachine(unittest.TestCase):
             self.assertNotIn("ana-x1", text)
             self.assertNotIn("sam-x2", text)
 
+    @unittest.skipIf(support.WINDOWS, "chmod can't make a folder unreadable on Windows")
     def test_unreadable_folder_says_so(self):
         with tempfile.TemporaryDirectory() as tmp:
             pathlib.Path(tmp).chmod(0)

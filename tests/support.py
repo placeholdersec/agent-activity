@@ -33,6 +33,23 @@ FAKES = {"@GHP@": GHP, "@AWS_KEY@": AWS_KEY, "@AWS_SECRET@": AWS_SECRET, "@AWS_S
 # Fixture sessions are from 2026-10-20 on; the window starts 2026-10-01
 # whenever the tests run, so older entries stay outside it.
 WINDOW_START = datetime.datetime(2026, 10, 1, tzinfo=datetime.timezone.utc)
+WINDOWS = os.name == "nt"
+UID = os.getuid() if hasattr(os, "getuid") else -1
+# The built script as shipped: `sh agent-activity.py` where there is a sh, else Python.
+SHIPPED = [sys.executable] if WINDOWS else ["sh"]
+
+
+def can_link():
+    """Whether this account may make symbolic links (on Windows, an administrator or Developer Mode)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            os.symlink(tmp, os.path.join(tmp, "link"))
+        except OSError:
+            return False
+    return True
+
+
+SYMLINKS = can_link()
 
 
 def days():
@@ -50,7 +67,9 @@ def copy_case(case, into):
             continue
         text = original = path.read_text(encoding="utf-8")
         if path.suffix == ".jsonl":
-            text = text.replace("@ROOT@", str(root))
+            # Once more escaped in a JSON string held in one (a Codex call's arguments).
+            text = text.replace('\\"@ROOT@', '\\"' + json.dumps(json.dumps(str(root))[1:-1])[1:-1])
+            text = text.replace("@ROOT@", json.dumps(str(root))[1:-1])
         for placeholder, value in FAKES.items():
             text = text.replace(placeholder, value)
         if text != original:
@@ -61,7 +80,8 @@ def copy_case(case, into):
 def run(*args, home=None):
     """Run a script; a `home` given as HOME must not change what the collector finds."""
     env = dict(os.environ, HOME=str(home)) if home else None
-    done = subprocess.run([sys.executable] + [str(a) for a in args], capture_output=True, text=True, env=env)
+    done = subprocess.run([sys.executable] + [str(a) for a in args], capture_output=True, text=True,
+                          encoding="utf-8", env=env)
     if done.returncode:
         raise AssertionError(f"{args[0]} failed:\n{done.stderr}")
     return done.stdout

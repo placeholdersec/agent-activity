@@ -12,6 +12,9 @@ with secrets masked, and nothing is sent unless you set an upload link.
 
 The tool reads files per user, as that user. It opens only regular files the
 user owns inside their home folder, and never follows a link to reach them.
+On Windows, where `~` is the user's profile folder (`C:\Users\<name>`), it
+also refuses junctions and checks that the file it opened is the one it
+checked; there it doesn't compare owners, since access is set by ACLs.
 
 ### Claude Code
 
@@ -42,13 +45,30 @@ the Codex databases.
 
 - `~/.aws/config`: only `sso_account_id`, `role_arn` and `source_profile`. Every
   other line, including any credentials, is dropped as it is read.
-- The git config of the folders the agents worked in, for remote URLs.
+- The git config of the folders the agents worked in, for remote URLs. Folders
+  in WSL, reached from Windows as `\\wsl.localhost\...`, are outside the
+  profile and not read; there the remote Codex recorded for the session is used.
 
 ### Finding users as root
 
 As root, the tool finds users in the account database: uid 500 and up on macOS,
 1000 and up on Linux, and root. It does not rely on `HOME`, `CLAUDE_CONFIG_DIR`
 or `CODEX_HOME`.
+
+On Windows, as an administrator or SYSTEM, it reads the profile folders listed
+under `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList` for
+people's accounts (SIDs starting `S-1-5-21-`), and only those that hold logs.
+Without administrator rights it reads only the current user's profile.
+
+### Machine identity
+
+- **macOS:** the serial number and hardware UUID, from `ioreg`.
+- **Linux:** `/etc/machine-id` and, as root, the product serial number.
+- **Windows:** the BIOS serial number, from `Get-CimInstance Win32_BIOS`, and
+  `MachineGuid` from `HKLM\SOFTWARE\Microsoft\Cryptography`.
+
+The hardware ID is written only as a hash. The OS is written with its version
+or build number.
 
 ## What it writes
 
@@ -67,7 +87,9 @@ For each rule that matched:
 - Its ID, source, severity and count
 - How many sessions it matched in
 - The closest MITRE ATT&CK tactic
-- Up to three examples of at most 100 characters, with secrets masked
+- Up to three examples of at most 100 characters, with secrets masked and home
+  folders, macOS, Linux or Windows, shown as `~` for the user's own and `~other`
+  for anyone else's
 
 ### Systems reached
 
@@ -150,7 +172,11 @@ code, and the total number of commands. Nothing else is sent.
 
 ## Limits
 
-- **Platforms:** macOS and Linux only.
+- **Platforms:** macOS, Linux and Windows 11. On Windows, Claude Code's
+  PowerShell tool, Git Bash commands and Codex's PowerShell and cmd commands
+  are read, as are commands run in WSL through `wsl`. Logs kept inside a WSL
+  distribution are not read from Windows; run the collector inside WSL for
+  those.
 - **Agents:** Claude Code and the Codex CLI only, along with other Codex clients
   that write the same session logs.
 - **Log locations:** logs are read from `~/.claude` and `~/.codex`. If they are

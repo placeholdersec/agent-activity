@@ -38,8 +38,9 @@ Clone https://github.com/placeholdersec/agent-activity.git and create an agent a
 
 ### Prerequisites
 
-- macOS or Linux
-- Python 3.9 or later
+- macOS, Linux or Windows 11
+- Python 3.9 or later (on Windows, from python.org; the `python3` that opens the
+  Microsoft Store doesn't count)
 - Claude Code logs in `~/.claude/projects`, Codex logs in `~/.codex/sessions`,
   or both
 
@@ -58,6 +59,25 @@ python3 -I agent-activity.py report
 The report opens in your browser and is saved to
 `agent-activity-files/agent-activity-report.html`. On a machine without a
 desktop, open the file at the path the command prints.
+
+### Windows
+
+In PowerShell, download the latest release, check it against `SHA256SUMS`, then
+collect and build the report:
+
+```powershell
+$u = 'https://github.com/placeholdersec/agent-activity/releases/latest/download'
+Invoke-WebRequest "$u/agent-activity.py" -OutFile agent-activity.py -UseBasicParsing
+Invoke-WebRequest "$u/SHA256SUMS" -OutFile SHA256SUMS -UseBasicParsing
+$sum = (-split ((Get-Content SHA256SUMS) -match ' agent-activity\.py$'))[0]
+if ((Get-FileHash agent-activity.py -Algorithm SHA256).Hash -ne $sum) { throw 'agent-activity.py does not match SHA256SUMS' }
+py -3 -I agent-activity.py
+py -3 -I agent-activity.py report
+```
+
+Run from an administrator PowerShell, it reads every user's logs. Releases also
+include `agent-activity.ps1`, which finds a suitable Python when `py` isn't
+installed; see the [MDM deployment guide](docs/mdm.md#windows-with-intune).
 
 ## Report contents
 
@@ -82,7 +102,7 @@ single report from them.
 ### Managed fleets
 
 Jamf Pro, Kandji, Intune and Mosyle can all run `agent-activity.py` as a root
-script across your fleet. Follow the [MDM deployment guide](docs/mdm.md).
+script across your fleet, and Intune can run it as SYSTEM on Windows. Follow the [MDM deployment guide](docs/mdm.md).
 
 ### Manual collection
 
@@ -131,6 +151,7 @@ The output and the logs it reads depend on how you run the collector:
 |---|---|---|
 | Your own user | Your logs | `agent-activity-files/` next to the script, or your home folder if that isn't writable |
 | Root | Every user's logs, each read as that user | A folder only root can read: `/Library/Application Support/AgentActivity/` on macOS, `/var/lib/agent-activity/` on Linux |
+| Administrator or SYSTEM (Windows) | Every user's logs | `%ProgramData%\AgentActivity\`, which only administrators and SYSTEM can read |
 
 ### `agent-activity.py report`
 
@@ -164,9 +185,10 @@ This file holds the merged numbers behind every figure.
   variables, user site-packages and anything in the current folder.
 - **Least privilege.** As root, the tool reads each user's files as that user.
   It opens only regular files the user owns, never through a link. Output files
-  have mode `0600`.
-- **Checked on every change.** Tests run on Linux and on macOS's built-in
-  Python 3.9, and Bandit and Semgrep scan the source.
+  have mode `0600`. On Windows it refuses links and junctions, and its output
+  folder is readable only by administrators and SYSTEM.
+- **Checked on every change.** Tests run on Linux, on Windows and on macOS's
+  built-in Python 3.9, and Bandit and Semgrep scan the source.
 
 For full details, see [What it reads, writes and sends](docs/privacy.md). To
 report a vulnerability, see [SECURITY.md](SECURITY.md).

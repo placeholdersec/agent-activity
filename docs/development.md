@@ -12,6 +12,7 @@ never the generated script.
 | `source/rules/` | Detection rules as JSON |
 | `source/templates/report.html` | The report template |
 | `source/assets/` | Fonts and images used in the report |
+| `agent-activity.ps1` | Windows launcher: finds Python and runs `agent-activity.py` beside it. Written by hand, not generated. |
 
 The rules are derived from iam-dataset, TrailDiscover, panther-analysis,
 pathfinding.cloud, Sigma, claude-code-safety-net and shellfirm.

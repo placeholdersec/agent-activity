@@ -30,6 +30,10 @@ Keep the code compatible with Python 3.9, which is macOS's built-in `python3`,
 and use only the standard library. The tool must run on a machine with nothing
 installed.
 
+The tests run on Linux, macOS and Windows. Use `os.path` or `pathlib` rather
+than `/` in paths a test builds, and skip a test on Windows only when it needs
+something Windows lacks (file modes, `/usr/bin/python3`), saying why.
+
 ## Guidelines
 
 - **Put privacy first.** Don't add anything to the collected file that

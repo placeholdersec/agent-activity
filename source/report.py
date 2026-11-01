@@ -16,7 +16,6 @@ import collections
 import datetime
 import hashlib
 import json
-import math
 import os
 import pathlib
 import re
@@ -27,7 +26,7 @@ from html import escape
 
 from collect import (AI_APIS, CHANGE_GROUPS, DATABASE_PACKS, ERRORS, FILES_FOLDER, HERE, KINDS, KNOWN,
                      LOCAL_DB, LOCAL_MCP, REMOTE_DB, RISK_GROUPS, SCHEMA, SEVERITY_RANK, SIGMA, UNNAMED,
-                     change_group, distinct, groups, local_db_host, shipped, under)
+                     change_group, distinct, groups, local_db_host, shipped, under, utf8_output)
 
 TACTICS = {"Reconnaissance", "Resource Development", "Initial Access", "Execution", "Persistence",
            "Privilege Escalation", "Defense Evasion", "Credential Access", "Discovery", "Lateral Movement",
@@ -504,7 +503,7 @@ OWN_WORDS = {
     "force-push:unnamed-with-lease": "Force push with lease, branch not named",
     "remote-branch-deleted": "Remote branch deleted",
     "remote-default-branch-or-tag-deleted": "Default, release or protected branch, or tag, deleted on the remote",
-    "keychain-read:captured": "Keychain secret read into a variable",
+    "keychain-read:captured": "Keychain or credential store secret read into a variable",
     "cloud-token-printed": "Cloud access token printed", "reverse-shell": "Reverse shell opened",
     "disk-overwritten": "Disk overwritten or formatted", "system-folder-deleted": "System folder deleted",
     "secret-deleted-for-good": "Secret deleted without recovery",
@@ -512,7 +511,8 @@ OWN_WORDS = {
     "package-published": "Package published", "github-token-printed": "GitHub token read (gh auth token)",
     "infrastructure-destroyed": "Infrastructure destroyed", "database-migrated": "Database migration pushed",
     "database-reset": "Database reset", "function-deployed": "Function deployed",
-    "platform-secret-set": "Platform secret set", "keychain-read": "Keychain secret read",
+    "platform-secret-set": "Platform secret set", "keychain-read": "Keychain or credential store secret read",
+    "credential-names-listed": "Saved credential names listed",
     "cloud-metadata-credentials": "Cloud metadata credentials read", "secret-value-read": "Secret value read",
     "file-uploaded": "File uploaded",
     "download-run:known-pinned": "Known installer run (pinned)",
@@ -523,7 +523,7 @@ OWN_WORDS = {
     "package-from-url:unknown": "Package from an unknown source",
     "archive-piped-out": "Archive piped to a remote host", "dns-exfiltration": "DNS exfiltration",
     "local-history-discarded": "Local history discarded", "hooks-bypassed": "Git hooks skipped",
-    "scheduled-job": "Scheduled job added", "public-repo-created": "Public repository created",
+    "scheduled-job": "Scheduled job, service or autostart added", "public-repo-created": "Public repository created",
     "home-or-root-deleted": "Home folder or disk deleted", "project-deleted": "Project folder deleted",
     "ssh-key-authorized": "SSH key authorized", "environment-printed": "Environment variables printed",
     "sudo-password-in-command": "Password piped to sudo",
@@ -535,10 +535,13 @@ OWN_WORDS = {
     "login-or-sudo-config-changed": "Sign-in, sudo or preload configuration changed",
     "kernel-module-loaded": "Kernel module loaded", "setuid-set": "Setuid bit or capability set",
     "root-certificate-trusted": "Root certificate trusted",
-    "gatekeeper-bypassed": "Gatekeeper check bypassed",
+    "gatekeeper-bypassed": "Downloaded-file check bypassed",
     "tunnel-opened": "Tunnel opened to this machine", "packet-capture": "Network traffic captured",
     "browser-credentials-read": "Browser cookies or saved logins read",
     "python-startup-hook": "Python startup hook added", "remote-desktop-enabled": "Remote access turned on",
+    "defender-weakened": "Microsoft Defender exclusion added or protection turned off",
+    "firewall-turned-off": "Firewall turned off", "execution-policy-loosened": "PowerShell script policy loosened",
+    "local-account-created": "Local user account created", "administrator-added": "Administrator rights granted",
 }
 
 
@@ -1033,7 +1036,7 @@ def risky_section(m, rep, panels, sessions_by_finding):
                   '<th><span class="pill medium"><span class="d"></span>Medium<span class="hs"> risk</span></span></th>'
                   + ('<th class="num">Machines</th>' if n_end > 1 else '<th></th>') + '</tr>'
                   + "".join(rows) + "</table>")
-    return (f'<section class="panel" id="risky"><div class="k">01</div><h2>Agents ran or tried risky actions.</h2>'
+    return ('<section class="panel" id="risky"><div class="k">01</div><h2>Agents ran or tried risky actions.</h2>'
             + (f'<div class="fleet-row">{fleet}{key}</div>' if n_end > 1 else "")
             + f'{matrix}{sessions_line(m, sessions_by_finding)}{all_actions(rep, sessions_by_finding)}</section>')
 
@@ -1286,7 +1289,6 @@ def session_data(m, with_sessions):
     if not with_sessions or not m.get("session_records"):
         return "", {}, {}
     by_finding = {f"{k[0]}:{k[1]}": f.get("sessions", []) for k, f in m["findings"].items() if f.get("sessions")}
-    # Only systems the page lists as written to, so a link's sessions are its row's.
     by_system = collections.defaultdict(set)
     for r in m["session_records"]:
         for c in r["changes"]:
@@ -1475,6 +1477,7 @@ def main(argv=None):
     parser.add_argument("--no-sessions", action="store_true",
                         help="leave the session records out of the page (they stay in the facts)")
     args = parser.parse_args(argv)
+    utf8_output()
     if not os.path.isdir(args.folder):
         sys.exit(f"{args.folder} is not a folder.")
     if not os.access(args.folder, os.R_OK | os.X_OK):

