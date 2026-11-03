@@ -361,8 +361,8 @@ class Page(unittest.TestCase):
         # Every row and branch that opens a panel has one.
         opened = set(re.findall(r'data-dw="([^"]+)"', page)) - {"sessions", "session"}
         self.assertEqual(opened - set(re.findall(r'<template id="dw-([^"]+)"', page)), set())
-        # The way to learn more carries the two counts only.
-        self.assertIn("learn-more?exec=12&amp;total=340", page)  # 6 + 6 of 40 + 300
+        self.assertIn('href="https://www.placeholdersec.com/assessment/learn-more"', page)
+        self.assertNotIn("learn-more?", page)
 
 
 class SessionsOnThePage(unittest.TestCase):

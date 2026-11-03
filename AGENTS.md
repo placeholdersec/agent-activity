@@ -3,12 +3,29 @@
 ## Creating a report
 
 When asked to create an agent activity report, run the tool from the repository
-root. Don't edit any file first. It runs on macOS and Linux.
+root. Don't edit any file first. It runs on macOS, Linux and Windows 11.
+
+macOS and Linux:
 
 ```sh
 python3 -I agent-activity.py
 python3 -I agent-activity.py report
 ```
+
+Windows (PowerShell or Git Bash):
+
+```powershell
+py -3 -I agent-activity.py
+py -3 -I agent-activity.py report
+```
+
+If `py` isn't installed, use `python` instead of `py -3`, but only if it is
+Python 3.9 or later from python.org: the `python3` that opens the Microsoft
+Store doesn't work.
+
+Run both commands as the user, not with `sudo` or from an administrator
+PowerShell: run that way, the tool reads every user's logs and saves the file
+elsewhere.
 
 - The first command reads this machine's Claude Code and Codex logs and saves
   one JSON file in `agent-activity-files/`. The second builds

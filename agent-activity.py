@@ -91,7 +91,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 SCHEMA = "agent-activity-endpoint/1"
 HERE = pathlib.Path(__file__).resolve().parent
 SEVERITY_RANK = {"high": 0, "medium": 1, "low": 2}
@@ -4587,7 +4587,7 @@ TACTICS = {"Reconnaissance", "Resource Development", "Initial Access", "Executio
 OTHER_CODE_NAMES = {"inline_code": "inline code", "scripts": "scripts", "containers": "containers",
                     "task_runners": "task runners", "builds_tests": "builds and tests",
                     "deploy_tools": "deploy tools"}
-LEARN_MORE = "https://www.placeholdersec.com/assessment/learn-more"  # the page is sent only the two counts
+LEARN_MORE = "https://www.placeholdersec.com/assessment/learn-more"
 OTHER_CODE_WHAT = {
     "inline_code": ("Code typed straight into the command", ("python -c", "node -e")),
     "scripts": ("A script file", ("python deploy.py", "./run.sh")),
@@ -5773,7 +5773,7 @@ def guardrails_section(m, rep, panels):
     total, blind = m["commands"], m["other_code_commands"]
     if not total:
         return ""
-    learn = f"{LEARN_MORE}?exec={blind}&total={total}"
+    learn = LEARN_MORE
     rest = total - blind
     kinds = [(k, n) for k, n in most_first(m["other_code"]) if n]
     kinds_list = '<div class="kl">' + "".join(

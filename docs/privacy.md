@@ -166,10 +166,6 @@ output.
 collected file, in one HTTPS `PUT`, to the host the link names. See
 [Uploading to your own storage](upload.md).
 
-The report has one outbound link, "Want to learn more?". If someone clicks it,
-two counts are sent to placeholdersec.com: how many commands executed other
-code, and the total number of commands. Nothing else is sent.
-
 ## Limits
 
 - **Platforms:** macOS, Linux and Windows 11. On Windows, Claude Code's

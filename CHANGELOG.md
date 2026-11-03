@@ -4,6 +4,17 @@ All notable changes to this project are listed here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] - 2026-11-03
+
+### Changed
+
+- Clearer README and `AGENTS.md`, including how to run on Windows.
+- The report's "Learn more" link no longer carries any counts.
+
+### Fixed
+
+- The README's Windows quick start no longer fails.
+
 ## [0.3.0] - 2026-11-01
 
 ### Added
@@ -113,6 +124,7 @@ All notable changes to this project are listed here. The format follows
 - One file, `agent-activity.py`, built reproducibly from `source/`, with no
   dependencies beyond the Python 3.9+ standard library.
 
+[0.3.1]: https://github.com/placeholdersec/agent-activity/releases/tag/v0.3.1
 [0.3.0]: https://github.com/placeholdersec/agent-activity/releases/tag/v0.3.0
 [0.2.0]: https://github.com/placeholdersec/agent-activity/releases/tag/v0.2.0
 [0.1.2]: https://github.com/placeholdersec/agent-activity/releases/tag/v0.1.2
